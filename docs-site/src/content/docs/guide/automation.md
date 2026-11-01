@@ -30,7 +30,7 @@ An action can have several triggers. Any of them starts it.
 | **Scene changes** | OBS switches to a scene (or any scene). |
 | **Button or Stream Deck** | Only runs when you click **Run now** or call its [run link](/guide/stream-deck/). |
 
-Messages from your bot and from Castwright itself never trigger actions, so actions can't set each other off in a loop.
+Messages from your bot and from Castwright itself never trigger actions, so actions can't set each other off in a loop. Test events from the Alerts page don't run actions either; use **Run now** to try one.
 
 ## Steps
 
@@ -46,7 +46,7 @@ Steps run from top to bottom. Use **Add step** and pick from:
 | **Logic** | If, wait, run another action, stop |
 | **Advanced** | Web request, run a [script](/reference/scripting/), write to the log |
 
-Text fields accept live values in `{{double braces}}`. The chips under each field show what's available, such as `name`, `arg1` (the first word after a command) and `input` (everything after it). See [templates](/reference/templates/).
+Text fields accept live values in `{{double braces}}`. In web request addresses, add `| url` to keep chat input from breaking the link, like `{{input | url}}`. The chips under each field show what's available, such as `name`, `arg1` (the first word after a command) and `input` (everything after it). See [templates](/reference/templates/).
 
 **If** steps run their **Then** steps only when the conditions match, and **Otherwise** steps when they don't. They can be nested.
 

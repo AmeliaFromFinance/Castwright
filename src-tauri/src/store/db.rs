@@ -7,6 +7,9 @@ use serde_json::{Map, Value};
 use std::path::Path;
 use std::sync::Mutex;
 
+/// Most saved values one custom widget layer may keep.
+pub const MAX_WIDGET_KEYS: i64 = 500;
+
 pub struct Db {
     conn: Mutex<Connection>,
 }
@@ -173,7 +176,18 @@ impl Db {
         if json.len() > 256 * 1024 {
             return crate::error::user_err("Widget value is too large (256 KB max).");
         }
-        self.conn.lock().unwrap().execute(
+        let conn = self.conn.lock().unwrap();
+        let (count, exists): (i64, i64) = conn.query_row(
+            "SELECT COUNT(*), COALESCE(SUM(key = ?2), 0) FROM widget_state WHERE layer_id = ?1",
+            params![layer_id, key],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        if exists == 0 && count >= MAX_WIDGET_KEYS {
+            return crate::error::user_err(format!(
+                "A widget can save at most {MAX_WIDGET_KEYS} values."
+            ));
+        }
+        conn.execute(
             "INSERT INTO widget_state (layer_id, key, value) VALUES (?1, ?2, ?3)
              ON CONFLICT(layer_id, key) DO UPDATE SET value = excluded.value",
             params![layer_id, key, json],
@@ -237,6 +251,21 @@ mod tests {
         assert!(db.get_event(&b.id).unwrap().is_some());
         db.clear_events().unwrap();
         assert!(db.recent_events(10, &[], "", true).unwrap().is_empty());
+    }
+
+    #[test]
+    fn widget_keys_are_capped() {
+        let db = Db::open_in_memory();
+        for i in 0..MAX_WIDGET_KEYS {
+            db.set_widget_value("l1", &format!("k{i}"), &Value::from(i))
+                .unwrap();
+        }
+        assert!(
+            db.set_widget_value("l1", "one-more", &Value::from(1))
+                .is_err()
+        );
+        db.set_widget_value("l1", "k0", &Value::from(9)).unwrap();
+        db.set_widget_value("l2", "x", &Value::from(1)).unwrap();
     }
 
     #[test]

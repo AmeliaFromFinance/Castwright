@@ -8,6 +8,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 pub const TIME_LIMIT: Duration = Duration::from_secs(2);
+/// Most chat messages and log lines one script run may send.
+pub const MAX_CHAT: usize = 5;
+pub const MAX_LOGS: usize = 50;
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct ScriptEffects {
@@ -70,13 +73,17 @@ pub fn run(
     });
     let s = shared.clone();
     engine.register_fn("log", move |msg: Dynamic| {
-        s.lock().unwrap().effects.logs.push(msg.to_string());
+        let logs = &mut s.lock().unwrap().effects.logs;
+        if logs.len() < MAX_LOGS {
+            logs.push(msg.to_string());
+        }
     });
     let s = shared.clone();
     engine.register_fn("chat", move |msg: Dynamic| {
         let text = msg.to_string();
-        if !text.trim().is_empty() {
-            s.lock().unwrap().effects.chat.push(text);
+        let chat = &mut s.lock().unwrap().effects.chat;
+        if !text.trim().is_empty() && chat.len() < MAX_CHAT {
+            chat.push(text);
         }
     });
     engine.register_fn("random", |min: i64, max: i64| -> i64 {
@@ -159,6 +166,18 @@ mod tests {
         );
         assert_eq!(fx.chat, vec!["Thanks Nova!"]);
         assert_eq!(fx.logs, vec!["deaths now 4"]);
+    }
+
+    #[test]
+    fn chat_and_log_are_capped() {
+        let fx = run(
+            "for i in 0..1000 { chat(`hi ${i}`); log(`line ${i}`); }",
+            &args(),
+            Map::new(),
+        )
+        .unwrap();
+        assert_eq!(fx.chat.len(), MAX_CHAT);
+        assert_eq!(fx.logs.len(), MAX_LOGS);
     }
 
     #[test]

@@ -40,8 +40,8 @@ OBS loads overlays from a small web server inside Castwright, at `http://127.0.0
 | Setting | Notes |
 | --- | --- |
 | **Port** | Change it if another program uses 7470. If the port is busy at start-up, Castwright tries the next few. |
-| **Allow other devices** | Lets a phone, tablet or second PC on your network open overlays and run actions. Off by default. |
-| **Link secret** | A random code in every overlay link so other programs can't read your overlays. **New secret** breaks existing links, so add the overlays to OBS again afterwards. |
+| **Allow other devices** | Lets a phone, tablet or second PC on your network open overlays and run actions. Links then use this computer's network address. Off by default. |
+| **Link secret** | A random code in every overlay link so other programs can't read your overlays. **New secret** disconnects every open overlay and breaks existing links, so add the overlays to OBS again afterwards. |
 
 ## Themes
 

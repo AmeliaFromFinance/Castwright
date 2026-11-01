@@ -48,6 +48,8 @@ export class EditorStore {
 
   private history = new History<Overlay>(100, 1000);
   private savedKey: string;
+  /** Layer visibility as last saved, to spot changes made elsewhere (automation). */
+  private savedVisible = new Map<string, boolean>();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private inflight: Promise<void> | null = null;
   private gestureSeq = 0;
@@ -60,6 +62,7 @@ export class EditorStore {
   ) {
     this.doc = clone(overlay);
     this.savedKey = contentKey(overlay);
+    this.rememberVisible(overlay);
   }
 
   get selected(): Layer | null {
@@ -233,6 +236,7 @@ export class EditorStore {
     this.inflight = this.saveFn(snap)
       .then(() => {
         this.savedKey = key;
+        this.rememberVisible(snap);
         this.saveState = 'saved';
       })
       .catch((e: unknown) => {
@@ -264,16 +268,32 @@ export class EditorStore {
    */
   syncRemote(remote: Overlay | undefined): boolean {
     if (!remote) return false;
-    if (this.timer || this.inflight || this.dirty) return true;
+    if (this.timer || this.inflight || this.dirty) {
+      // Keep local edits, but take show/hide changes made by automation so the
+      // next save doesn't undo them.
+      for (const r of remote.layers) {
+        const before = this.savedVisible.get(r.id);
+        if (before === undefined || before === r.visible) continue;
+        const local = this.doc.layers.find((l) => l.id === r.id);
+        if (local) local.visible = r.visible;
+        this.savedVisible.set(r.id, r.visible);
+      }
+      return true;
+    }
     const key = contentKey(remote);
     if (key === this.savedKey) return true;
     this.history.record($state.snapshot(this.doc) as Overlay, null);
     this.doc = clone(remote);
     this.savedKey = key;
+    this.rememberVisible(remote);
     this.canUndo = this.history.canUndo;
     this.canRedo = this.history.canRedo;
     if (this.selectedId && !this.layer(this.selectedId)) this.selectedId = null;
     return true;
+  }
+
+  private rememberVisible(o: Overlay): void {
+    this.savedVisible = new Map(o.layers.map((l) => [l.id, l.visible]));
   }
 
   dispose(): void {

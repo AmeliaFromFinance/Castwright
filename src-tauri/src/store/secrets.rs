@@ -7,7 +7,7 @@ use serde_json::{Map, Value};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-const SERVICE: &str = "com.castwright.app";
+const SERVICE: &str = "com.castwright.studio";
 
 pub struct Secrets {
     fallback_file: PathBuf,
@@ -119,12 +119,7 @@ impl Secrets {
     }
 
     fn write_file(&self, m: &Map<String, Value>) -> AppResult<()> {
-        crate::util::write_atomic(&self.fallback_file, &serde_json::to_vec(m)?)?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&self.fallback_file, std::fs::Permissions::from_mode(0o600))?;
-        }
+        crate::util::write_atomic_private(&self.fallback_file, &serde_json::to_vec(m)?)?;
         Ok(())
     }
 }

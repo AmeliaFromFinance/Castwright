@@ -616,6 +616,15 @@ async fn actions_send_the_right_requests() {
         "posted message ids are remembered"
     );
     assert!(!s.svc.was_sent_by_app("someone-else"));
+    assert!(
+        s.svc.is_echo_of_sending("2000", &"x".repeat(500)),
+        "an echo that arrives before the id is known still counts as ours"
+    );
+    assert!(
+        !s.svc.is_echo_of_sending("2000", &"x".repeat(500)),
+        "each post matches one echo"
+    );
+    assert!(!s.svc.is_echo_of_sending("999", "hi"));
 
     s.svc.send_chat("hi", false, None).await.unwrap();
     let b = mock.requests("POST", "/helix/chat/messages").pop().unwrap();

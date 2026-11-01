@@ -177,12 +177,21 @@ fn truthy(v: Option<&Value>) -> bool {
     }
 }
 
+/// Missing, null and blank text all count as "no value".
+fn has_value(v: Option<&Value>) -> bool {
+    match v {
+        None => false,
+        Some(Value::String(s)) => !s.trim().is_empty(),
+        Some(_) => true,
+    }
+}
+
 impl Condition {
     pub fn evaluate(&self, ctx: &Value) -> bool {
         let actual = resolve(ctx, &self.field).filter(|v| !v.is_null());
         match self.op {
-            Op::Exists => actual.is_some(),
-            Op::NotExists => actual.is_none(),
+            Op::Exists => has_value(actual),
+            Op::NotExists => !has_value(actual),
             Op::IsTrue => truthy(actual),
             Op::IsFalse => !truthy(actual),
             Op::Eq => actual.is_some_and(|a| loose_eq(a, &self.value)),

@@ -55,6 +55,10 @@ fn eval_expr(inner: &str, ctx: &Value) -> String {
                     text = format_number(r);
                 }
             }
+            "url" => {
+                text = url_encode(&text);
+                numeric = None;
+            }
             "default" if text.is_empty() => {
                 text = arg.unwrap_or_default();
                 numeric = crate::model::condition::parse_number(&text);
@@ -63,6 +67,19 @@ fn eval_expr(inner: &str, ctx: &Value) -> String {
         }
     }
     text
+}
+
+/// Same output as JavaScript's `encodeURIComponent`.
+fn url_encode(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        if b.is_ascii_alphanumeric() || b"-_.!~*'()".contains(&b) {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
 }
 
 /// Split on `|` but not inside double quotes, so `default:"a|b"` works.

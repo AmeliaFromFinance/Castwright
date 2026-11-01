@@ -18,6 +18,12 @@ describe('field substitution', () => {
   it('uses defaults overridden by values', () => {
     expect(fieldData(fields, { label: 'Hi' })).toEqual({ color: '#f00', size: 12, label: 'Hi' });
   });
+  it('turns media fields into asset links', () => {
+    const media = { pic: { type: 'image-input', value: 'assets/a.png' }, web: { type: 'image-input', value: '' }, note: { type: 'text', value: 'assets/b.png' } };
+    const url = (p: string) => `http://h/assets/${p.replace('assets/', '')}?key=k`;
+    expect(fieldData(media, {}, url)).toEqual({ pic: 'http://h/assets/a.png?key=k', web: '', note: 'assets/b.png' });
+    expect(buildSrcdoc({ html: '<img src="{pic}">', css: '', js: '', fields: media, values: {} }, url)).toContain('src="http://h/assets/a.png?key=k"');
+  });
   it('replaces {{field}} and {field}, leaves unknown tokens', () => {
     const data = fieldData(fields, {});
     expect(substituteFields('a{color}b{{ size }}c{{label}}{unknown}{{nope}}', data)).toBe('a#f00b12cx{unknown}{{nope}}');

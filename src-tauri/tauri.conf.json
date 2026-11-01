@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Castwright",
   "version": "0.1.0",
-  "identifier": "com.castwright.app",
+  "identifier": "com.castwright.studio",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",

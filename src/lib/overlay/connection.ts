@@ -1,6 +1,8 @@
 export interface Endpoint {
   overlayId: string;
   token: string;
+  /** Opens assets only; set by the server on the overlay page. */
+  assetKey: string;
   /** e.g. `http://127.0.0.1:7474`, no trailing slash. */
   httpBase: string;
   wsUrl: string;
@@ -9,7 +11,7 @@ export interface Endpoint {
 type Loc = Pick<Location, 'protocol' | 'host' | 'pathname' | 'search'>;
 
 /** Reads overlay id, token and server from `/overlay/<id>?token=` or the dev query params. */
-export function parseLocation(loc: Loc): Endpoint {
+export function parseLocation(loc: Loc, assetKey = ''): Endpoint {
   const q = new URLSearchParams(loc.search);
   const m = /\/overlay\/([^/?#]+)/.exec(loc.pathname);
   let overlayId = q.get('overlay') ?? '';
@@ -31,7 +33,7 @@ export function parseLocation(loc: Loc): Endpoint {
   httpBase = httpBase.replace(/\/+$/, '');
   const wsBase = httpBase.replace(/^http/i, 'ws');
   const wsUrl = `${wsBase}/ws?token=${encodeURIComponent(token)}&overlay=${encodeURIComponent(overlayId)}`;
-  return { overlayId, token, httpBase, wsUrl };
+  return { overlayId, token, assetKey, httpBase, wsUrl };
 }
 
 const BACKOFF_MS = [500, 1000, 2000, 5000];

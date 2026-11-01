@@ -37,6 +37,8 @@ curl -X POST "http://127.0.0.1:7470/api/actions/ACTION_ID/run?token=YOUR_SECRET"
 
 Instead of `?token=`, you can send the secret in an `X-Castwright-Token` header.
 
+Requests from other web pages are refused, so a website you visit can't run your actions.
+
 | Response | Meaning |
 | --- | --- |
 | `202` | The action started. |
@@ -45,7 +47,7 @@ Instead of `?token=`, you can send the secret in an `X-Castwright-Token` header.
 
 ## From another device
 
-Turn on **Settings → Overlay server → Allow other devices**, then replace `127.0.0.1` in the link with your PC's local IP address (for example `192.168.1.20`).
+Turn on **Settings → Overlay server → Allow other devices**. Links then use your computer's network address (for example `192.168.1.20`) instead of `127.0.0.1`. Copy them again after turning it on.
 
 :::caution
 Anyone with the link can run the action. Keep it private, and use **New secret** if it leaks.

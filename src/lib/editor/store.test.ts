@@ -160,6 +160,21 @@ describe('EditorStore', () => {
     expect(store.syncRemote(undefined)).toBe(false);
   });
 
+  it('keeps show/hide changes from automation while there are local edits', () => {
+    const { store, overlay } = setup();
+    store.change((d) => (d.name = 'Local edit'));
+    const remote = structuredClone(overlay);
+    const target = remote.layers[0]!;
+    target.visible = !target.visible;
+    store.syncRemote(remote);
+    expect(store.doc.name).toBe('Local edit');
+    expect(store.doc.layers.find((l) => l.id === target.id)!.visible).toBe(target.visible);
+    // The same remote state again changes nothing, so a later local toggle wins.
+    store.change((d) => (d.layers[0]!.visible = !target.visible));
+    store.syncRemote(remote);
+    expect(store.doc.layers[0]!.visible).toBe(!target.visible);
+  });
+
   it('ignores its own save coming back', async () => {
     const { store, save } = setup();
     store.change((d) => (d.name = 'Mine'));

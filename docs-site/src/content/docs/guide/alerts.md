@@ -9,7 +9,7 @@ Alerts play inside the **Alerts** layer of any overlay. Design them here once, a
 
 ## Alert types
 
-The left column lists every alert type. Use the switch to turn a type on or off, and the flask button to play a test. Types marked **Not set up** can be added with **+**.
+The left column lists every alert type. Use the switch to turn a type on or off, and the flask button to play a test. Test alerts never run automation, so a test raid won't shout out a made-up viewer. Types marked **Not set up** can be added with **+**.
 
 ## Variations
 

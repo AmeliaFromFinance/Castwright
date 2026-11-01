@@ -357,9 +357,16 @@ mod tests {
         community.amount = Some(5.0);
         v.apply_event(&community);
         for _ in 0..5 {
-            v.apply_event(&ev(EventKind::GiftSub));
+            let mut gift = ev(EventKind::GiftSub);
+            gift.data.insert("community_gift_id".into(), "g1".into());
+            v.apply_event(&gift);
         }
         assert_eq!(v.get("session.subs"), Some(Value::from(5)));
+        assert_eq!(
+            v.get("last.gift.amount"),
+            Some(Value::from(5)),
+            "keeps the community total"
+        );
         assert_eq!(v.get("session.gifts"), Some(Value::from(5)));
     }
 

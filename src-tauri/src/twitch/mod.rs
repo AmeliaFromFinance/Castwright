@@ -30,6 +30,9 @@ use std::time::Duration;
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 
+/// How long a chat message being posted can still match its echo.
+const SENDING_WINDOW: std::time::Duration = std::time::Duration::from_secs(15);
+
 /// Where the Twitch APIs live. Tests point these at local mock servers.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TwitchEndpoints {
@@ -138,6 +141,9 @@ pub struct TwitchService {
     seen: Mutex<Seen>,
     /// Ids of chat messages Castwright posted, so their echo never triggers commands.
     sent: Mutex<std::collections::VecDeque<String>>,
+    /// Messages being posted right now (sender id, text), since Twitch may echo
+    /// them back before the post call returns their id.
+    sending: Mutex<std::collections::VecDeque<(String, String, std::time::Instant)>>,
 }
 
 /// Spawns on the current Tokio runtime, or on Tauri's when called from outside one.
@@ -206,6 +212,7 @@ impl TwitchService {
             stream_poke: Notify::new(),
             seen: Mutex::new(Seen::default()),
             sent: Mutex::new(std::collections::VecDeque::new()),
+            sending: Mutex::new(std::collections::VecDeque::new()),
         })
     }
 
@@ -256,6 +263,35 @@ impl TwitchService {
 
     pub(crate) fn was_sent_by_app(&self, message_id: &str) -> bool {
         self.sent.lock().unwrap().iter().any(|m| m == message_id)
+    }
+
+    pub(crate) fn remember_sending(&self, sender_id: &str, text: &str) {
+        let mut q = self.sending.lock().unwrap();
+        q.retain(|(_, _, at)| at.elapsed() < SENDING_WINDOW);
+        q.push_back((
+            sender_id.to_string(),
+            text.to_string(),
+            std::time::Instant::now(),
+        ));
+        while q.len() > 50 {
+            q.pop_front();
+        }
+    }
+
+    /// Whether this chat message is the echo of one being posted. Each post matches once.
+    pub(crate) fn is_echo_of_sending(&self, sender_id: &str, text: &str) -> bool {
+        let mut q = self.sending.lock().unwrap();
+        q.retain(|(_, _, at)| at.elapsed() < SENDING_WINDOW);
+        match q
+            .iter()
+            .position(|(s, t, _)| s == sender_id && t.trim() == text.trim())
+        {
+            Some(i) => {
+                q.remove(i);
+                true
+            }
+            None => false,
+        }
     }
 
     pub fn status(&self) -> TwitchStatus {

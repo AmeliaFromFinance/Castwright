@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { app, type Page } from '$lib/state/app.svelte';
+  import { isTauri } from '$lib/api/backend';
+  import { flushAll } from '$lib/state/flush';
   import Toasts from '$lib/ui/Toasts.svelte';
   import StatusBar from '$lib/shell/StatusBar.svelte';
   import Studio from '$lib/pages/studio/Studio.svelte';
@@ -25,6 +27,15 @@
 
   onMount(() => {
     app.init();
+    // Save pending edits before the window closes.
+    let unlistenClose: (() => void) | undefined;
+    if (isTauri()) {
+      import('@tauri-apps/api/window').then(({ getCurrentWindow }) =>
+        getCurrentWindow()
+          .onCloseRequested(() => flushAll())
+          .then((u) => (unlistenClose = u))
+      );
+    }
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
       const all: Page[] = [...pages.map((p) => p.id), 'settings'];
@@ -38,7 +49,10 @@
       }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      unlistenClose?.();
+    };
   });
 </script>
 

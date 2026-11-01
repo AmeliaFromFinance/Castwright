@@ -3,6 +3,7 @@ use crate::alerts::AlertEngine;
 use crate::model::event::{Event, EventKind};
 use futures_util::{SinkExt, StreamExt};
 use tokio_tungstenite::tungstenite::Message as WsMsg;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
 const TOKEN: &str = "0123456789abcdef0123456789abcdef";
 
@@ -100,6 +101,7 @@ async fn assets_are_served_safely() {
     );
 }
 
+#[allow(clippy::result_large_err)]
 async fn connect(
     r: &Rig,
     overlay: &str,
@@ -235,4 +237,109 @@ async fn token_can_change() {
     let page = format!("{}/api/overlay/{}", r.base, r.overlay_id);
     assert_eq!(status(&format!("{page}?token={TOKEN}")).await, 403);
     assert_eq!(status(&format!("{page}?token={new_token}")).await, 200);
+}
+
+#[tokio::test]
+async fn asset_key_opens_assets_only() {
+    let r = rig().await;
+    let src = r._dir.path().join("logo.png");
+    std::fs::write(&src, b"PNG").unwrap();
+    r.project.import_asset(&src).unwrap();
+    let key = asset_key(TOKEN);
+    assert_eq!(r.server.info().asset_key, key);
+    assert_ne!(key, TOKEN);
+    assert_eq!(
+        status(&format!("{}/assets/logo.png?key={key}", r.base)).await,
+        200
+    );
+    assert_eq!(
+        status(&format!("{}/assets/logo.png?key=wrong", r.base)).await,
+        403
+    );
+    let json = format!("{}/api/overlay/{}?token={key}", r.base, r.overlay_id);
+    assert_eq!(status(&json).await, 403, "the key isn't the token");
+    r.server
+        .set_token("fedcba9876543210fedcba9876543210".into());
+    assert_eq!(
+        status(&format!("{}/assets/logo.png?key={key}", r.base)).await,
+        403
+    );
+}
+
+#[tokio::test]
+async fn other_pages_cant_use_live_data_or_actions() {
+    let r = rig().await;
+    let id = r.project.read(|p| p.actions[0].id.clone());
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/actions/{id}/run?token={TOKEN}", r.base);
+    // A sandboxed widget frame has the origin "null".
+    let from_widget = client
+        .post(&url)
+        .header("Origin", "null")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(from_widget.status().as_u16(), 403);
+    let from_site = client
+        .post(&url)
+        .header("Origin", "https://evil.example")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(from_site.status().as_u16(), 403);
+    let own = r.base.clone();
+    let same = client
+        .post(&url)
+        .header("Origin", own)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(same.status().as_u16(), 202);
+
+    let mut req = format!(
+        "{}/ws?token={TOKEN}&overlay={}",
+        r.base.replace("http", "ws"),
+        r.overlay_id
+    )
+    .into_client_request()
+    .unwrap();
+    req.headers_mut().insert("Origin", "null".parse().unwrap());
+    assert!(tokio_tungstenite::connect_async(req).await.is_err());
+}
+
+#[tokio::test]
+async fn new_secret_disconnects_open_pages() {
+    let r = rig().await;
+    let mut ws = connect(&r, &r.overlay_id, TOKEN).await.unwrap();
+    assert!(matches!(next_msg(&mut ws).await, OverlayMsg::Hello { .. }));
+    r.server
+        .set_token("fedcba9876543210fedcba9876543210".into());
+    let closed = tokio::time::timeout(std::time::Duration::from_secs(6), async {
+        loop {
+            match ws.next().await {
+                None | Some(Err(_)) | Some(Ok(WsMsg::Close(_))) => return true,
+                Some(Ok(_)) => {}
+            }
+        }
+    })
+    .await;
+    assert_eq!(closed, Ok(true));
+}
+
+#[tokio::test]
+async fn overlay_page_carries_asset_key_not_in_links() {
+    if WebAssets::get("overlay.html").is_none() {
+        return; // no frontend build in this checkout
+    }
+    let r = rig().await;
+    let html = reqwest::get(format!("{}/overlay/{}?token={TOKEN}", r.base, r.overlay_id))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(html.contains(&format!(
+        "name=\"cw-asset-key\" content=\"{}\"",
+        asset_key(TOKEN)
+    )));
 }

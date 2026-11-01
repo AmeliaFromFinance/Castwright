@@ -21,7 +21,7 @@ Each custom layer is its own small web page (an iframe) inside the overlay, in O
 - The page is sandboxed: scripts run, but it can't reach the overlay around it, open popups or submit forms.
 - Browser storage such as `localStorage` and cookies isn't available. Use [`SE_API.store`](#storage) instead.
 - Requests to other websites only work when that site allows it (CORS).
-- Files from your project (`assets/...`) can't be loaded from widget code. Use full web addresses.
+- Project files (`assets/...`) reach widget code through `image-input`, `video-input` and `sound-input` fields, which turn into full links. Typing `assets/...` straight into the code doesn't work.
 - Editing the code or fields reloads the widget.
 
 ## Fields
@@ -36,6 +36,8 @@ Fields are settings for a widget, written as JSON in the StreamElements "Fields"
 ```
 
 Castwright reads each field's `value` as its default. Values you change for the layer are saved separately and win over the defaults.
+
+The editor shows a settings form for the field types `text`, `textarea`, `number`, `slider`, `checkbox`, `colorpicker`, `dropdown`, `googleFont`, `image-input`, `video-input` and `sound-input`. Media fields pick a file from your project and arrive in the widget as a full link it can load.
 
 Field values reach your widget in two ways:
 
@@ -181,7 +183,7 @@ Latest and recent lists come from the last 50 events the overlay knows about. Th
 - Avatars, channel ID and API token in `onWidgetLoad`.
 - `isAction` in chat messages is always `false`.
 - Currencies other than the fixed USD entry.
-- Loading project files (`assets/...`) from widget code.
+- Loading project files by writing `assets/...` in the code. Use a media field instead.
 
 ## Example widget
 

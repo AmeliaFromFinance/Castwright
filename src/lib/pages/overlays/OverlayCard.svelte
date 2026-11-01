@@ -27,7 +27,7 @@
   const scale = $derived(bw && bh ? Math.min(bw / overlay.width, bh / overlay.height) : 0);
   const recent = $derived([...app.feed].reverse().slice(-20));
   const chat = $derived(app.chat.slice(-20));
-  const assetUrl = (p: string) => appAssetUrl(p, app.server?.base_url, app.server?.token);
+  const assetUrl = (p: string) => appAssetUrl(p, app.server?.base_url, app.server?.asset_key);
   const count = $derived(overlay.layers.length);
 </script>
 

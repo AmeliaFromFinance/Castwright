@@ -131,7 +131,7 @@ describe('OverlayRuntime', () => {
     expect(playSound).not.toHaveBeenCalled();
     const withAlerts = {
       ...hello,
-      overlay: { ...hello.overlay, layers: [{ id: 'a', name: 'Alerts', kind: { type: 'alerts' } }] }
+      overlay: { ...hello.overlay, layers: [{ id: 'a', name: 'Alerts', visible: true, kind: { type: 'alerts' } }] }
     };
     rt.dispatch(withAlerts as never);
     rt.dispatch({ type: 'play_sound', src: 'assets/ding.mp3', volume: 40 });

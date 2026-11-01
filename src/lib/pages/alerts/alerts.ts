@@ -268,8 +268,10 @@ export function sampleFor(kind: EventKind, v: Variation | null): Event {
 }
 
 /** Same fields as Event::as_context in Rust. */
-export function alertContext(e: Event): Record<string, unknown> {
+/** Event fields plus variables; event fields win on a clash, like the backend. */
+export function alertContext(e: Event, vars: Record<string, unknown> = {}): Record<string, unknown> {
   return {
+    ...vars,
     ...e,
     name: e.user?.display_name ?? (e.is_anonymous ? 'Anonymous' : ''),
     recipient_name: e.recipient?.display_name ?? '',
@@ -307,14 +309,24 @@ export function hideLinks(text: string): string {
 }
 
 /** The variation that plays for `event`: first enabled match, like the backend. */
-export function pickVariation(type: AlertType | undefined, event: Event): Variation | null {
+export function pickVariation(
+  type: AlertType | undefined,
+  event: Event,
+  vars: Record<string, unknown> = {}
+): Variation | null {
   if (!type || !type.enabled) return null;
-  const ctx = alertContext(event);
+  const ctx = alertContext(event, vars);
   return type.variations.find((v) => v.enabled && evaluateGroup(v.conditions, ctx)) ?? null;
 }
 
 /** Render `v` for `event` the way the backend does (links hidden, blocked words removed). */
-export function renderPlay(v: Variation, event: Event, s: AlertSettings, id = newId()): AlertPlay {
+export function renderPlay(
+  v: Variation,
+  event: Event,
+  s: AlertSettings,
+  id = newId(),
+  vars: Record<string, unknown> = {}
+): AlertPlay {
   const e = clone(event);
   let tts = v.tts;
   if (e.message !== null) {
@@ -325,7 +337,7 @@ export function renderPlay(v: Variation, event: Event, s: AlertSettings, id = ne
     }
     e.message = cleaned;
   }
-  const ctx = alertContext(e);
+  const ctx = alertContext(e, vars);
   return {
     id,
     kind: e.kind,
@@ -351,7 +363,7 @@ export function renderPlay(v: Variation, event: Event, s: AlertSettings, id = ne
 }
 
 /** What would play for `event`, or null. Mirrors build_play. */
-export function buildPlay(config: AlertConfig, event: Event): AlertPlay | null {
+export function buildPlay(config: AlertConfig, event: Event, vars: Record<string, unknown> = {}): AlertPlay | null {
   const s = config.settings;
   const amount = Math.trunc(event.amount ?? 0);
   if (event.kind === 'cheer' && amount < s.min_bits) return null;
@@ -360,9 +372,10 @@ export function buildPlay(config: AlertConfig, event: Event): AlertPlay | null {
   if (event.kind === 'community_gift' && !s.combine_gifts) return null;
   const v = pickVariation(
     config.types.find((t) => t.kind === event.kind),
-    event
+    event,
+    vars
   );
-  return v ? renderPlay(v, event, s) : null;
+  return v ? renderPlay(v, event, s, newId(), vars) : null;
 }
 
 /** "a, b ,, c" -> ["a", "b", "c"] */

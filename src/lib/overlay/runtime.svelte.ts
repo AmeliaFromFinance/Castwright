@@ -45,7 +45,7 @@ export class OverlayRuntime {
 
   constructor(opts: RuntimeOptions) {
     this.#opts = opts;
-    this.assetUrl = assetResolver(opts.endpoint.httpBase, opts.endpoint.token);
+    this.assetUrl = assetResolver(opts.endpoint.httpBase, opts.endpoint.token, opts.endpoint.assetKey);
   }
 
   start(): void {
@@ -97,7 +97,7 @@ export class OverlayRuntime {
       case 'play_sound': {
         // Sounds play from overlays that show alerts, so a scene with several
         // Castwright overlays doesn't play the same sound more than once.
-        const hasAlerts = this.state.overlay?.layers.some((l) => l.kind.type === 'alerts') ?? false;
+        const hasAlerts = this.state.overlay?.layers.some((l) => l.kind.type === 'alerts' && l.visible) ?? false;
         const url = this.assetUrl(msg.src ?? '');
         if (url && hasAlerts) (this.#opts.playSound ?? defaultPlaySound)(url, Math.min(1, Math.max(0, (msg.volume ?? 100) / 100)));
         break;

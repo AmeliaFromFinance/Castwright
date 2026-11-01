@@ -36,6 +36,13 @@ Find it in **Settings → Overlay server → Link secret**. **New secret** makes
 
 A missing or wrong secret gets `403 Forbidden`.
 
+Two more rules keep the secret useful even if a widget or web page sees it:
+
+- **Other web pages are refused.** Requests a browser sends from a page that Castwright didn't serve (with a different `Origin`) get `403`. Tools like curl and Stream Deck plugins send no `Origin` and work as normal.
+- **Asset links use a separate key.** Overlay pages load files with `?key=...`, which opens `/assets/` only. It changes whenever the secret does.
+
+A new secret also disconnects every open overlay page within a few seconds.
+
 ## Routes
 
 | Method | Path | What it does | Answers |
@@ -43,7 +50,7 @@ A missing or wrong secret gets `403 Forbidden`.
 | `GET` | `/health` | Checks the server is up. No secret needed. | `200` `ok` |
 | `GET` | `/overlay/{id}` | The overlay page, for an OBS Browser Source | `200` page, `404` if the overlay was deleted |
 | `GET` | `/api/overlay/{id}` | The overlay's settings and layers as JSON | `200` JSON, `404` |
-| `GET` | `/assets/{name}` | A file from the project `assets` folder. Supports partial downloads (needed for video). | `200` or `206`, `404` |
+| `GET` | `/assets/{name}` | A file from the project `assets` folder. Accepts the secret or the asset key. Supports partial downloads (needed for video). | `200` or `206`, `404` |
 | `POST` | `/api/actions/{id}/run` | Runs an action | `202` `ok`, `404` if there's no such action |
 | `GET` | `/ws?overlay={id}` | WebSocket used by overlay pages | See [WebSocket](#websocket) |
 

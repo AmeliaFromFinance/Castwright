@@ -308,7 +308,7 @@ export function createDemoBackend(): Backend {
 
   const alertFor = (e: Event): AlertPlay | null => {
     const type = project.alerts.types.find((t) => t.kind === e.kind && t.enabled);
-    const ctx = { ...e, name: e.user?.display_name ?? (e.is_anonymous ? 'Anonymous' : ''), recipient_name: e.recipient?.display_name ?? '' };
+    const ctx = { ...vars, ...e, name: e.user?.display_name ?? (e.is_anonymous ? 'Anonymous' : ''), recipient_name: e.recipient?.display_name ?? '' };
     const v = type?.variations.find((x) => x.enabled && evaluateGroup(x.conditions, ctx));
     if (!v) return null;
     return {
@@ -482,6 +482,7 @@ export function createDemoBackend(): Backend {
       port: settings.server.port,
       base_url: `http://127.0.0.1:${settings.server.port}`,
       token: settings.server.token,
+      asset_key: 'demo',
       error: null
     }),
     overlay_url: ({ id }) => `http://127.0.0.1:${settings.server.port}/overlay/${id}?token=${settings.server.token}`,

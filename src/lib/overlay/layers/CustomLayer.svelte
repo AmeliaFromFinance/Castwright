@@ -17,7 +17,10 @@
   let queue: Record<string, unknown>[] = [];
 
   const srcdoc = $derived(
-    buildSrcdoc({ html: kind.html ?? '', css: kind.css ?? '', js: kind.js ?? '', fields: kind.fields ?? {}, values: kind.values ?? {} })
+    buildSrcdoc(
+      { html: kind.html ?? '', css: kind.css ?? '', js: kind.js ?? '', fields: kind.fields ?? {}, values: kind.values ?? {} },
+      (p) => ctx.assetUrl(p)
+    )
   );
   const session = $derived(JSON.stringify(seSession(ctx.recent, ctx.vars)));
 
@@ -44,7 +47,8 @@
       values: kind.values ?? {},
       recent: ctx.recent,
       vars: ctx.vars,
-      isEditorMode: ctx.mode === 'editor'
+      isEditorMode: ctx.mode === 'editor',
+      assetUrl: (p) => ctx.assetUrl(p)
     });
     post(pageMsg('init', { detail, store: ctx.widgetState[layerId] ?? {}, isEditorMode: ctx.mode === 'editor' }));
     const pending = queue;

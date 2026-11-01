@@ -12,13 +12,29 @@ function isObj(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-/** Field values: each field's default `value`, overridden by saved values. */
-export function fieldData(fields: Record<string, unknown>, values: Record<string, unknown>): Record<string, unknown> {
+const MEDIA_FIELDS = new Set(['image-input', 'video-input', 'sound-input']);
+
+/**
+ * Field values: each field's default `value`, overridden by saved values.
+ * Image, video and sound fields hold project paths like `assets/x.png`; `assetUrl`
+ * turns them into full links the widget can load.
+ */
+export function fieldData(
+  fields: Record<string, unknown>,
+  values: Record<string, unknown>,
+  assetUrl?: (path: string) => string
+): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, def] of Object.entries(fields ?? {})) {
     if (isObj(def) && 'value' in def) out[k] = def.value;
   }
   for (const [k, v] of Object.entries(values ?? {})) out[k] = v;
+  if (assetUrl) {
+    for (const [k, def] of Object.entries(fields ?? {})) {
+      const v = out[k];
+      if (isObj(def) && MEDIA_FIELDS.has(String(def.type)) && typeof v === 'string' && v) out[k] = assetUrl(v);
+    }
+  }
   return out;
 }
 
@@ -81,8 +97,8 @@ export interface WidgetCode {
   values: Record<string, unknown>;
 }
 
-export function buildSrcdoc(code: WidgetCode): string {
-  const data = fieldData(code.fields, code.values);
+export function buildSrcdoc(code: WidgetCode, assetUrl?: (path: string) => string): string {
+  const data = fieldData(code.fields, code.values, assetUrl);
   const html = substituteFields(code.html, data);
   const css = substituteFields(code.css, data).replace(/<\/style/gi, '<\\/style');
   const js = substituteFields(code.js, data).replace(/<\/script/gi, '<\\/script');
@@ -343,10 +359,11 @@ export function widgetLoadDetail(opts: {
   recent: readonly Event[];
   vars: Record<string, unknown>;
   isEditorMode: boolean;
+  assetUrl?: (path: string) => string;
 }): Record<string, unknown> {
   const login = opts.vars['twitch.login'];
   return {
-    fieldData: fieldData(opts.fields, opts.values),
+    fieldData: fieldData(opts.fields, opts.values, opts.assetUrl),
     channel: { username: typeof login === 'string' ? login : '', apiToken: '', id: '', providerId: '', avatar: '' },
     session: { data: seSession(opts.recent, opts.vars), settings: { autoReset: false } },
     recents: seRecents(opts.recent),

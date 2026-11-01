@@ -1,4 +1,5 @@
 import { errorMessage } from '$lib/api/backend';
+import { onFlush } from '$lib/state/flush';
 
 export type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 
@@ -18,7 +19,9 @@ export class Autosaver<T> {
   constructor(
     private save: (value: T) => Promise<void>,
     private delay = 600
-  ) {}
+  ) {
+    onFlush(() => this.flush());
+  }
 
   get dirty(): boolean {
     return this.#hasPending || this.#running !== null;

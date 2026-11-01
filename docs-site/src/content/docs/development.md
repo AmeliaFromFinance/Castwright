@@ -51,4 +51,6 @@ Rust types used by the interface are generated into `src/lib/bindings` by `npm r
 
 ## Release
 
-Push a tag like `v0.2.0`. GitHub Actions builds installers for all three systems and publishes the release.
+Bump the version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`, then either push a tag like `v0.2.0` or run the **Release** workflow from the Actions tab with that version. It builds installers for all three systems and publishes the release.
+
+Set a repository variable named `CASTWRIGHT_TWITCH_CLIENT_ID` to build a Twitch client ID into the installers.

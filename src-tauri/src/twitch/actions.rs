@@ -221,6 +221,7 @@ impl TwitchActions for TwitchService {
         if let Some(r) = reply_to.map(str::trim).filter(|r| !r.is_empty()) {
             body["reply_parent_message_id"] = json!(r);
         }
+        self.remember_sending(&sender, &message);
         let v = self
             .helix(role, Method::POST, "/chat/messages", &[], Some(&body))
             .await

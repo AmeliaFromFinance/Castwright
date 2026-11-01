@@ -53,6 +53,8 @@ pub struct ProjectStore {
     last_snapshot: RwLock<i64>,
     dirty: std::sync::atomic::AtomicBool,
     changed: tokio::sync::Notify,
+    /// One save at a time, so an older write can't land after a newer one.
+    save_lock: std::sync::Mutex<()>,
 }
 
 impl ProjectStore {
@@ -64,6 +66,8 @@ impl ProjectStore {
         let (project, outcome) = if file.exists() {
             match read_project(&file) {
                 Ok(p) => (p, LoadOutcome::Loaded),
+                // Saved by a newer version: leave it alone rather than "recover" over it.
+                Err(e @ crate::error::AppError::User(_)) => return Err(e),
                 Err(_) => {
                     let ts = now_ms();
                     let _ =
@@ -83,6 +87,7 @@ impl ProjectStore {
             last_snapshot: RwLock::new(0),
             dirty: std::sync::atomic::AtomicBool::new(false),
             changed: tokio::sync::Notify::new(),
+            save_lock: std::sync::Mutex::new(()),
         };
         if outcome != LoadOutcome::Loaded {
             store.save()?;
@@ -169,6 +174,7 @@ impl ProjectStore {
     }
 
     pub fn save(&self) -> AppResult<()> {
+        let _guard = self.save_lock.lock().unwrap_or_else(|e| e.into_inner());
         let file = self.dir.join("project.json");
         let now = now_ms();
         let due = now - *self.last_snapshot.read().unwrap() >= SNAPSHOT_EVERY_MS;
@@ -338,7 +344,9 @@ fn read_project(path: &Path) -> AppResult<Project> {
     let bytes = std::fs::read(path)?;
     let p: Project = serde_json::from_slice(&bytes)?;
     if p.format > crate::model::project::PROJECT_FORMAT {
-        return user_err("This project was saved by a newer version of Castwright.");
+        return user_err(
+            "This project was saved by a newer version of Castwright. Install the latest version to open it.",
+        );
     }
     Ok(p)
 }
@@ -505,9 +513,16 @@ mod tests {
     #[test]
     fn rejects_newer_format() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("project.json"), br#"{"format": 999}"#).unwrap();
-        let (_, outcome) = ProjectStore::open(dir.path()).unwrap();
-        assert_ne!(outcome, LoadOutcome::Loaded);
+        let mut p = serde_json::to_value(Project::starter()).unwrap();
+        p["format"] = 999.into();
+        let file = dir.path().join("project.json");
+        std::fs::write(&file, serde_json::to_vec(&p).unwrap()).unwrap();
+        assert!(ProjectStore::open(dir.path()).is_err());
+        // Left untouched for the newer version.
+        assert_eq!(
+            std::fs::read(&file).unwrap(),
+            serde_json::to_vec(&p).unwrap()
+        );
     }
 
     #[test]

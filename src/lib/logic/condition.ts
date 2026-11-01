@@ -78,15 +78,20 @@ function contains(actual: Json, needle: Json): boolean {
   return stringify(actual).toLowerCase().includes(stringify(needle).toLowerCase());
 }
 
+/** Missing, null and blank text all count as "no value". */
+function hasValue(v: unknown): boolean {
+  return v !== undefined && !(typeof v === 'string' && v.trim() === '');
+}
+
 export function evaluateCondition(c: Condition, ctx: Json): boolean {
   const raw = resolve(ctx, c.field);
   const actual = raw === null ? undefined : raw;
   const value = c.value ?? null;
   switch (c.op) {
     case 'exists':
-      return actual !== undefined;
+      return hasValue(actual);
     case 'not_exists':
-      return actual === undefined;
+      return !hasValue(actual);
     case 'is_true':
       return truthy(actual);
     case 'is_false':

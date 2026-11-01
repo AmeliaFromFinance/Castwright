@@ -12,10 +12,13 @@
     "obj": { "x": 1 },
     "user": { "display_name": "Nova" },
     "last.sub.name": "flat",
-    "text_num": "1500"
+    "text_num": "1500",
+    "query": "x&admin=1#top ünï/?"
   },
   "cases": [
     { "name": "plain text", "template": "Hello there", "expected": "Hello there" },
+    { "name": "url filter", "template": "?u={{query | url}}", "expected": "?u=x%26admin%3D1%23top%20%C3%BCn%C3%AF%2F%3F" },
+    { "name": "url filter keeps safe characters", "template": "{{name | url}}", "expected": "nova_kat" },
     { "name": "simple key", "template": "Hi {{name}}!", "expected": "Hi nova_kat!" },
     { "name": "spaces inside braces", "template": "Hi {{  name  }}!", "expected": "Hi nova_kat!" },
     { "name": "number", "template": "Tier {{tier}}", "expected": "Tier 3" },

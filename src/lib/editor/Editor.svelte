@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, tick, untrack } from 'svelte';
+  import { onFlush } from '$lib/state/flush';
   import { api } from '$lib/api';
   import type { EventKind } from '$lib/bindings/EventKind';
   import type { Overlay } from '$lib/bindings/Overlay';
@@ -45,6 +46,7 @@
   let { overlay, onclose }: Props = $props();
 
   const store = new EditorStore(untrack(() => overlay), (o) => api.saveOverlay(o));
+  const stopFlush = onFlush(() => store.flush());
   let stage = $state<OverlayStage>();
   let canvas = $state<Canvas>();
   let wide = $state(false);
@@ -55,7 +57,7 @@
   const vars = $derived({ ...app.vars, ...store.varOverrides });
   const recent = $derived([...app.feed].reverse().slice(-40).concat(store.testEvents));
   const chat = $derived(app.chat.slice(-60).concat(store.testChat));
-  const assetUrl = (p: string) => appAssetUrl(p, app.server?.base_url, app.server?.token);
+  const assetUrl = (p: string) => appAssetUrl(p, app.server?.base_url, app.server?.asset_key);
   const kinds = $derived(testableKinds(app.project?.alerts));
   const hasTestData = $derived(!!store.testAlert || store.testEvents.length > 0 || store.testChat.length > 0 || Object.keys(store.varOverrides).length > 0);
 
@@ -71,6 +73,7 @@
   });
 
   onDestroy(() => {
+    stopFlush();
     if (alertTimer) clearTimeout(alertTimer);
     // Leaving through the side bar: save whatever is waiting.
     void store.flush().then((ok) => {
@@ -95,7 +98,7 @@
   }
 
   function playAlert(kind: EventKind) {
-    const play = sampleAlert(app.project?.alerts, kind);
+    const play = sampleAlert(app.project?.alerts, kind, undefined, vars);
     if (!play) {
       toasts.show('That alert has no enabled variation.');
       return;

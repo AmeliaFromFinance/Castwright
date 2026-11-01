@@ -138,6 +138,68 @@ async fn own_messages_and_bot_never_trigger_commands() {
 }
 
 #[tokio::test]
+async fn own_chat_never_fires_chat_event_triggers() {
+    let r = rig(vec![Action {
+        name: "react".into(),
+        triggers: vec![Trigger::Event {
+            kind: EventKind::Chat,
+            conditions: ConditionGroup::default(),
+        }],
+        steps: vec![say("hello")],
+        ..Action::default()
+    }]);
+    let mut own = chat("hello", UserRoles::default());
+    own.data.insert("sent_by_castwright".into(), json!(true));
+    r.auto.on_event(&own);
+    assert!(wait_calls(&r.rec, 1).await.is_empty());
+    r.auto.on_event(&chat("hello", UserRoles::default()));
+    assert_eq!(wait_calls(&r.rec, 1).await.len(), 1);
+}
+
+#[tokio::test]
+async fn action_cooldown_does_not_use_up_viewer_cooldown() {
+    let mut a = command("hi", Permission::Everyone, vec![say("hi")]);
+    a.cooldown_s = 60;
+    if let Trigger::Command {
+        user_cooldown_s, ..
+    } = &mut a.triggers[0]
+    {
+        *user_cooldown_s = 60;
+    }
+    let id = a.id.clone();
+    let r = rig(vec![a]);
+    // Someone else runs it; the action is now cooling down.
+    r.auto.on_event(&chat("!hi", modr()));
+    assert_eq!(wait_calls(&r.rec, 1).await.len(), 1);
+    // The viewer is blocked by the action cooldown, not by their own.
+    r.auto.on_event(&chat("!hi", UserRoles::default()));
+    assert!(wait_calls(&r.rec, 1).await.is_empty());
+    r.auto.last_run.lock().unwrap().remove(&id);
+    r.auto.on_event(&chat("!hi", UserRoles::default()));
+    assert_eq!(wait_calls(&r.rec, 1).await.len(), 1);
+}
+
+#[tokio::test]
+async fn test_events_never_run_actions() {
+    let r = rig(vec![Action {
+        name: "raid".into(),
+        triggers: vec![Trigger::Event {
+            kind: EventKind::Raid,
+            conditions: ConditionGroup::default(),
+        }],
+        steps: vec![say("welcome")],
+        ..Action::default()
+    }]);
+    let mut e = Event::new(EventKind::Raid).with_user("x", "X");
+    e.test = true;
+    r.auto.on_event(&e);
+    assert!(wait_calls(&r.rec, 1).await.is_empty());
+    e.test = false;
+    r.auto.on_event(&e);
+    assert_eq!(wait_calls(&r.rec, 1).await.len(), 1);
+}
+
+#[tokio::test]
 async fn user_cooldown_applies_to_viewers_not_mods() {
     let mut a = command("hi", Permission::Everyone, vec![say("hi")]);
     if let Trigger::Command {

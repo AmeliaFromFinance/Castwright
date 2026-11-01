@@ -60,6 +60,8 @@ Chat messages are sent from the bot account when one is signed in, otherwise fro
 | Text length | 64 KB |
 | List items | 10,000 |
 | Map entries | 10,000 |
+| `chat()` messages per run | 5 (more are dropped) |
+| `log()` lines per run | 50 (more are dropped) |
 
 A script that goes over a limit is stopped and the step fails with a message in the log.
 

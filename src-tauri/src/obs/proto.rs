@@ -668,7 +668,8 @@ mod tests {
         let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let free = l.local_addr().unwrap().port();
         drop(l);
-        let e = connect("127.0.0.1", free, None, 0, 8, SECS, SECS)
+        // Windows takes about two seconds to report a refused local connection.
+        let e = connect("127.0.0.1", free, None, 0, 8, Duration::from_secs(10), SECS)
             .await
             .err()
             .unwrap();

@@ -10,6 +10,7 @@ use crate::model::event::{Event, EventKind};
 use crate::model::runtime::{AlertPlay, LogLevel, OverlayMsg, QueueState};
 use crate::store::project::ProjectStore;
 use crate::template::render;
+use serde_json::{Map, Value};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::{Notify, broadcast};
@@ -79,7 +80,8 @@ impl AlertEngine {
 
     pub fn handle_event(&self, event: &Event) {
         let config = self.project.read(|p| p.alerts.clone());
-        if let Some((play, run_action)) = build_play(&config, event) {
+        let vars = self.hub.vars.snapshot();
+        if let Some((play, run_action)) = build_play(&config, event, &vars) {
             self.enqueue(play, run_action, config.settings.max_queue);
         }
     }
@@ -104,11 +106,11 @@ impl AlertEngine {
             ..Variation::default()
         };
         let max = self.project.read(|p| p.alerts.settings.max_queue);
-        self.enqueue(
-            render_play(&v, &event, &AlertSettings::default()),
-            None,
-            max,
-        );
+        // The text is already filled in by the caller; don't fill it in twice.
+        let mut play = render_play(&v, &event, &AlertSettings::default(), &Map::new());
+        play.title = title.to_string();
+        play.message = message.to_string();
+        self.enqueue(play, None, max);
     }
 
     pub fn replay(&self, event_id: &str) -> crate::error::AppResult<()> {
@@ -119,7 +121,8 @@ impl AlertEngine {
         };
         event.id = crate::util::new_id();
         let config = self.project.read(|p| p.alerts.clone());
-        match build_play(&config, &event) {
+        let vars = self.hub.vars.snapshot();
+        match build_play(&config, &event, &vars) {
             Some((play, run_action)) => {
                 self.enqueue(play, run_action, config.settings.max_queue);
                 Ok(())
@@ -225,6 +228,8 @@ impl AlertEngine {
                 run_action,
             });
             let total = play.duration_ms.max(500) + play.exit.duration_ms;
+            // Drop a skip pressed for the previous alert (or pressed twice).
+            let _ = futures_util::FutureExt::now_or_never(self.skip.notified());
             tokio::select! {
                 biased;
                 _ = tokio::time::sleep(Duration::from_millis(total as u64)) => {}
@@ -242,8 +247,25 @@ impl AlertEngine {
     }
 }
 
+/// Event fields plus every variable; event fields win on a clash.
+fn alert_context(event: &Event, vars: &Map<String, Value>) -> Value {
+    let mut ctx = event.as_context();
+    if let Value::Object(map) = &mut ctx {
+        for (k, v) in vars {
+            if !map.contains_key(k) {
+                map.insert(k.clone(), v.clone());
+            }
+        }
+    }
+    ctx
+}
+
 /// Decide whether an event gets an alert and render it. None = no alert.
-pub fn build_play(config: &AlertConfig, event: &Event) -> Option<(AlertPlay, Option<String>)> {
+pub fn build_play(
+    config: &AlertConfig,
+    event: &Event,
+    vars: &Map<String, Value>,
+) -> Option<(AlertPlay, Option<String>)> {
     if !event.kind.is_alertable() {
         return None;
     }
@@ -263,18 +285,23 @@ pub fn build_play(config: &AlertConfig, event: &Event) -> Option<(AlertPlay, Opt
     if !alert_type.enabled {
         return None;
     }
-    let ctx = event.as_context();
+    let ctx = alert_context(event, vars);
     let variation = alert_type
         .variations
         .iter()
         .find(|v| v.enabled && v.conditions.evaluate(&ctx))?;
     Some((
-        render_play(variation, event, s),
+        render_play(variation, event, s, vars),
         variation.run_action.clone(),
     ))
 }
 
-fn render_play(v: &Variation, event: &Event, s: &AlertSettings) -> AlertPlay {
+fn render_play(
+    v: &Variation,
+    event: &Event,
+    s: &AlertSettings,
+    vars: &Map<String, Value>,
+) -> AlertPlay {
     let mut event = event.clone();
     let mut tts = v.tts;
     if let Some(msg) = &event.message {
@@ -289,7 +316,7 @@ fn render_play(v: &Variation, event: &Event, s: &AlertSettings) -> AlertPlay {
         }
         event.message = Some(cleaned);
     }
-    let ctx = event.as_context();
+    let ctx = alert_context(&event, vars);
     AlertPlay {
         id: crate::util::new_id(),
         kind: event.kind,
@@ -382,10 +409,10 @@ mod tests {
 
     #[test]
     fn first_matching_variation_wins() {
-        let (p, _) = build_play(&cfg(), &sub(3)).unwrap();
+        let (p, _) = build_play(&cfg(), &sub(3), &Map::new()).unwrap();
         assert_eq!(p.title, "Nova is a legend!");
         assert_eq!(p.priority, 2);
-        let (p, _) = build_play(&cfg(), &sub(1)).unwrap();
+        let (p, _) = build_play(&cfg(), &sub(1), &Map::new()).unwrap();
         assert_eq!(p.title, "Nova subscribed!");
         assert_eq!(p.message, "Tier 1");
     }
@@ -399,13 +426,16 @@ mod tests {
             .unwrap()
             .variations[0]
             .enabled = false;
-        assert_eq!(build_play(&c, &sub(3)).unwrap().0.title, "Nova subscribed!");
+        assert_eq!(
+            build_play(&c, &sub(3), &Map::new()).unwrap().0.title,
+            "Nova subscribed!"
+        );
         c.types
             .iter_mut()
             .find(|t| t.kind == EventKind::Sub)
             .unwrap()
             .enabled = false;
-        assert!(build_play(&c, &sub(3)).is_none());
+        assert!(build_play(&c, &sub(3), &Map::new()).is_none());
     }
 
     #[test]
@@ -426,13 +456,13 @@ mod tests {
                 ..Variation::default()
             }],
         }];
-        assert!(build_play(&c, &sub(1)).is_none());
+        assert!(build_play(&c, &sub(1), &Map::new()).is_none());
     }
 
     #[test]
     fn chat_and_unconfigured_kinds_never_alert() {
-        assert!(build_play(&cfg(), &Event::new(EventKind::Chat)).is_none());
-        assert!(build_play(&cfg(), &Event::new(EventKind::PollBegin)).is_none());
+        assert!(build_play(&cfg(), &Event::new(EventKind::Chat), &Map::new()).is_none());
+        assert!(build_play(&cfg(), &Event::new(EventKind::PollBegin), &Map::new()).is_none());
     }
 
     #[test]
@@ -442,12 +472,12 @@ mod tests {
         single.data.insert("community_gift_id".into(), "x".into());
         let community = Event::new(EventKind::CommunityGift).with_user("a", "A");
         let direct = Event::new(EventKind::GiftSub).with_user("a", "A");
-        assert!(build_play(&c, &single).is_none());
-        assert!(build_play(&c, &community).is_some());
-        assert!(build_play(&c, &direct).is_some());
+        assert!(build_play(&c, &single, &Map::new()).is_none());
+        assert!(build_play(&c, &community, &Map::new()).is_some());
+        assert!(build_play(&c, &direct, &Map::new()).is_some());
         c.settings.combine_gifts = false;
-        assert!(build_play(&c, &single).is_some());
-        assert!(build_play(&c, &community).is_none());
+        assert!(build_play(&c, &single, &Map::new()).is_some());
+        assert!(build_play(&c, &community, &Map::new()).is_none());
     }
 
     #[test]
@@ -456,9 +486,9 @@ mod tests {
         c.settings.min_bits = 100;
         let mut cheer = Event::new(EventKind::Cheer).with_user("a", "A");
         cheer.amount = Some(99.0);
-        assert!(build_play(&c, &cheer).is_none());
+        assert!(build_play(&c, &cheer, &Map::new()).is_none());
         cheer.amount = Some(100.0);
-        assert!(build_play(&c, &cheer).is_some());
+        assert!(build_play(&c, &cheer, &Map::new()).is_some());
     }
 
     #[test]
@@ -468,10 +498,10 @@ mod tests {
         let mut cheer = Event::new(EventKind::Cheer).with_user("a", "A");
         cheer.amount = Some(100.0);
         cheer.message = Some("go to example.com/x now".into());
-        let (p, _) = build_play(&c, &cheer).unwrap();
+        let (p, _) = build_play(&c, &cheer, &Map::new()).unwrap();
         assert_eq!(p.message, "go to [link] now");
         cheer.message = Some("you badword".into());
-        let (p, _) = build_play(&c, &cheer).unwrap();
+        let (p, _) = build_play(&c, &cheer, &Map::new()).unwrap();
         assert_eq!(p.message, "");
         assert!(!p.tts);
     }
@@ -550,6 +580,47 @@ mod tests {
         }
     }
 
+    #[tokio::test(start_paused = true)]
+    async fn double_skip_does_not_skip_the_next_alert() {
+        let dir = tempfile::tempdir().unwrap();
+        let (store, _) = ProjectStore::open(dir.path()).unwrap();
+        let hub = Hub::test();
+        let engine = AlertEngine::new(hub.clone(), Arc::new(store));
+        let mut ov = hub.subscribe_overlays();
+        engine.start();
+        engine.handle_event(&sub(1));
+        engine.handle_event(&sub(3));
+        loop {
+            if let OverlayMsg::AlertPlay { .. } = ov.recv().await.unwrap().msg {
+                break;
+            }
+        }
+        engine.skip();
+        loop {
+            if let OverlayMsg::AlertStop { .. } = ov.recv().await.unwrap().msg {
+                break;
+            }
+        }
+        // Pressed again during the exit animation.
+        engine.skip();
+        loop {
+            if let OverlayMsg::AlertPlay { .. } = ov.recv().await.unwrap().msg {
+                break;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        while let Ok(out) = ov.try_recv() {
+            assert!(
+                !matches!(out.msg, OverlayMsg::AlertStop { .. }),
+                "second alert was skipped"
+            );
+        }
+        assert!(
+            engine.queue_state().playing.is_some(),
+            "second alert still playing"
+        );
+    }
+
     #[test]
     fn queue_is_capped() {
         let dir = tempfile::tempdir().unwrap();
@@ -559,11 +630,42 @@ mod tests {
         for _ in 0..5 {
             engine.enqueue_custom("x", "", "", "", 1000);
         }
-        let play = build_play(&cfg(), &sub(3)).unwrap().0;
+        let play = build_play(&cfg(), &sub(3), &Map::new()).unwrap().0;
         engine.enqueue(play, None, 3);
         let st = engine.queue_state();
         assert_eq!(st.waiting.len(), 3);
         assert_eq!(st.waiting[0].priority, 2, "high priority alert survives");
+    }
+
+    #[test]
+    fn alert_text_can_use_variables() {
+        let mut c = cfg();
+        for v in &mut c
+            .types
+            .iter_mut()
+            .find(|t| t.kind == EventKind::Sub)
+            .unwrap()
+            .variations
+        {
+            v.title = "{{name}} is sub #{{session.subs}}".into();
+        }
+        let mut vars = Map::new();
+        vars.insert("session.subs".into(), 7.into());
+        vars.insert("name".into(), "not the event".into());
+        let (p, _) = build_play(&c, &sub(1), &vars).unwrap();
+        assert_eq!(p.title, "Nova is sub #7");
+    }
+
+    #[test]
+    fn custom_alert_text_is_not_filled_in_twice() {
+        let dir = tempfile::tempdir().unwrap();
+        let (store, _) = ProjectStore::open(dir.path()).unwrap();
+        let engine = AlertEngine::new(Hub::test(), Arc::new(store));
+        engine.set_paused(true);
+        engine.enqueue_custom("{{kind}} said hi", "{{name}}", "", "", 1000);
+        let st = engine.queue_state();
+        assert_eq!(st.waiting[0].title, "{{kind}} said hi");
+        assert_eq!(st.waiting[0].message, "{{name}}");
     }
 
     #[test]
@@ -576,7 +678,7 @@ mod tests {
         let c = cfg();
         for t in &c.types {
             assert!(
-                build_play(&c, &samples::sample_event(t.kind)).is_some(),
+                build_play(&c, &samples::sample_event(t.kind), &Map::new()).is_some(),
                 "{:?}",
                 t.kind
             );

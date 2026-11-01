@@ -12,10 +12,21 @@ pub struct SettingsStore {
 
 impl SettingsStore {
     pub fn open(file: PathBuf) -> SettingsStore {
-        let mut value: Settings = std::fs::read(&file)
-            .ok()
-            .and_then(|b| serde_json::from_slice(&b).ok())
-            .unwrap_or_default();
+        let mut value: Settings = match std::fs::read(&file) {
+            Err(_) => Settings::default(),
+            Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_else(|_| {
+                // Keep a copy and rescue whatever still reads, so one bad value
+                // doesn't reset the overlay secret, folders and themes.
+                let backup = file.with_file_name(format!(
+                    "settings.unreadable-{}.json",
+                    crate::util::now_ms()
+                ));
+                let _ = std::fs::write(&backup, &bytes);
+                serde_json::from_slice::<serde_json::Value>(&bytes)
+                    .map(|raw| crate::util::lenient_json(&raw))
+                    .unwrap_or_default()
+            }),
+        };
         if value.server.token.len() < 16 {
             value.server.token = crate::util::random_token();
         }
@@ -50,6 +61,35 @@ impl SettingsStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn one_bad_value_keeps_the_rest() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("settings.json");
+        std::fs::write(
+            &f,
+            r#"{"server":{"port":7500,"token":"0123456789abcdef0123456789abcdef","allow_lan":false},
+               "appearance":{"theme":"light","window_effect":"from_the_future","ui_scale":120,"reduce_motion":true,"custom_themes":[]},
+               "project_dir":"/x"}"#,
+        )
+        .unwrap();
+        let s = SettingsStore::open(f.clone()).get();
+        assert_eq!(s.server.token, "0123456789abcdef0123456789abcdef");
+        assert_eq!(s.server.port, 7500);
+        assert_eq!(s.appearance.theme, "light");
+        assert_eq!(s.appearance.ui_scale, 120);
+        assert_eq!(s.project_dir, "/x");
+        let backups = std::fs::read_dir(dir.path())
+            .unwrap()
+            .flatten()
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .starts_with("settings.unreadable-")
+            })
+            .count();
+        assert_eq!(backups, 1);
+    }
 
     #[test]
     fn defaults_and_persistence() {

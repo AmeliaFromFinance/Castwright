@@ -402,7 +402,12 @@ impl TwitchService {
                     return;
                 }
                 let mut e = *e;
-                if e.kind == EventKind::Chat && self.was_sent_by_app(&e.id) {
+                if e.kind == EventKind::Chat
+                    && (self.was_sent_by_app(&e.id)
+                        || e.user.as_ref().is_some_and(|u| {
+                            self.is_echo_of_sending(&u.id, e.message.as_deref().unwrap_or(""))
+                        }))
+                {
                     e.data
                         .insert("sent_by_castwright".into(), Value::Bool(true));
                 }

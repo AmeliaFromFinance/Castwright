@@ -10,6 +10,7 @@ import type { Settings } from '$lib/bindings/Settings';
 import type { TwitchStatus } from '$lib/bindings/TwitchStatus';
 import type { WindowEffect } from '$lib/bindings/WindowEffect';
 import { applyTheme, watchSystemTheme } from '$lib/theme/apply';
+import { toasts } from './toast.svelte';
 import type { Theme } from '$lib/theme/themes';
 
 export type Page = 'studio' | 'overlays' | 'alerts' | 'automation' | 'activity' | 'settings';
@@ -102,6 +103,7 @@ class AppState {
         this.applyAppearance();
       }
       this.ready = true;
+      if (server.error) toasts.show(server.error, 'error', 12_000);
     } catch (e) {
       this.fatal = e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e);
     }

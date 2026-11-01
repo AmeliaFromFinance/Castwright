@@ -29,6 +29,7 @@ describe('resolveAsset', () => {
   });
   it('omits the query without a token', () => {
     expect(resolveAsset('a.png', BASE, '')).toBe(`${BASE}/assets/a.png`);
+    expect(resolveAsset('a.png', BASE, 'secret', 'k1')).toBe(`${BASE}/assets/a.png?key=k1`);
   });
 });
 
@@ -38,6 +39,7 @@ describe('parseLocation', () => {
     expect(e).toEqual({
       overlayId: 'ov 1',
       token: 't0k',
+      assetKey: '',
       httpBase: 'http://127.0.0.1:7474',
       wsUrl: 'ws://127.0.0.1:7474/ws?token=t0k&overlay=ov%201'
     });

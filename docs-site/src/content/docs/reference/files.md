@@ -11,9 +11,9 @@ Castwright keeps everything on your computer, in two folders: the **settings fol
 
 | System | Settings folder | Default project folder |
 | --- | --- | --- |
-| Windows | `%APPDATA%\com.castwright.app\` | `%APPDATA%\com.castwright.app\Projects\Default\` |
-| macOS | `~/Library/Application Support/com.castwright.app/` | `~/Library/Application Support/com.castwright.app/Projects/Default/` |
-| Linux | `~/.config/com.castwright.app/` | `~/.local/share/com.castwright.app/Projects/Default/` |
+| Windows | `%APPDATA%\com.castwright.studio\` | `%APPDATA%\com.castwright.studio\Projects\Default\` |
+| macOS | `~/Library/Application Support/com.castwright.studio/` | `~/Library/Application Support/com.castwright.studio/Projects/Default/` |
+| Linux | `~/.config/com.castwright.studio/` | `~/.local/share/com.castwright.studio/Projects/Default/` |
 
 On Linux, `XDG_CONFIG_HOME` and `XDG_DATA_HOME` change these if set.
 
@@ -112,7 +112,7 @@ Twitch sign-ins and the OBS password are kept in the system keychain:
 | macOS | Keychain |
 | Linux | Secret Service (for example GNOME Keyring) |
 
-Entries are saved under the service name `com.castwright.app`.
+Entries are saved under the service name `com.castwright.studio`.
 
 If no keychain works, they go in `secrets.json` in the settings folder. On macOS and Linux only your user account can read that file. The log shows a warning, and **Settings → About** shows a note.
 
@@ -134,8 +134,8 @@ It's a zip file with:
 | Limit | Value |
 | --- | --- |
 | Files inside | 500 |
-| One file | 512 MB |
-| All files together | 1 GB |
+| One file | 256 MB |
+| All files together | 512 MB |
 | `overlay.json` | 16 MB |
 
 - Files in `assets/` are copied into your project. Names already in use get `-2`, `-3` and so on, and the overlay is updated to match.

@@ -214,6 +214,8 @@ pub struct ServerInfo {
     pub port: u16,
     pub base_url: String,
     pub token: String,
+    /// Opens `/assets/` only, so asset links never carry the real token.
+    pub asset_key: String,
     pub error: Option<String>,
 }
 

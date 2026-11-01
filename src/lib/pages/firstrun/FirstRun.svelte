@@ -3,7 +3,7 @@
   import { api } from '$lib/api';
   import { attemptOk } from '$lib/state/toast.svelte';
   import { BUILT_IN, generateTokens } from '$lib/theme/themes';
-  import { updateAppearance } from '$lib/pages/settings/appearance.svelte';
+  import { updateAppearance } from '$lib/pages/settings/theme-settings.svelte';
   import Button from '$lib/ui/Button.svelte';
   import ObsForm from '$lib/widgets/ObsForm.svelte';
   import TwitchAccounts from '$lib/widgets/TwitchAccounts.svelte';

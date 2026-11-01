@@ -27,6 +27,8 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium
+      - name: ffmpeg for the video test clip
+        run: sudo apt-get install -y ffmpeg
       - run: npm run e2e
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -34,6 +36,23 @@ jobs:
           name: playwright-results
           path: test-results/
           retention-days: 7
+
+  frontend-build:
+    # Windows and macOS file systems ignore case, which can change how imports resolve.
+    name: Frontend build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
 
   rust:
     name: Rust (${{ matrix.os }})

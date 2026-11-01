@@ -9,8 +9,9 @@ use std::collections::{BTreeSet, HashMap};
 use std::io::{Read, Write};
 use std::path::Path;
 
-const MAX_ENTRY_BYTES: u64 = 512 * 1024 * 1024;
-const MAX_TOTAL_BYTES: u64 = 1024 * 1024 * 1024;
+const MAX_ENTRY_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_TOTAL_BYTES: u64 = 512 * 1024 * 1024;
+const MAX_JSON_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_ENTRIES: usize = 500;
 
 /// Every `assets/<name>` string anywhere in the overlay.
@@ -82,30 +83,66 @@ pub fn import(project: &ProjectStore, src: &Path) -> AppResult<Overlay> {
     if zip.len() > MAX_ENTRIES {
         return user_err("That overlay file has too many files inside.");
     }
-    let mut overlay: Option<Value> = None;
-    let mut renames: HashMap<String, String> = HashMap::new();
-    let mut total: u64 = 0;
     let tmp_dir = tempdir_in(&project.assets_dir())?;
+    let mut renames: HashMap<String, String> = HashMap::new();
+    let result = read_entries(project, &mut zip, &tmp_dir, &mut renames);
+    let _ = std::fs::remove_dir_all(&tmp_dir);
+    let built = result.and_then(|value| {
+        let mut value = value.ok_or_else(|| {
+            crate::error::AppError::User("That file has no overlay in it.".into())
+        })?;
+        rewrite(&mut value, &|s: &str| {
+            let name = s.strip_prefix("assets/")?;
+            renames.get(name).map(|n| format!("assets/{n}"))
+        });
+        Ok(serde_json::from_value::<Overlay>(value)?)
+    });
+    let mut overlay = match built {
+        Ok(o) => o,
+        Err(e) => {
+            // Don't leave half an import behind.
+            for name in renames.values() {
+                let _ = project.delete_asset(name);
+            }
+            return Err(e);
+        }
+    };
+    overlay.id = new_id();
+    for l in &mut overlay.layers {
+        l.id = new_id();
+    }
+    overlay.updated_at = crate::util::now_ms();
+    Ok(overlay)
+}
+
+/// Copy assets into the project and return the overlay JSON, if any.
+fn read_entries(
+    project: &ProjectStore,
+    zip: &mut zip::ZipArchive<std::fs::File>,
+    tmp_dir: &Path,
+    renames: &mut HashMap<String, String>,
+) -> AppResult<Option<Value>> {
+    let mut overlay: Option<Value> = None;
+    let mut total: u64 = 0;
     for i in 0..zip.len() {
         let mut entry = zip.by_index(i).map_err(zip_err)?;
         if entry.is_dir() {
             continue;
         }
-        let size = entry.size();
-        if size > MAX_ENTRY_BYTES {
-            return user_err("A file inside the overlay is too large.");
-        }
-        total += size;
-        if total > MAX_TOTAL_BYTES {
+        // Sizes in the zip header can be faked, so count what is actually read.
+        if entry.size() > MAX_ENTRY_BYTES || total + entry.size() > MAX_TOTAL_BYTES {
             return user_err("The overlay file is too large.");
         }
+        let limit = MAX_ENTRY_BYTES.min(MAX_TOTAL_BYTES - total);
         let name = entry.name().replace('\\', "/");
         if name == "overlay.json" {
+            let cap = MAX_JSON_BYTES.min(limit);
             let mut buf = Vec::new();
-            entry
-                .by_ref()
-                .take(16 * 1024 * 1024)
-                .read_to_end(&mut buf)?;
+            entry.by_ref().take(cap + 1).read_to_end(&mut buf)?;
+            if buf.len() as u64 > cap {
+                return user_err("The overlay file is too large.");
+            }
+            total += buf.len() as u64;
             overlay = Some(serde_json::from_slice(&buf)?);
         } else if let Some(asset) = name.strip_prefix("assets/") {
             let Some(asset) = safe_file_name(asset) else {
@@ -113,26 +150,17 @@ pub fn import(project: &ProjectStore, src: &Path) -> AppResult<Overlay> {
             };
             let staged = tmp_dir.join(&asset);
             let mut out = std::fs::File::create(&staged)?;
-            std::io::copy(&mut entry.by_ref().take(MAX_ENTRY_BYTES), &mut out)?;
+            let copied = std::io::copy(&mut entry.by_ref().take(limit + 1), &mut out)?;
             drop(out);
+            if copied > limit {
+                return user_err("The overlay file is too large.");
+            }
+            total += copied;
             let added = project.import_asset(&staged)?;
+            let _ = std::fs::remove_file(&staged);
             renames.insert(asset, added.name);
         }
     }
-    let _ = std::fs::remove_dir_all(&tmp_dir);
-    let Some(mut value) = overlay else {
-        return user_err("That file has no overlay in it.");
-    };
-    rewrite(&mut value, &|s: &str| {
-        let name = s.strip_prefix("assets/")?;
-        renames.get(name).map(|n| format!("assets/{n}"))
-    });
-    let mut overlay: Overlay = serde_json::from_value(value)?;
-    overlay.id = new_id();
-    for l in &mut overlay.layers {
-        l.id = new_id();
-    }
-    overlay.updated_at = crate::util::now_ms();
     Ok(overlay)
 }
 
@@ -191,6 +219,29 @@ mod tests {
             b"OTHER"
         );
         assert!(!b.assets().iter().any(|x| x.name.starts_with(".import")));
+    }
+
+    #[test]
+    fn failed_import_leaves_no_files_behind() {
+        let dir = tempfile::tempdir().unwrap();
+        let (p, _) = ProjectStore::open(dir.path()).unwrap();
+        let file = dir.path().join("broken.cwoverlay");
+        {
+            let mut z = zip::ZipWriter::new(std::fs::File::create(&file).unwrap());
+            let opts = zip::write::SimpleFileOptions::default();
+            z.start_file("assets/logo.png", opts).unwrap();
+            z.write_all(b"PNG").unwrap();
+            z.start_file("overlay.json", opts).unwrap();
+            z.write_all(b"{ not json").unwrap();
+            z.finish().unwrap();
+        }
+        assert!(import(&p, &file).is_err());
+        let left: Vec<_> = std::fs::read_dir(p.assets_dir())
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name())
+            .collect();
+        assert!(left.is_empty(), "left behind: {left:?}");
     }
 
     #[test]

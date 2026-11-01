@@ -45,7 +45,7 @@
   {#if app.server}
     <span class="item" title={app.server.error ?? ''}>
       <i class="dot {app.server.running ? 'ok' : 'bad'}"></i>Overlay server
-      <span class="mono">{app.server.running ? `127.0.0.1:${app.server.port}` : 'stopped'}</span>
+      <span class="mono">{app.server.running ? app.server.base_url.replace(/^https?:\/\//, '') : 'stopped'}</span>
     </span>
   {/if}
   {#if app.demo}<span class="item demo">Demo mode</span>{/if}

@@ -35,14 +35,14 @@
   const overlay = $derived(previewOverlay(size.width, size.height));
   const scale = $derived(width > 0 ? width / size.width : 0);
   const event = $derived(sampleFor(kind, variation));
-  const matching = $derived(pickVariation(type, event));
+  const matching = $derived(pickVariation(type, event, app.vars));
 
   const assetUrl = (p: string) =>
-    /^(https?:|data:|blob:)/.test(p) ? p : app.demo ? '' : appAssetUrl(p, app.server?.base_url, app.server?.token);
+    /^(https?:|data:|blob:)/.test(p) ? p : app.demo ? '' : appAssetUrl(p, app.server?.base_url, app.server?.asset_key);
 
   const alert = $derived.by((): ActiveAlert | null => {
     if (!variation) return null;
-    const play = renderPlay(variation, event, settings, newId());
+    const play = renderPlay(variation, event, settings, newId(), app.vars);
     if (replayAt !== null) return { play, startedAt: replayAt, stoppedAt: null };
     // Join late so the enter animation is already done and edits show at once.
     const skip = durationOf(play.enter, 'enter') + (play.enter.delay_ms ?? 0) + 50;

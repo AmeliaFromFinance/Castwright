@@ -150,6 +150,10 @@ impl Automation {
                 match played.recv().await {
                     Ok(p) => {
                         if let Some(id) = p.run_action {
+                            if p.play.event.test {
+                                me.skip_for_test(&id);
+                                continue;
+                            }
                             let ctx = p.play.event.as_context();
                             me.spawn_run(&id, "alert", ctx_from(&ctx), None);
                         }
@@ -175,9 +179,27 @@ impl Automation {
             .read(|p| p.actions.iter().filter(|a| a.enabled).cloned().collect())
     }
 
+    /// Test buttons make sample events with made-up viewers; running real
+    /// Twitch steps for them (shoutouts, timeouts) would hit real people.
+    fn skip_for_test(&self, action_id: &str) {
+        let name = self.project.read(|p| {
+            p.actions
+                .iter()
+                .find(|a| a.id == action_id)
+                .map(|a| a.name.clone())
+        });
+        if let Some(name) = name {
+            self.hub.log(
+                LogLevel::Info,
+                "automation",
+                format!("Test event: \"{name}\" wasn't run. Use Run now to try it."),
+            );
+        }
+    }
+
     pub fn on_event(self: &Arc<Self>, event: &Event) {
         match event.kind {
-            EventKind::Chat => {
+            EventKind::Chat if !self.is_own_chat(event) => {
                 self.chat_lines.fetch_add(1, Ordering::Relaxed);
             }
             EventKind::StreamOnline => self.set_live(true),
@@ -223,6 +245,10 @@ impl Automation {
                 _ => None,
             });
             if let Some((label, extra, reply_to)) = hit {
+                if event.test {
+                    self.skip_for_test(&action.id);
+                    continue;
+                }
                 let mut c = ctx_from(&ctx);
                 c.extend(extra);
                 self.spawn_run(&action.id, &label, c, reply_to);
@@ -331,20 +357,29 @@ impl Automation {
 
     /// Chat sent by Castwright or by the bot account; never triggers actions.
     fn is_own_chat(&self, event: &Event) -> bool {
-        if event.data.get("sent_by_castwright").and_then(Value::as_bool) == Some(true) {
+        if event
+            .data
+            .get("sent_by_castwright")
+            .and_then(Value::as_bool)
+            == Some(true)
+        {
             return true;
         }
-        event.user.as_ref().is_some_and(|u| {
-            !u.id.is_empty() && self.ignored_users.read().unwrap().contains(&u.id)
-        })
+        event
+            .user
+            .as_ref()
+            .is_some_and(|u| !u.id.is_empty() && self.ignored_users.read().unwrap().contains(&u.id))
     }
 
     /// Whether the action's own cooldown has passed, without starting it.
     fn cooldown_ready(&self, action: &Action) -> bool {
         action.cooldown_s == 0
-            || self.last_run.lock().unwrap().get(&action.id).is_none_or(|last| {
-                last.elapsed() >= Duration::from_secs(action.cooldown_s as u64)
-            })
+            || self
+                .last_run
+                .lock()
+                .unwrap()
+                .get(&action.id)
+                .is_none_or(|last| last.elapsed() >= Duration::from_secs(action.cooldown_s as u64))
     }
 
     fn user_cooldown_ok(&self, action_id: &str, event: &Event, cooldown_s: u32) -> bool {
@@ -663,6 +698,11 @@ impl Automation {
                 let text = self.http_request(*method, &t(url), &t(body)).await?;
                 let key = t(save_to);
                 if !key.is_empty() {
+                    if !crate::vars::valid_key(&key) {
+                        return Err(crate::error::AppError::User(format!(
+                            "\"{key}\" isn't a valid variable name."
+                        )));
+                    }
                     self.set_var(run, &key, Value::String(text), false);
                 }
             }
@@ -787,11 +827,18 @@ impl Automation {
                 )
                 .body(body.to_string());
         }
-        let resp = req.send().await?;
+        let mut resp = req.send().await?;
         let status = resp.status();
-        let bytes = resp.bytes().await?;
-        let slice = &bytes[..bytes.len().min(HTTP_MAX_BYTES)];
-        let text = String::from_utf8_lossy(slice).into_owned();
+        // Read only what's kept, so a huge response can't fill memory.
+        let mut bytes = Vec::new();
+        while bytes.len() < HTTP_MAX_BYTES {
+            let Some(chunk) = resp.chunk().await? else {
+                break;
+            };
+            bytes.extend_from_slice(&chunk);
+        }
+        bytes.truncate(HTTP_MAX_BYTES);
+        let text = String::from_utf8_lossy(&bytes).into_owned();
         if !status.is_success() {
             return user_err(format!("The server answered {status}."));
         }

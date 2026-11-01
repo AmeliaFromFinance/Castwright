@@ -42,11 +42,16 @@ export function testableKinds(config: AlertConfig | null | undefined): EventKind
 }
 
 /** What the backend would send to overlays for this event, using the first enabled variation. */
-export function sampleAlert(config: AlertConfig | null | undefined, kind: EventKind, event: Event = sampleEvent(kind)): AlertPlay | null {
+export function sampleAlert(
+  config: AlertConfig | null | undefined,
+  kind: EventKind,
+  event: Event = sampleEvent(kind),
+  vars: Record<string, unknown> = {}
+): AlertPlay | null {
   const type = config?.types.find((t) => t.kind === kind && t.enabled);
   const v = type?.variations.find((x) => x.enabled);
   if (!v) return null;
-  const ctx = eventContext(event);
+  const ctx = { ...vars, ...eventContext(event) };
   return {
     id: `test-${newId()}`,
     kind,

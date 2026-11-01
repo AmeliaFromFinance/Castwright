@@ -48,8 +48,8 @@ The field is a key, written the same way as in [templates](/reference/templates/
 | doesn't contain | `not_contains` | The opposite of contains. Also passes when the field is missing. |
 | starts with | `starts_with` | Text starts with the value |
 | ends with | `ends_with` | Text ends with the value |
-| has a value | `exists` | The field is there and not empty (`null`) |
-| is empty | `not_exists` | The field is missing or `null` |
+| has a value | `exists` | The field is there, and isn't blank text |
+| is empty | `not_exists` | The field is missing, `null` or blank text |
 | is yes/true | `is_true` | The field counts as true (see below) |
 | is no/false | `is_false` | The field doesn't count as true, including when it's missing |
 
@@ -87,7 +87,7 @@ In the condition editor, a value that reads as a number is saved as a number. An
 
 ### Empty text
 
-Empty text (`""`) is a value. **has a value** passes for it and **is empty** fails. To test for empty text, use **is** with an empty value.
+Text that is empty or only spaces counts as no value, so **is empty** matches a sub with no message. The number `0` and `false` are values.
 
 ## Examples
 

@@ -12,7 +12,7 @@
   import Switch from '$lib/ui/Switch.svelte';
   import Row from './Row.svelte';
   import ThemeEditor from './ThemeEditor.svelte';
-  import { updateAppearance, updateWindowEffect } from './appearance.svelte';
+  import { updateAppearance, updateWindowEffect } from './theme-settings.svelte';
   import { Plus, Pencil, Upload, Copy } from '@lucide/svelte';
 
   const appearance = $derived(app.settings!.appearance);

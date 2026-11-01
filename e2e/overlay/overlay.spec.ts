@@ -141,6 +141,11 @@ test('renders every layer type and follows live updates', async ({ page }) => {
   await expect(widget.locator('#hits')).toHaveText('hits:5');
   await expect(widget.locator('p')).toHaveText('Hi there');
   await expect(layer(page, 'widget').locator('iframe')).toHaveAttribute('sandbox', 'allow-scripts');
+  // Widget code can't read the token from its base URL.
+  const frame = page.frames().find((f) => f.url().startsWith('about:srcdoc'));
+  expect(frame).toBeTruthy();
+  const leaked = await frame!.evaluate(() => document.baseURI + ' ' + location.href);
+  expect(leaked).not.toContain('token');
 
   // Events reach lists and the widget; the widget's store write reaches the server
   const follow = event('follow', { user: { id: 'f2', login: 'lumenlark', display_name: 'LumenLark' } });

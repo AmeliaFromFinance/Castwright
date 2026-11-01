@@ -27,10 +27,10 @@ class AssetStore {
 export const assetStore = new AssetStore();
 
 /** URL for an asset path (`assets/x.png`) in the app window. */
-export function appAssetUrl(path: string, baseUrl: string | undefined, token: string | undefined): string {
+export function appAssetUrl(path: string, baseUrl: string | undefined, assetKey: string | undefined): string {
   if (!path) return '';
   if (/^(https?:|data:|blob:)/.test(path)) return path;
   const name = path.startsWith('assets/') ? path.slice(7) : path;
   if (!baseUrl) return '';
-  return `${baseUrl}/assets/${encodeURIComponent(name)}?token=${encodeURIComponent(token ?? '')}`;
+  return `${baseUrl}/assets/${encodeURIComponent(name)}?key=${encodeURIComponent(assetKey ?? '')}`;
 }

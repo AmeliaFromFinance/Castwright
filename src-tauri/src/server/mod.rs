@@ -47,6 +47,47 @@ pub struct OverlayServer {
 #[derive(Deserialize)]
 struct TokenQuery {
     token: Option<String>,
+    key: Option<String>,
+}
+
+/// This computer's address on the local network. Connecting a UDP socket sends nothing.
+fn lan_ip() -> Option<IpAddr> {
+    let sock = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
+    sock.connect("192.0.2.1:9").ok()?;
+    let ip = sock.local_addr().ok()?.ip();
+    (!ip.is_unspecified() && !ip.is_loopback()).then_some(ip)
+}
+
+/// Key that only opens `/assets/`. Derived from the token, so a new token makes a new key.
+pub fn asset_key(token: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(format!("castwright-assets:{token}").as_bytes());
+    digest.iter().take(16).map(|b| format!("{b:02x}")).collect()
+}
+
+/// Browsers send `Origin`; only pages served by this server may use live data and actions.
+/// Tools like Stream Deck plugins and curl send no `Origin` and are allowed.
+fn origin_ok(headers: &HeaderMap) -> bool {
+    let Some(origin) = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) else {
+        return true;
+    };
+    let host = headers
+        .get(header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    let origin_host = origin
+        .strip_prefix("http://")
+        .or_else(|| origin.strip_prefix("https://"))
+        .unwrap_or("");
+    if !host.is_empty() && origin_host.eq_ignore_ascii_case(host) {
+        return true;
+    }
+    // Development: overlay pages come from the Vite dev server.
+    cfg!(debug_assertions) && origin_host == "localhost:1420"
+}
+
+fn wrong_origin() -> Response {
+    (StatusCode::FORBIDDEN, "Not allowed from this page.").into_response()
 }
 
 #[derive(Deserialize)]
@@ -80,7 +121,9 @@ impl OverlayServer {
 
     pub fn set_token(&self, token: String) {
         *self.ctx.token.write().unwrap() = token.clone();
-        self.info.write().unwrap().token = token;
+        let mut info = self.info.write().unwrap();
+        info.asset_key = asset_key(&token);
+        info.token = token;
     }
 
     /// Start (or restart) listening. Tries the next few ports if the first is taken.
@@ -107,14 +150,33 @@ impl OverlayServer {
                             })
                             .await;
                     });
+                    // With other devices allowed, links use this computer's network address.
+                    let host = if allow_lan {
+                        lan_ip().unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST))
+                    } else {
+                        IpAddr::V4(Ipv4Addr::LOCALHOST)
+                    };
                     let info = ServerInfo {
                         running: true,
                         port: p,
-                        base_url: format!("http://127.0.0.1:{p}"),
+                        base_url: format!("http://{host}:{p}"),
                         token: self.ctx.token.read().unwrap().clone(),
-                        error: (port != 0 && p != port)
-                            .then(|| format!("Port {port} was busy, using {p} instead.")),
+                        asset_key: asset_key(&self.ctx.token.read().unwrap()),
+                        error: (port != 0 && p != port).then(|| {
+                            format!(
+                                "Port {port} was busy, so overlays use port {p} for now. \
+                                 Overlay links already in OBS won't load until port {port} is free \
+                                 again, or you pick a new port in Settings."
+                            )
+                        }),
                     };
+                    if let Some(msg) = &info.error {
+                        self.ctx.hub.log(
+                            crate::model::runtime::LogLevel::Warn,
+                            "server",
+                            msg.clone(),
+                        );
+                    }
                     *self.info.write().unwrap() = info.clone();
                     return info;
                 }
@@ -126,6 +188,7 @@ impl OverlayServer {
             port,
             base_url: String::new(),
             token: self.ctx.token.read().unwrap().clone(),
+            asset_key: asset_key(&self.ctx.token.read().unwrap()),
             error: Some(format!(
                 "Couldn't open the overlay server on ports {port}-{}: {last_err}",
                 port + PORT_ATTEMPTS - 1
@@ -233,13 +296,27 @@ async fn overlay_page(
         );
         return (StatusCode::TEMPORARY_REDIRECT, [(header::LOCATION, to)]).into_response();
     }
-    embedded("overlay.html").unwrap_or_else(|| {
-        (
+    let Some(page) = WebAssets::get("overlay.html") else {
+        return (
             StatusCode::INTERNAL_SERVER_ERROR,
             "Overlay page is missing from this build.",
         )
-            .into_response()
-    })
+            .into_response();
+    };
+    let key = asset_key(&ctx.token.read().unwrap());
+    let html = String::from_utf8_lossy(&page.data).replacen(
+        "</head>",
+        &format!("<meta name=\"cw-asset-key\" content=\"{key}\"></head>"),
+        1,
+    );
+    let mut resp = Response::new(Body::from(html));
+    resp.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("text/html; charset=utf-8"),
+    );
+    resp.headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    resp
 }
 
 async fn static_file(Path(path): Path<String>) -> Response {
@@ -256,7 +333,11 @@ async fn asset(
     headers: HeaderMap,
     req: Request,
 ) -> Response {
-    if !authorized(&ctx, q.token.as_deref(), &headers) {
+    let key_ok = q.key.as_deref().is_some_and(|k| {
+        let token = ctx.token.read().unwrap();
+        !token.is_empty() && secure_eq(k, &asset_key(&token))
+    });
+    if !key_ok && !authorized(&ctx, q.token.as_deref(), &headers) {
         return forbidden();
     }
     let Some(path) = ctx.project.asset_path(&name) else {
@@ -278,6 +359,9 @@ async fn overlay_json(
     Query(q): Query<TokenQuery>,
     headers: HeaderMap,
 ) -> Response {
+    if !origin_ok(&headers) {
+        return wrong_origin();
+    }
     if !authorized(&ctx, q.token.as_deref(), &headers) {
         return forbidden();
     }
@@ -296,6 +380,9 @@ async fn run_action(
     Query(q): Query<TokenQuery>,
     headers: HeaderMap,
 ) -> Response {
+    if !origin_ok(&headers) {
+        return wrong_origin();
+    }
     if !authorized(&ctx, q.token.as_deref(), &headers) {
         return forbidden();
     }
@@ -311,21 +398,35 @@ async fn ws_upgrade(
     headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
+    if !origin_ok(&headers) {
+        return wrong_origin();
+    }
     if !authorized(&ctx, q.token.as_deref(), &headers) {
         return forbidden();
     }
     let Some(overlay_id) = q.overlay.filter(|o| !o.is_empty()) else {
         return (StatusCode::BAD_REQUEST, "overlay id missing").into_response();
     };
+    let token = q
+        .token
+        .or_else(|| {
+            headers
+                .get("x-castwright-token")
+                .and_then(|v| v.to_str().ok())
+                .map(str::to_string)
+        })
+        .unwrap_or_default();
     ws.max_message_size(MAX_CLIENT_MSG)
-        .on_upgrade(move |socket| overlay_socket(ctx, overlay_id, socket))
+        .on_upgrade(move |socket| overlay_socket(ctx, overlay_id, token, socket))
 }
 
 fn hello(ctx: &Ctx, overlay_id: &str) -> Option<OverlayMsg> {
     let overlay = ctx
         .project
         .read(|p| p.overlays.iter().find(|o| o.id == overlay_id).cloned())?;
-    let widget_state = ctx.hub.db.widget_state().unwrap_or_default();
+    // Only this overlay's widgets; other overlays' saved data stays private.
+    let mut widget_state = ctx.hub.db.widget_state().unwrap_or_default();
+    widget_state.retain(|layer_id, _| overlay.layers.iter().any(|l| &l.id == layer_id));
     Some(OverlayMsg::Hello {
         overlay,
         vars: ctx.hub.vars.snapshot(),
@@ -335,7 +436,7 @@ fn hello(ctx: &Ctx, overlay_id: &str) -> Option<OverlayMsg> {
     })
 }
 
-async fn overlay_socket(ctx: Ctx, overlay_id: String, socket: WebSocket) {
+async fn overlay_socket(ctx: Ctx, overlay_id: String, token: String, socket: WebSocket) {
     // Subscribe before building the hello so nothing sent in between is lost.
     let mut rx = ctx.hub.subscribe_overlays();
     let (mut tx, mut incoming) = socket.split();
@@ -346,8 +447,16 @@ async fn overlay_socket(ctx: Ctx, overlay_id: String, socket: WebSocket) {
     if send(&mut tx, &first).await.is_err() {
         return;
     }
+    // A new secret disconnects pages that still use the old one.
+    let mut check = tokio::time::interval(std::time::Duration::from_secs(2));
     loop {
         tokio::select! {
+            _ = check.tick() => {
+                if *ctx.token.read().unwrap() != token {
+                    let _ = tx.send(Message::Close(None)).await;
+                    break;
+                }
+            }
             out = rx.recv() => match out {
                 Ok(OverlayOut { target, msg }) => {
                     if target.as_deref().is_some_and(|t| t != overlay_id) {

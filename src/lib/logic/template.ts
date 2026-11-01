@@ -68,6 +68,10 @@ function evalExpr(inner: string, ctx: unknown): string {
           text = formatNumber(numeric);
         }
         break;
+      case 'url':
+        text = encodeURIComponent(text);
+        numeric = null;
+        break;
       case 'default':
         if (text === '') {
           text = arg ?? '';

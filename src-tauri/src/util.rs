@@ -27,6 +27,15 @@ pub fn random_token() -> String {
 /// Write a file so that a crash mid-write never leaves a half-written file behind:
 /// write to a temporary file next to it, flush to disk, then rename over the original.
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    write_atomic_inner(path, bytes, false)
+}
+
+/// Like `write_atomic`, but only the current user can ever read the file (Unix).
+pub fn write_atomic_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    write_atomic_inner(path, bytes, true)
+}
+
+fn write_atomic_inner(path: &Path, bytes: &[u8], private: bool) -> std::io::Result<()> {
     use std::io::Write;
     let dir = path.parent().unwrap_or_else(|| Path::new("."));
     std::fs::create_dir_all(dir)?;
@@ -36,7 +45,16 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
         .unwrap_or_else(|| "file".into());
     let tmp = dir.join(format!(".{file_name}.{}.tmp", new_id()));
     {
-        let mut f = std::fs::File::create(&tmp)?;
+        let mut opts = std::fs::OpenOptions::new();
+        opts.write(true).create_new(true);
+        #[cfg(unix)]
+        if private {
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.mode(0o600);
+        }
+        #[cfg(not(unix))]
+        let _ = private;
+        let mut f = opts.open(&tmp)?;
         f.write_all(bytes)?;
         f.sync_all()?;
     }
@@ -70,6 +88,40 @@ pub fn secure_eq(a: &str, b: &str) -> bool {
         return false;
     }
     a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+}
+
+/// Read JSON into `T`, keeping every setting that still parses when some don't
+/// (for example a value written by a newer version). Checks two levels deep.
+pub fn lenient_json<T>(raw: &serde_json::Value) -> T
+where
+    T: serde::Serialize + serde::de::DeserializeOwned + Default,
+{
+    use serde_json::Value;
+    let parses = |v: &Value| serde_json::from_value::<T>(v.clone()).is_ok();
+    let mut out = serde_json::to_value(T::default()).unwrap_or(Value::Null);
+    if let (Value::Object(raw), true) = (raw, out.is_object()) {
+        for (k, rv) in raw {
+            let Some(current) = out.get(k).cloned() else {
+                continue;
+            };
+            if let (Value::Object(rsub), Value::Object(_)) = (rv, &current) {
+                for (sk, sv) in rsub {
+                    let mut candidate = out.clone();
+                    candidate[k][sk] = sv.clone();
+                    if parses(&candidate) {
+                        out = candidate;
+                    }
+                }
+            } else {
+                let mut candidate = out.clone();
+                candidate[k] = rv.clone();
+                if parses(&candidate) {
+                    out = candidate;
+                }
+            }
+        }
+    }
+    serde_json::from_value(out).unwrap_or_default()
 }
 
 #[cfg(test)]

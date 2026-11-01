@@ -121,7 +121,7 @@ Every state option also takes `toggle`, which flips the current state.
 | --- | --- | --- | --- |
 | Show/hide overlay layer | `set_layer_visible` | Overlay, layer, state (`on`) | Changes the layer's visibility switch and saves it in the project. |
 | Play alert | `play_alert` | Title (T), message (T, empty), image (empty), sound (empty), duration in ms (6000) | Joins the alert queue. Duration is kept between 500 and 120,000 ms. |
-| Play sound | `play_sound` | Sound (T), volume (70) | Volume 0 to 100. Plays in each open overlay that has an Alerts layer. |
+| Play sound | `play_sound` | Sound (T), volume (70) | Volume 0 to 100. Plays where alerts play: each open overlay with a visible Alerts layer. Keep one such overlay per scene so it plays once. |
 
 ### Variables and data
 

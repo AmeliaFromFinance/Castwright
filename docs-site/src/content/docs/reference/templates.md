@@ -45,6 +45,7 @@ A missing key is never an error. It just shows nothing, so use `default` when th
 | `number` | Adds thousands separators, at most 2 decimals | `{{amount \| number}}` with 1234567.891 | `1,234,567.89` |
 | `round` | Rounds to a whole number, halves round up | `{{amount \| round}}` with 12.5 | `13` |
 | `default:"text"` | Uses the text when the value is missing or empty | `{{message \| default:"No message"}}` | `No message` |
+| `url` | Makes the value safe inside a web address | `?q={{input \| url}}` | `?q=hello%20there` |
 
 Details:
 
@@ -80,9 +81,7 @@ The alert title and message can use the fields of the event that caused the aler
 | `user.login`, `user.display_name` | `nova_kat`, `Nova_Kat` |
 | `data.<key>` | Kind-specific values, like `data.reward_title` or `data.level` |
 
-:::caution
-Alert text can't read variables. `{{session.subs}}` shows nothing in an alert. Use an overlay text layer for variable values.
-:::
+Alert text and alert conditions can also use every [variable](/reference/variables/), for example `{{session.subs}}`. Variables are updated before the alert is built, so the count includes this sub. When a variable and an event field share a name, the event field wins.
 
 ### Automation
 
