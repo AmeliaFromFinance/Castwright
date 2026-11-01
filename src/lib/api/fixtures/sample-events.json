@@ -1,0 +1,794 @@
+[
+  {
+    "id": "11607c86-7d1e-4689-9ea1-bb0dc22b3cc2",
+    "kind": "follow",
+    "ts": 1793533905382,
+    "user": {
+      "id": "10004",
+      "login": "tomasz",
+      "display_name": "Tomasz"
+    },
+    "amount": null,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {},
+    "test": true
+  },
+  {
+    "id": "77c4c747-85f5-4e10-a665-7de2f5260721",
+    "kind": "sub",
+    "ts": 1793533905382,
+    "user": {
+      "id": "10004",
+      "login": "tomasz",
+      "display_name": "Tomasz"
+    },
+    "amount": null,
+    "currency": null,
+    "tier": 1,
+    "months": 1,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {},
+    "test": true
+  },
+  {
+    "id": "d429f7c4-3a5f-4c40-b651-575729086edd",
+    "kind": "resub",
+    "ts": 1793533905382,
+    "user": {
+      "id": "10004",
+      "login": "tomasz",
+      "display_name": "Tomasz"
+    },
+    "amount": null,
+    "currency": null,
+    "tier": 1,
+    "months": 14,
+    "message": "Been here since the first stream!",
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {},
+    "test": true
+  },
+  {
+    "id": "d16255eb-adc7-455f-8a40-488032a801fd",
+    "kind": "gift_sub",
+    "ts": 1793533905382,
+    "user": {
+      "id": "10004",
+      "login": "tomasz",
+      "display_name": "Tomasz"
+    },
+    "amount": null,
+    "currency": null,
+    "tier": 1,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": true,
+    "is_anonymous": false,
+    "recipient": {
+      "id": "10005",
+      "login": "quietfox",
+      "display_name": "quietfox"
+    },
+    "data": {},
+    "test": true
+  },
+  {
+    "id": "f74bdb43-499d-405b-8507-f8511f8a0d55",
+    "kind": "community_gift",
+    "ts": 1793533905382,
+    "user": {
+      "id": "10004",
+      "login": "tomasz",
+      "display_name": "Tomasz"
+    },
+    "amount": 5.0,
+    "currency": null,
+    "tier": 1,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": true,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {},
+    "test": true
+  },
+  {
+    "id": "7d1b9a4a-f022-450c-92c0-d9d99245d699",
+    "kind": "cheer",
+    "ts": 1793533905382,
+    "user": {
+      "id": "10004",
+      "login": "tomasz",
+      "display_name": "Tomasz"
+    },
+    "amount": 500.0,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": "Cheer500 gg on that round",
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {},
+    "test": true
+  },
+  {
+    "id": "129c1202-f653-4b29-85b6-8794743d3dcf",
+    "kind": "raid",
+    "ts": 1793533905382,
+    "user": {
+      "id": "10004",
+      "login": "tomasz",
+      "display_name": "Tomasz"
+    },
+    "amount": 212.0,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {},
+    "test": true
+  },
+  {
+    "id": "b844da04-94b6-4023-ad88-74898839a646",
+    "kind": "redemption",
+    "ts": 1793533905382,
+    "user": {
+      "id": "10004",
+      "login": "tomasz",
+      "display_name": "Tomasz"
+    },
+    "amount": 500.0,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": "drink some water!",
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {
+      "reward_id": "sample-reward",
+      "reward_title": "Hydrate"
+    },
+    "test": true
+  },
+  {
+    "id": "dfcf73d4-1368-498c-9b2b-786e6b8b6fb4",
+    "kind": "power_up",
+    "ts": 1793533905382,
+    "user": {
+      "id": "10004",
+      "login": "tomasz",
+      "display_name": "Tomasz"
+    },
+    "amount": 100.0,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": "look at this",
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {
+      "power_up_type": "message_effect"
+    },
+    "test": true
+  },
+  {
+    "id": "6f52cac5-ea98-4cbb-9161-ef7cffa1cefd",
+    "kind": "hype_train_begin",
+    "ts": 1793533905382,
+    "user": null,
+    "amount": null,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {
+      "goal": 1800,
+      "level": 2,
+      "progress": 650,
+      "total": 1450
+    },
+    "test": true
+  },
+  {
+    "id": "8f0cfb8a-8025-4d8f-a956-8d2803bd053a",
+    "kind": "hype_train_progress",
+    "ts": 1793533905382,
+    "user": null,
+    "amount": null,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {
+      "goal": 1800,
+      "level": 2,
+      "progress": 650,
+      "total": 1450
+    },
+    "test": true
+  },
+  {
+    "id": "1434ddbe-d072-4579-88ca-53a6649eb81b",
+    "kind": "hype_train_end",
+    "ts": 1793533905382,
+    "user": null,
+    "amount": null,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {
+      "goal": 1800,
+      "level": 2,
+      "progress": 650,
+      "total": 1450
+    },
+    "test": true
+  },
+  {
+    "id": "3c441d65-66ff-49ab-bbc5-d502fefe486d",
+    "kind": "poll_begin",
+    "ts": 1793533905382,
+    "user": null,
+    "amount": null,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {
+      "choices": [
+        {
+          "title": "Dust",
+          "votes": 14
+        },
+        {
+          "title": "Mirage",
+          "votes": 9
+        }
+      ],
+      "title": "Which map next?"
+    },
+    "test": true
+  },
+  {
+    "id": "4255f29e-31c9-4903-91ea-9079b5d9a832",
+    "kind": "poll_progress",
+    "ts": 1793533905382,
+    "user": null,
+    "amount": null,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {
+      "choices": [
+        {
+          "title": "Dust",
+          "votes": 14
+        },
+        {
+          "title": "Mirage",
+          "votes": 9
+        }
+      ],
+      "title": "Which map next?"
+    },
+    "test": true
+  },
+  {
+    "id": "42c665d2-de4f-44d7-9562-bb556b4cdad2",
+    "kind": "poll_end",
+    "ts": 1793533905382,
+    "user": null,
+    "amount": null,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {
+      "choices": [
+        {
+          "title": "Dust",
+          "votes": 14
+        },
+        {
+          "title": "Mirage",
+          "votes": 9
+        }
+      ],
+      "title": "Which map next?"
+    },
+    "test": true
+  },
+  {
+    "id": "90e8e477-e301-4338-9cbf-391f1133d69c",
+    "kind": "prediction_begin",
+    "ts": 1793533905382,
+    "user": null,
+    "amount": null,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {
+      "outcomes": [
+        {
+          "channel_points": 12000,
+          "title": "Yes"
+        },
+        {
+          "channel_points": 4500,
+          "title": "No"
+        }
+      ],
+      "title": "Win this round?"
+    },
+    "test": true
+  },
+  {
+    "id": "0d1d88b5-ab4e-4b04-9884-1cdb381c90e0",
+    "kind": "prediction_progress",
+    "ts": 1793533905382,
+    "user": null,
+    "amount": null,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {
+      "outcomes": [
+        {
+          "channel_points": 12000,
+          "title": "Yes"
+        },
+        {
+          "channel_points": 4500,
+          "title": "No"
+        }
+      ],
+      "title": "Win this round?"
+    },
+    "test": true
+  },
+  {
+    "id": "36b14373-f53c-4bd8-ac84-e5db1c780f01",
+    "kind": "prediction_lock",
+    "ts": 1793533905382,
+    "user": null,
+    "amount": null,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {
+      "outcomes": [
+        {
+          "channel_points": 12000,
+          "title": "Yes"
+        },
+        {
+          "channel_points": 4500,
+          "title": "No"
+        }
+      ],
+      "title": "Win this round?"
+    },
+    "test": true
+  },
+  {
+    "id": "a2492330-122e-4497-b8bf-a38a22c1bcfc",
+    "kind": "prediction_end",
+    "ts": 1793533905382,
+    "user": null,
+    "amount": null,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {
+      "outcomes": [
+        {
+          "channel_points": 12000,
+          "title": "Yes"
+        },
+        {
+          "channel_points": 4500,
+          "title": "No"
+        }
+      ],
+      "title": "Win this round?"
+    },
+    "test": true
+  },
+  {
+    "id": "e0192fb7-e9b3-44fb-ae65-e8f25c2ea12e",
+    "kind": "shoutout_received",
+    "ts": 1793533905382,
+    "user": {
+      "id": "10004",
+      "login": "tomasz",
+      "display_name": "Tomasz"
+    },
+    "amount": 87.0,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {},
+    "test": true
+  },
+  {
+    "id": "33445dcf-067e-4f0b-b02a-9b93327f3d5a",
+    "kind": "ad_break",
+    "ts": 1793533905382,
+    "user": null,
+    "amount": 90.0,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {
+      "is_automatic": false
+    },
+    "test": true
+  },
+  {
+    "id": "f44f81ea-1d2b-4467-a185-973705297cbc",
+    "kind": "charity",
+    "ts": 1793533905382,
+    "user": {
+      "id": "10004",
+      "login": "tomasz",
+      "display_name": "Tomasz"
+    },
+    "amount": 10.0,
+    "currency": "GBP",
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {
+      "charity_name": "Example Charity"
+    },
+    "test": true
+  },
+  {
+    "id": "188dc674-b313-4f79-881e-2032f0f6361a",
+    "kind": "stream_online",
+    "ts": 1793533905382,
+    "user": null,
+    "amount": null,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {},
+    "test": true
+  },
+  {
+    "id": "b91c0a15-43e5-461c-b6a3-f1fde418dce6",
+    "kind": "stream_offline",
+    "ts": 1793533905382,
+    "user": null,
+    "amount": null,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {},
+    "test": true
+  },
+  {
+    "id": "d2032098-8d2d-4531-b47d-88fa1814bdb7",
+    "kind": "channel_update",
+    "ts": 1793533905382,
+    "user": null,
+    "amount": null,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {},
+    "test": true
+  },
+  {
+    "id": "f04b0c40-855c-425a-b5bf-ea9f314051bf",
+    "kind": "chat",
+    "ts": 1793533905382,
+    "user": {
+      "id": "10004",
+      "login": "tomasz",
+      "display_name": "Tomasz"
+    },
+    "amount": null,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": "that stinger transition is so clean",
+    "message_parts": [
+      {
+        "type": "text",
+        "text": "that stinger transition is so clean"
+      }
+    ],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {
+      "color": "#C9B3FF"
+    },
+    "test": true
+  },
+  {
+    "id": "b5faae3d-d3e1-408a-8f4a-c2cfb8f00885",
+    "kind": "custom",
+    "ts": 1793533905382,
+    "user": {
+      "id": "10004",
+      "login": "tomasz",
+      "display_name": "Tomasz"
+    },
+    "amount": null,
+    "currency": null,
+    "tier": null,
+    "months": null,
+    "message": null,
+    "message_parts": [],
+    "roles": {
+      "broadcaster": false,
+      "moderator": false,
+      "vip": false,
+      "subscriber": false
+    },
+    "is_gift": false,
+    "is_anonymous": false,
+    "recipient": null,
+    "data": {},
+    "test": true
+  }
+]

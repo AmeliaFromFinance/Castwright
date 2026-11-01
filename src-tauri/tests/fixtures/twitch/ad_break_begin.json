@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "message_id": "msg-ad_break_begin",
+    "message_type": "notification",
+    "message_timestamp": "2023-07-19T10:11:12.634234626Z",
+    "subscription_type": "channel.ad_break.begin",
+    "subscription_version": "1"
+  },
+  "payload": {
+    "subscription": {
+      "id": "f1c2a387-161a-49f9-a165-0f21d7a4e1c4",
+      "status": "enabled",
+      "type": "channel.ad_break.begin",
+      "version": "1",
+      "cost": 0,
+      "condition": { "broadcaster_user_id": "1337" },
+      "transport": { "method": "websocket", "session_id": "AQoQexAWVYKSTIu4ec_2VAxyuhAB" },
+      "created_at": "2023-07-19T10:11:12.634234626Z"
+    },
+    "event": {
+      "duration_seconds": "60",
+      "started_at": "2019-11-16T10:11:12.634234626Z",
+      "is_automatic": "false",
+      "broadcaster_user_id": "1337",
+      "broadcaster_user_login": "cool_user",
+      "broadcaster_user_name": "Cool_User",
+      "requester_user_id": "1337",
+      "requester_user_login": "cool_user",
+      "requester_user_name": "Cool_User"
+    }
+  }
+}

@@ -405,6 +405,61 @@ pub async fn restart_server(core: Ctx<'_>, port: u16, allow_lan: bool) -> AppRes
     Ok(info)
 }
 
+// ---------- twitch ----------
+
+use crate::model::runtime::{AccountRole, DeviceLogin, TwitchStatus};
+use crate::services::TwitchActions;
+use crate::twitch::Category;
+
+#[tauri::command]
+pub fn twitch_status(core: Ctx) -> TwitchStatus {
+    core.twitch.status()
+}
+
+#[tauri::command]
+pub async fn twitch_login(core: Ctx<'_>, role: AccountRole) -> AppResult<DeviceLogin> {
+    core.twitch.start_login(role).await
+}
+
+#[tauri::command]
+pub fn twitch_cancel_login(core: Ctx, role: AccountRole) {
+    core.twitch.cancel_login(role);
+}
+
+#[tauri::command]
+pub async fn twitch_logout(core: Ctx<'_>, role: AccountRole) -> AppResult<()> {
+    core.twitch.logout(role).await
+}
+
+#[tauri::command]
+pub async fn twitch_search_categories(core: Ctx<'_>, query: String) -> AppResult<Vec<Category>> {
+    if query.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    core.twitch.search_categories(query.trim()).await
+}
+
+#[tauri::command]
+pub async fn twitch_update_stream_info(
+    core: Ctx<'_>,
+    title: String,
+    category_id: String,
+    tags: Vec<String>,
+) -> AppResult<()> {
+    if title.chars().count() > 140 {
+        return user_err("Stream titles can be at most 140 characters.");
+    }
+    if tags.len() > 10 {
+        return user_err("Twitch allows at most 10 tags.");
+    }
+    core.twitch.update_stream_info(&title, &category_id, tags).await
+}
+
+#[tauri::command]
+pub async fn twitch_send_chat(core: Ctx<'_>, message: String, as_bot: bool) -> AppResult<()> {
+    core.twitch.send_chat(&message, as_bot, None).await
+}
+
 // ---------- settings ----------
 
 #[tauri::command]

@@ -20,6 +20,7 @@ pub enum ConnState {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS, Default)]
 #[ts(export)]
 pub struct SceneItem {
+    #[ts(type = "number")]
     pub id: i64,
     pub name: String,
     pub kind: String,

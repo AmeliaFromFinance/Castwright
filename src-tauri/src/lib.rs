@@ -9,6 +9,7 @@ pub mod server;
 pub mod services;
 pub mod store;
 pub mod template;
+pub mod twitch;
 pub mod util;
 pub mod vars;
 pub mod window;
@@ -108,6 +109,13 @@ pub fn run() {
             commands::set_twitch_client_id,
             commands::app_info,
             commands::set_window_effect,
+            commands::twitch_status,
+            commands::twitch_login,
+            commands::twitch_cancel_login,
+            commands::twitch_logout,
+            commands::twitch_search_categories,
+            commands::twitch_update_stream_info,
+            commands::twitch_send_chat,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Castwright");

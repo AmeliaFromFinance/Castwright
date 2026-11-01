@@ -1,0 +1,31 @@
+{
+  "metadata": {
+    "message_id": "msg-channel_update",
+    "message_type": "notification",
+    "message_timestamp": "2023-07-19T10:11:12.634234626Z",
+    "subscription_type": "channel.update",
+    "subscription_version": "2"
+  },
+  "payload": {
+    "subscription": {
+      "id": "f1c2a387-161a-49f9-a165-0f21d7a4e1c4",
+      "status": "enabled",
+      "type": "channel.update",
+      "version": "2",
+      "cost": 0,
+      "condition": { "broadcaster_user_id": "1337" },
+      "transport": { "method": "websocket", "session_id": "AQoQexAWVYKSTIu4ec_2VAxyuhAB" },
+      "created_at": "2023-07-19T10:11:12.634234626Z"
+    },
+    "event": {
+      "broadcaster_user_id": "1337",
+      "broadcaster_user_login": "cool_user",
+      "broadcaster_user_name": "Cool_User",
+      "title": "Best Stream Ever",
+      "language": "en",
+      "category_id": "12453",
+      "category_name": "Grand Theft Auto",
+      "content_classification_labels": [ "MatureGame" ]
+    }
+  }
+}

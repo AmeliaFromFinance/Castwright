@@ -9,6 +9,7 @@ use crate::store::db::Db;
 use crate::store::project::{LoadOutcome, ProjectStore};
 use crate::store::secrets::Secrets;
 use crate::store::settings::SettingsStore;
+use crate::twitch::TwitchService;
 use crate::vars::Vars;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -27,6 +28,7 @@ pub struct Core {
     pub alerts: Arc<AlertEngine>,
     pub automation: Arc<Automation>,
     pub server: Arc<OverlayServer>,
+    pub twitch: Arc<TwitchService>,
     pub paths: Paths,
 }
 
@@ -90,6 +92,25 @@ impl Core {
         let automation = Automation::new(hub.clone(), project.clone(), alerts.clone());
         automation.start();
 
+        let twitch = TwitchService::new(hub.clone(), secrets.clone(), settings.clone());
+        automation.set_twitch(twitch.clone());
+        twitch.start();
+        {
+            // Keep automation in step with Twitch: the bot account never triggers
+            // commands, and timers know whether the stream is live.
+            let twitch = twitch.clone();
+            let automation = automation.clone();
+            tokio::spawn(async move {
+                let mut tick = tokio::time::interval(Duration::from_secs(5));
+                loop {
+                    tick.tick().await;
+                    let st = twitch.status();
+                    automation.set_ignored_users(st.bot.map(|b| vec![b.id]).unwrap_or_default());
+                    automation.set_live(st.stream.live);
+                }
+            });
+        }
+
         let s = settings.get();
         let server = OverlayServer::new(
             hub.clone(),
@@ -134,6 +155,7 @@ impl Core {
             alerts,
             automation,
             server,
+            twitch,
             paths,
         }))
     }
@@ -145,6 +167,7 @@ impl Core {
         }
         save_vars(&self.hub, &self.project);
         self.server.stop();
+        self.twitch.shutdown();
     }
 
     pub fn project_dir(&self) -> &Path {

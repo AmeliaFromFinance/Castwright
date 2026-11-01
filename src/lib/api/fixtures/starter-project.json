@@ -1,0 +1,1391 @@
+{
+  "format": 1,
+  "name": "My stream",
+  "overlays": [
+    {
+      "id": "m36hqa7711ov",
+      "name": "Gameplay HUD",
+      "width": 1920,
+      "height": 1080,
+      "layers": [
+        {
+          "id": "j99r7vg4ig94",
+          "name": "Sub goal",
+          "kind": {
+            "type": "goal",
+            "title": "Sub goal",
+            "current_var": "session.subs",
+            "target": 20.0,
+            "bar_color": "#5b8def",
+            "track_color": "rgba(255,255,255,0.14)",
+            "style": {
+              "font_family": "Inter",
+              "font_size": 22.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "show_numbers": true
+          },
+          "x": 48.0,
+          "y": 48.0,
+          "w": 560.0,
+          "h": 110.0,
+          "rotation": 0.0,
+          "opacity": 1.0,
+          "visible": true,
+          "locked": false,
+          "visible_when": {
+            "mode": "all",
+            "conditions": []
+          },
+          "box_style": {
+            "background": "rgba(12,15,22,0.78)",
+            "border_color": "rgba(255,255,255,0.08)",
+            "border_width": 1.0,
+            "radius": 12.0,
+            "padding": 16.0,
+            "shadow": "0 12px 40px rgba(0,0,0,0.35)",
+            "backdrop_blur": 10.0
+          },
+          "enter": {
+            "preset": "slide_down",
+            "duration_ms": 500,
+            "delay_ms": 0,
+            "easing": "ease_out"
+          },
+          "exit": {
+            "preset": "none",
+            "duration_ms": 0,
+            "delay_ms": 0,
+            "easing": "ease_in_out"
+          },
+          "idle": {
+            "preset": "none",
+            "duration_ms": 0,
+            "delay_ms": 0,
+            "easing": "ease_in_out"
+          },
+          "css": ""
+        },
+        {
+          "id": "v0blhtkto6m0",
+          "name": "Chat",
+          "kind": {
+            "type": "chat",
+            "max_messages": 10,
+            "fade_after_s": 0,
+            "show_badges": true,
+            "hide_commands": true,
+            "hide_users": [],
+            "style": {
+              "font_family": "Inter",
+              "font_size": 22.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "bubble": {
+              "background": "transparent",
+              "border_color": "transparent",
+              "border_width": 0.0,
+              "radius": 0.0,
+              "padding": 0.0,
+              "shadow": "",
+              "backdrop_blur": 0.0
+            },
+            "newest_on_top": false
+          },
+          "x": 1392.0,
+          "y": 200.0,
+          "w": 480.0,
+          "h": 640.0,
+          "rotation": 0.0,
+          "opacity": 1.0,
+          "visible": true,
+          "locked": false,
+          "visible_when": {
+            "mode": "all",
+            "conditions": []
+          },
+          "box_style": {
+            "background": "rgba(12,15,22,0.78)",
+            "border_color": "rgba(255,255,255,0.08)",
+            "border_width": 1.0,
+            "radius": 12.0,
+            "padding": 16.0,
+            "shadow": "0 12px 40px rgba(0,0,0,0.35)",
+            "backdrop_blur": 10.0
+          },
+          "enter": {
+            "preset": "none",
+            "duration_ms": 0,
+            "delay_ms": 0,
+            "easing": "ease_in_out"
+          },
+          "exit": {
+            "preset": "none",
+            "duration_ms": 0,
+            "delay_ms": 0,
+            "easing": "ease_in_out"
+          },
+          "idle": {
+            "preset": "none",
+            "duration_ms": 0,
+            "delay_ms": 0,
+            "easing": "ease_in_out"
+          },
+          "css": ""
+        },
+        {
+          "id": "a45cfk3t7duw",
+          "name": "Recent events",
+          "kind": {
+            "type": "event_list",
+            "kinds": [
+              "follow",
+              "sub",
+              "resub",
+              "gift_sub",
+              "community_gift",
+              "cheer",
+              "raid"
+            ],
+            "max_items": 6,
+            "direction": "ticker",
+            "item_format": "{{name}} · {{label}}",
+            "style": {
+              "font_family": "Inter",
+              "font_size": 22.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            }
+          },
+          "x": 560.0,
+          "y": 984.0,
+          "w": 800.0,
+          "h": 56.0,
+          "rotation": 0.0,
+          "opacity": 1.0,
+          "visible": true,
+          "locked": false,
+          "visible_when": {
+            "mode": "all",
+            "conditions": []
+          },
+          "box_style": {
+            "background": "rgba(12,15,22,0.78)",
+            "border_color": "rgba(255,255,255,0.08)",
+            "border_width": 1.0,
+            "radius": 12.0,
+            "padding": 12.0,
+            "shadow": "0 12px 40px rgba(0,0,0,0.35)",
+            "backdrop_blur": 10.0
+          },
+          "enter": {
+            "preset": "none",
+            "duration_ms": 0,
+            "delay_ms": 0,
+            "easing": "ease_in_out"
+          },
+          "exit": {
+            "preset": "none",
+            "duration_ms": 0,
+            "delay_ms": 0,
+            "easing": "ease_in_out"
+          },
+          "idle": {
+            "preset": "none",
+            "duration_ms": 0,
+            "delay_ms": 0,
+            "easing": "ease_in_out"
+          },
+          "css": ""
+        },
+        {
+          "id": "8hnv9umh0ciw",
+          "name": "Alerts",
+          "kind": {
+            "type": "alerts"
+          },
+          "x": 560.0,
+          "y": 80.0,
+          "w": 800.0,
+          "h": 420.0,
+          "rotation": 0.0,
+          "opacity": 1.0,
+          "visible": true,
+          "locked": false,
+          "visible_when": {
+            "mode": "all",
+            "conditions": []
+          },
+          "box_style": {
+            "background": "transparent",
+            "border_color": "transparent",
+            "border_width": 0.0,
+            "radius": 0.0,
+            "padding": 0.0,
+            "shadow": "",
+            "backdrop_blur": 0.0
+          },
+          "enter": {
+            "preset": "none",
+            "duration_ms": 0,
+            "delay_ms": 0,
+            "easing": "ease_in_out"
+          },
+          "exit": {
+            "preset": "none",
+            "duration_ms": 0,
+            "delay_ms": 0,
+            "easing": "ease_in_out"
+          },
+          "idle": {
+            "preset": "none",
+            "duration_ms": 0,
+            "delay_ms": 0,
+            "easing": "ease_in_out"
+          },
+          "css": ""
+        }
+      ],
+      "fonts": [
+        "Inter"
+      ],
+      "updated_at": 0
+    }
+  ],
+  "alerts": {
+    "settings": {
+      "gap_ms": 800,
+      "combine_gifts": true,
+      "blocked_words": [],
+      "hide_links": true,
+      "min_bits": 0,
+      "min_raid_viewers": 0,
+      "max_queue": 50
+    },
+    "types": [
+      {
+        "kind": "follow",
+        "enabled": true,
+        "variations": [
+          {
+            "id": "nlw9tlqgk924",
+            "name": "Default",
+            "enabled": true,
+            "conditions": {
+              "mode": "all",
+              "conditions": []
+            },
+            "priority": 0,
+            "title": "{{name}} followed",
+            "message": "Welcome in!",
+            "image": "",
+            "video": "",
+            "sound": "",
+            "volume": 70,
+            "duration_ms": 6000,
+            "enter": {
+              "preset": "slide_up",
+              "duration_ms": 450,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "exit": {
+              "preset": "fade",
+              "duration_ms": 350,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "layout": "media_above",
+            "title_style": {
+              "font_family": "Inter",
+              "font_size": 40.0,
+              "font_weight": 800,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "message_style": {
+              "font_family": "Inter",
+              "font_size": 24.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "accent": "#9db8ff",
+            "background": "rgba(12,15,22,0.82)",
+            "tts": false,
+            "run_action": null
+          }
+        ]
+      },
+      {
+        "kind": "sub",
+        "enabled": true,
+        "variations": [
+          {
+            "id": "c005y7h4yxph",
+            "name": "Tier 3",
+            "enabled": true,
+            "conditions": {
+              "mode": "all",
+              "conditions": [
+                {
+                  "field": "tier",
+                  "op": "eq",
+                  "value": 3
+                }
+              ]
+            },
+            "priority": 2,
+            "title": "{{name}} is a legend!",
+            "message": "Tier 3 sub",
+            "image": "",
+            "video": "",
+            "sound": "",
+            "volume": 70,
+            "duration_ms": 6000,
+            "enter": {
+              "preset": "slide_up",
+              "duration_ms": 450,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "exit": {
+              "preset": "fade",
+              "duration_ms": 350,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "layout": "media_above",
+            "title_style": {
+              "font_family": "Inter",
+              "font_size": 40.0,
+              "font_weight": 800,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "message_style": {
+              "font_family": "Inter",
+              "font_size": 24.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "accent": "#c9b3ff",
+            "background": "rgba(12,15,22,0.82)",
+            "tts": false,
+            "run_action": null
+          },
+          {
+            "id": "wg0ow5azdljk",
+            "name": "Default",
+            "enabled": true,
+            "conditions": {
+              "mode": "all",
+              "conditions": []
+            },
+            "priority": 0,
+            "title": "{{name}} subscribed!",
+            "message": "Tier {{tier}}",
+            "image": "",
+            "video": "",
+            "sound": "",
+            "volume": 70,
+            "duration_ms": 6000,
+            "enter": {
+              "preset": "slide_up",
+              "duration_ms": 450,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "exit": {
+              "preset": "fade",
+              "duration_ms": 350,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "layout": "media_above",
+            "title_style": {
+              "font_family": "Inter",
+              "font_size": 40.0,
+              "font_weight": 800,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "message_style": {
+              "font_family": "Inter",
+              "font_size": 24.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "accent": "#9db8ff",
+            "background": "rgba(12,15,22,0.82)",
+            "tts": false,
+            "run_action": null
+          }
+        ]
+      },
+      {
+        "kind": "resub",
+        "enabled": true,
+        "variations": [
+          {
+            "id": "ufuf2034nz8w",
+            "name": "Default",
+            "enabled": true,
+            "conditions": {
+              "mode": "all",
+              "conditions": []
+            },
+            "priority": 0,
+            "title": "{{name}} resubscribed",
+            "message": "{{months}} months · {{message}}",
+            "image": "",
+            "video": "",
+            "sound": "",
+            "volume": 70,
+            "duration_ms": 6000,
+            "enter": {
+              "preset": "slide_up",
+              "duration_ms": 450,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "exit": {
+              "preset": "fade",
+              "duration_ms": 350,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "layout": "media_above",
+            "title_style": {
+              "font_family": "Inter",
+              "font_size": 40.0,
+              "font_weight": 800,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "message_style": {
+              "font_family": "Inter",
+              "font_size": 24.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "accent": "#9db8ff",
+            "background": "rgba(12,15,22,0.82)",
+            "tts": false,
+            "run_action": null
+          }
+        ]
+      },
+      {
+        "kind": "gift_sub",
+        "enabled": true,
+        "variations": [
+          {
+            "id": "6upomc15j6nz",
+            "name": "Default",
+            "enabled": true,
+            "conditions": {
+              "mode": "all",
+              "conditions": []
+            },
+            "priority": 0,
+            "title": "{{name}} gifted a sub",
+            "message": "to {{recipient_name}}",
+            "image": "",
+            "video": "",
+            "sound": "",
+            "volume": 70,
+            "duration_ms": 6000,
+            "enter": {
+              "preset": "slide_up",
+              "duration_ms": 450,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "exit": {
+              "preset": "fade",
+              "duration_ms": 350,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "layout": "media_above",
+            "title_style": {
+              "font_family": "Inter",
+              "font_size": 40.0,
+              "font_weight": 800,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "message_style": {
+              "font_family": "Inter",
+              "font_size": 24.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "accent": "#9db8ff",
+            "background": "rgba(12,15,22,0.82)",
+            "tts": false,
+            "run_action": null
+          }
+        ]
+      },
+      {
+        "kind": "community_gift",
+        "enabled": true,
+        "variations": [
+          {
+            "id": "qelmyba6npgs",
+            "name": "Default",
+            "enabled": true,
+            "conditions": {
+              "mode": "all",
+              "conditions": []
+            },
+            "priority": 0,
+            "title": "{{name}} gifted {{amount}} subs",
+            "message": "Thank you!",
+            "image": "",
+            "video": "",
+            "sound": "",
+            "volume": 70,
+            "duration_ms": 6000,
+            "enter": {
+              "preset": "slide_up",
+              "duration_ms": 450,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "exit": {
+              "preset": "fade",
+              "duration_ms": 350,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "layout": "media_above",
+            "title_style": {
+              "font_family": "Inter",
+              "font_size": 40.0,
+              "font_weight": 800,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "message_style": {
+              "font_family": "Inter",
+              "font_size": 24.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "accent": "#9db8ff",
+            "background": "rgba(12,15,22,0.82)",
+            "tts": false,
+            "run_action": null
+          }
+        ]
+      },
+      {
+        "kind": "cheer",
+        "enabled": true,
+        "variations": [
+          {
+            "id": "q9zaxbdjh7uy",
+            "name": "Default",
+            "enabled": true,
+            "conditions": {
+              "mode": "all",
+              "conditions": []
+            },
+            "priority": 0,
+            "title": "{{name}} cheered {{amount | number}} bits",
+            "message": "{{message}}",
+            "image": "",
+            "video": "",
+            "sound": "",
+            "volume": 70,
+            "duration_ms": 6000,
+            "enter": {
+              "preset": "slide_up",
+              "duration_ms": 450,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "exit": {
+              "preset": "fade",
+              "duration_ms": 350,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "layout": "media_above",
+            "title_style": {
+              "font_family": "Inter",
+              "font_size": 40.0,
+              "font_weight": 800,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "message_style": {
+              "font_family": "Inter",
+              "font_size": 24.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "accent": "#9db8ff",
+            "background": "rgba(12,15,22,0.82)",
+            "tts": false,
+            "run_action": null
+          }
+        ]
+      },
+      {
+        "kind": "raid",
+        "enabled": true,
+        "variations": [
+          {
+            "id": "dk4m70f3ekxp",
+            "name": "Default",
+            "enabled": true,
+            "conditions": {
+              "mode": "all",
+              "conditions": []
+            },
+            "priority": 0,
+            "title": "{{name}} is raiding",
+            "message": "with {{amount | number}} viewers",
+            "image": "",
+            "video": "",
+            "sound": "",
+            "volume": 70,
+            "duration_ms": 6000,
+            "enter": {
+              "preset": "slide_up",
+              "duration_ms": 450,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "exit": {
+              "preset": "fade",
+              "duration_ms": 350,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "layout": "media_above",
+            "title_style": {
+              "font_family": "Inter",
+              "font_size": 40.0,
+              "font_weight": 800,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "message_style": {
+              "font_family": "Inter",
+              "font_size": 24.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "accent": "#9db8ff",
+            "background": "rgba(12,15,22,0.82)",
+            "tts": false,
+            "run_action": null
+          }
+        ]
+      },
+      {
+        "kind": "redemption",
+        "enabled": true,
+        "variations": [
+          {
+            "id": "bb6ndqmw8kum",
+            "name": "Default",
+            "enabled": true,
+            "conditions": {
+              "mode": "all",
+              "conditions": []
+            },
+            "priority": 0,
+            "title": "{{name}} redeemed {{data.reward_title}}",
+            "message": "{{message}}",
+            "image": "",
+            "video": "",
+            "sound": "",
+            "volume": 70,
+            "duration_ms": 6000,
+            "enter": {
+              "preset": "slide_up",
+              "duration_ms": 450,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "exit": {
+              "preset": "fade",
+              "duration_ms": 350,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "layout": "media_above",
+            "title_style": {
+              "font_family": "Inter",
+              "font_size": 40.0,
+              "font_weight": 800,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "message_style": {
+              "font_family": "Inter",
+              "font_size": 24.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "accent": "#9db8ff",
+            "background": "rgba(12,15,22,0.82)",
+            "tts": false,
+            "run_action": null
+          }
+        ]
+      },
+      {
+        "kind": "power_up",
+        "enabled": true,
+        "variations": [
+          {
+            "id": "6f3pcr3frczq",
+            "name": "Default",
+            "enabled": true,
+            "conditions": {
+              "mode": "all",
+              "conditions": []
+            },
+            "priority": 0,
+            "title": "{{name}} used a power-up",
+            "message": "{{message}}",
+            "image": "",
+            "video": "",
+            "sound": "",
+            "volume": 70,
+            "duration_ms": 6000,
+            "enter": {
+              "preset": "slide_up",
+              "duration_ms": 450,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "exit": {
+              "preset": "fade",
+              "duration_ms": 350,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "layout": "media_above",
+            "title_style": {
+              "font_family": "Inter",
+              "font_size": 40.0,
+              "font_weight": 800,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "message_style": {
+              "font_family": "Inter",
+              "font_size": 24.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "accent": "#9db8ff",
+            "background": "rgba(12,15,22,0.82)",
+            "tts": false,
+            "run_action": null
+          }
+        ]
+      },
+      {
+        "kind": "hype_train_begin",
+        "enabled": true,
+        "variations": [
+          {
+            "id": "vqnowql48nnk",
+            "name": "Default",
+            "enabled": true,
+            "conditions": {
+              "mode": "all",
+              "conditions": []
+            },
+            "priority": 0,
+            "title": "Hype train!",
+            "message": "Level {{data.level}}",
+            "image": "",
+            "video": "",
+            "sound": "",
+            "volume": 70,
+            "duration_ms": 6000,
+            "enter": {
+              "preset": "slide_up",
+              "duration_ms": 450,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "exit": {
+              "preset": "fade",
+              "duration_ms": 350,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "layout": "media_above",
+            "title_style": {
+              "font_family": "Inter",
+              "font_size": 40.0,
+              "font_weight": 800,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "message_style": {
+              "font_family": "Inter",
+              "font_size": 24.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "accent": "#9db8ff",
+            "background": "rgba(12,15,22,0.82)",
+            "tts": false,
+            "run_action": null
+          }
+        ]
+      },
+      {
+        "kind": "charity",
+        "enabled": true,
+        "variations": [
+          {
+            "id": "dbi4ek3cs62g",
+            "name": "Default",
+            "enabled": true,
+            "conditions": {
+              "mode": "all",
+              "conditions": []
+            },
+            "priority": 0,
+            "title": "{{name}} donated {{amount | number}} {{currency}}",
+            "message": "{{message}}",
+            "image": "",
+            "video": "",
+            "sound": "",
+            "volume": 70,
+            "duration_ms": 6000,
+            "enter": {
+              "preset": "slide_up",
+              "duration_ms": 450,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "exit": {
+              "preset": "fade",
+              "duration_ms": 350,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "layout": "media_above",
+            "title_style": {
+              "font_family": "Inter",
+              "font_size": 40.0,
+              "font_weight": 800,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "message_style": {
+              "font_family": "Inter",
+              "font_size": 24.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "accent": "#9db8ff",
+            "background": "rgba(12,15,22,0.82)",
+            "tts": false,
+            "run_action": null
+          }
+        ]
+      },
+      {
+        "kind": "shoutout_received",
+        "enabled": true,
+        "variations": [
+          {
+            "id": "2mm6h83qdoum",
+            "name": "Default",
+            "enabled": true,
+            "conditions": {
+              "mode": "all",
+              "conditions": []
+            },
+            "priority": 0,
+            "title": "{{name}} gave us a shoutout",
+            "message": "",
+            "image": "",
+            "video": "",
+            "sound": "",
+            "volume": 70,
+            "duration_ms": 6000,
+            "enter": {
+              "preset": "slide_up",
+              "duration_ms": 450,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "exit": {
+              "preset": "fade",
+              "duration_ms": 350,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "layout": "media_above",
+            "title_style": {
+              "font_family": "Inter",
+              "font_size": 40.0,
+              "font_weight": 800,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "message_style": {
+              "font_family": "Inter",
+              "font_size": 24.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "accent": "#9db8ff",
+            "background": "rgba(12,15,22,0.82)",
+            "tts": false,
+            "run_action": null
+          }
+        ]
+      },
+      {
+        "kind": "ad_break",
+        "enabled": true,
+        "variations": [
+          {
+            "id": "zmf0pyg6znvl",
+            "name": "Default",
+            "enabled": true,
+            "conditions": {
+              "mode": "all",
+              "conditions": []
+            },
+            "priority": 0,
+            "title": "Ad break",
+            "message": "Back in {{amount}} seconds",
+            "image": "",
+            "video": "",
+            "sound": "",
+            "volume": 70,
+            "duration_ms": 6000,
+            "enter": {
+              "preset": "slide_up",
+              "duration_ms": 450,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "exit": {
+              "preset": "fade",
+              "duration_ms": 350,
+              "delay_ms": 0,
+              "easing": "ease_out"
+            },
+            "layout": "media_above",
+            "title_style": {
+              "font_family": "Inter",
+              "font_size": 40.0,
+              "font_weight": 800,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "message_style": {
+              "font_family": "Inter",
+              "font_size": 24.0,
+              "font_weight": 500,
+              "color": "#ffffff",
+              "align": "left",
+              "line_height": 1.25,
+              "letter_spacing": 0.0,
+              "uppercase": false,
+              "italic": false,
+              "shadow": "0 2px 6px rgba(0,0,0,0.45)",
+              "stroke_width": 0.0,
+              "stroke_color": "#000000"
+            },
+            "accent": "#9db8ff",
+            "background": "rgba(12,15,22,0.82)",
+            "tts": false,
+            "run_action": null
+          }
+        ]
+      }
+    ]
+  },
+  "actions": [
+    {
+      "id": "9lkwfhszksou",
+      "name": "!uptime",
+      "group": "Chat commands",
+      "enabled": true,
+      "triggers": [
+        {
+          "type": "command",
+          "name": "uptime",
+          "aliases": [],
+          "permission": "everyone",
+          "user_cooldown_s": 30
+        }
+      ],
+      "steps": [
+        {
+          "type": "chat_send",
+          "message": "Live for {{stream.uptime_text | default:\"0m\"}}",
+          "as_bot": true,
+          "reply": true
+        }
+      ],
+      "cooldown_s": 5
+    },
+    {
+      "id": "o7gxasqu5rgl",
+      "name": "!so",
+      "group": "Chat commands",
+      "enabled": true,
+      "triggers": [
+        {
+          "type": "command",
+          "name": "so",
+          "aliases": [
+            "shoutout"
+          ],
+          "permission": "moderator",
+          "user_cooldown_s": 0
+        }
+      ],
+      "steps": [
+        {
+          "type": "shoutout",
+          "user": "{{arg1}}",
+          "message": "Go follow {{arg1}} at twitch.tv/{{arg1}}!"
+        }
+      ],
+      "cooldown_s": 0
+    },
+    {
+      "id": "1cpjo3ei32ah",
+      "name": "Count deaths",
+      "group": "Chat commands",
+      "enabled": true,
+      "triggers": [
+        {
+          "type": "command",
+          "name": "death",
+          "aliases": [
+            "deaths+"
+          ],
+          "permission": "moderator",
+          "user_cooldown_s": 0
+        }
+      ],
+      "steps": [
+        {
+          "type": "add_to_variable",
+          "key": "counter.deaths",
+          "amount": 1.0,
+          "persist": true
+        },
+        {
+          "type": "chat_send",
+          "message": "Deaths: {{counter.deaths}}",
+          "as_bot": true,
+          "reply": false
+        }
+      ],
+      "cooldown_s": 0
+    },
+    {
+      "id": "xt3si8q94pkq",
+      "name": "Big raid welcome",
+      "group": "Stream events",
+      "enabled": true,
+      "triggers": [
+        {
+          "type": "event",
+          "kind": "raid",
+          "conditions": {
+            "mode": "all",
+            "conditions": [
+              {
+                "field": "amount",
+                "op": "gte",
+                "value": 20
+              }
+            ]
+          }
+        }
+      ],
+      "steps": [
+        {
+          "type": "delay",
+          "ms": 4000
+        },
+        {
+          "type": "chat_announce",
+          "message": "Welcome {{name}} and the {{amount}} raiders!",
+          "color": "purple"
+        },
+        {
+          "type": "shoutout",
+          "user": "{{user.login}}",
+          "message": ""
+        }
+      ],
+      "cooldown_s": 60
+    },
+    {
+      "id": "em5bx7cpi5tf",
+      "name": "Hydrate reminder",
+      "group": "Timers",
+      "enabled": false,
+      "triggers": [
+        {
+          "type": "timer",
+          "interval_s": 2700,
+          "only_when_live": true,
+          "min_chat_lines": 5
+        }
+      ],
+      "steps": [
+        {
+          "type": "chat_send",
+          "message": "Stay hydrated, chat!",
+          "as_bot": true,
+          "reply": false
+        }
+      ],
+      "cooldown_s": 0
+    }
+  ]
+}
