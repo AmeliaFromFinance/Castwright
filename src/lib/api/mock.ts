@@ -25,7 +25,7 @@ import { render } from '$lib/logic/template';
 
 type Listener = (payload: unknown) => void;
 
-const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+const clone = <T>(v: T): T => (v === undefined ? v : (JSON.parse(JSON.stringify(v)) as T));
 const uid = () => Math.random().toString(36).slice(2, 14);
 const now = () => Date.now();
 
@@ -284,18 +284,26 @@ export function createDemoBackend(): Backend {
   const emitQueue = () => emit('cw://queue', queue);
 
   let playing = false;
+  let finish: ReturnType<typeof setTimeout> | null = null;
+  const done = () => {
+    finish = null;
+    queue.playing = null;
+    playing = false;
+    emitQueue();
+    setTimeout(pump, 600);
+  };
   const pump = () => {
     if (playing || queue.paused || queue.waiting.length === 0) return;
     const play = queue.waiting.shift()!;
     queue.playing = play;
     playing = true;
     emitQueue();
-    setTimeout(() => {
-      queue.playing = null;
-      playing = false;
-      emitQueue();
-      setTimeout(pump, 600);
-    }, play.duration_ms);
+    finish = setTimeout(done, play.duration_ms);
+  };
+  const skip = () => {
+    if (!finish) return;
+    clearTimeout(finish);
+    done();
   };
 
   const alertFor = (e: Event): AlertPlay | null => {
@@ -418,7 +426,7 @@ export function createDemoBackend(): Backend {
       emitQueue();
       pump();
     },
-    alert_skip: () => undefined,
+    alert_skip: () => skip(),
     alert_remove: ({ id }) => {
       queue.waiting = queue.waiting.filter((w) => w.id !== id);
       emitQueue();

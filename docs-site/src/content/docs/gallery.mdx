@@ -1,0 +1,40 @@
+---
+title: Screenshots
+description: Every screen in Castwright.
+tableOfContents: false
+---
+
+import Gallery from '../../components/Gallery.astro';
+import studio from '../../assets/screens/studio.png';
+import studioLight from '../../assets/screens/studio-light.png';
+import studioHc from '../../assets/screens/studio-high-contrast.png';
+import overlays from '../../assets/screens/overlays.png';
+import editor from '../../assets/screens/overlay-editor.png';
+import editorAlert from '../../assets/screens/overlay-editor-alert.png';
+import widget from '../../assets/screens/custom-widget.png';
+import alerts from '../../assets/screens/alerts.png';
+import automation from '../../assets/screens/automation.png';
+import activity from '../../assets/screens/activity.png';
+import settings from '../../assets/screens/settings.png';
+import themeEditor from '../../assets/screens/theme-editor.png';
+import firstRun from '../../assets/screens/first-run.png';
+
+Click any screenshot to enlarge it. Use the arrow keys to move between them.
+
+<Gallery
+  items={[
+    { src: studio, title: 'Studio', caption: 'Scenes, sources, audio, event feed and chat while live' },
+    { src: overlays, title: 'Overlays', caption: 'Live previews of every overlay, one click to add to OBS' },
+    { src: editor, title: 'Overlay editor', caption: 'Drag, resize and style layers on a live canvas' },
+    { src: editorAlert, title: 'Testing an alert', caption: 'Play sample alerts right in the editor' },
+    { src: widget, title: 'Custom widgets', caption: 'HTML, CSS and JS with settings generated from Fields' },
+    { src: alerts, title: 'Alerts', caption: 'Variations with conditions, live preview and queue' },
+    { src: automation, title: 'Automation', caption: 'Commands, triggers, nested If steps, run log and variables' },
+    { src: activity, title: 'Activity', caption: 'Event history with filters, details and replay' },
+    { src: settings, title: 'Settings', caption: 'OBS, Twitch, overlay server, themes and backups' },
+    { src: themeEditor, title: 'Theme editor', caption: 'Build a theme with a live readability check' },
+    { src: firstRun, title: 'First-time setup', caption: 'Sign in to Twitch with a short code' },
+    { src: studioLight, title: 'Light theme' },
+    { src: studioHc, title: 'High contrast theme' }
+  ]}
+/>

@@ -10,7 +10,7 @@ gap_ms: number,
  */
 combine_gifts: boolean, 
 /**
- * Ignore alerts whose viewer message contains any of these words.
+ * Hide the viewer message (and skip reading it aloud) when it contains any of these words.
  */
 blocked_words: Array<string>, 
 /**

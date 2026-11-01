@@ -45,3 +45,15 @@ export async function attempt<T>(fn: () => Promise<T>, success?: string): Promis
     return undefined;
   }
 }
+
+/** Like `attempt`, for calls that return nothing: true when it worked. */
+export async function attemptOk(fn: () => Promise<unknown>, success?: string): Promise<boolean> {
+  try {
+    await fn();
+    if (success) toasts.success(success);
+    return true;
+  } catch (e) {
+    toasts.error(e);
+    return false;
+  }
+}

@@ -1,0 +1,158 @@
+---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+interface Props {
+  items: Array<{ src: ImageMetadata; title: string; caption?: string }>;
+}
+const { items } = Astro.props;
+---
+
+<div class="gallery not-content">
+  {
+    items.map((item, i) => (
+      <figure>
+        <button type="button" class="open" data-index={i} aria-label={`Enlarge: ${item.title}`}>
+          <Image src={item.src} alt={item.title} widths={[480, 960]} sizes="(max-width: 800px) 100vw, 480px" />
+        </button>
+        <figcaption>
+          <b>{item.title}</b>
+          {item.caption && <span>{item.caption}</span>}
+        </figcaption>
+      </figure>
+    ))
+  }
+</div>
+
+<dialog class="lightbox" aria-label="Screenshot">
+  <form method="dialog"><button class="close" aria-label="Close">×</button></form>
+  <button type="button" class="nav prev" aria-label="Previous">‹</button>
+  <img alt="" />
+  <button type="button" class="nav next" aria-label="Next">›</button>
+  <p class="cap"></p>
+</dialog>
+
+<script is:inline define:vars={{ full: items.map((i) => ({ src: i.src.src, title: i.title, caption: i.caption ?? '' })) }}>
+  const dlg = document.querySelector('dialog.lightbox');
+  const img = dlg.querySelector('img');
+  const cap = dlg.querySelector('.cap');
+  let at = 0;
+  const show = (i) => {
+    at = (i + full.length) % full.length;
+    img.src = full[at].src;
+    img.alt = full[at].title;
+    cap.textContent = full[at].caption ? `${full[at].title}: ${full[at].caption}` : full[at].title;
+  };
+  document.querySelectorAll('.gallery .open').forEach((b) =>
+    b.addEventListener('click', () => {
+      show(Number(b.dataset.index));
+      dlg.showModal();
+    })
+  );
+  dlg.querySelector('.prev').addEventListener('click', () => show(at - 1));
+  dlg.querySelector('.next').addEventListener('click', () => show(at + 1));
+  dlg.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') show(at - 1);
+    if (e.key === 'ArrowRight') show(at + 1);
+  });
+  dlg.addEventListener('click', (e) => {
+    if (e.target === dlg) dlg.close();
+  });
+</script>
+
+<style>
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+  figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .open {
+    padding: 0;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: zoom-in;
+    background: var(--sl-color-gray-6);
+    transition: transform 0.15s, border-color 0.15s;
+  }
+  .open:hover {
+    border-color: var(--sl-color-accent);
+    transform: translateY(-2px);
+  }
+  .open img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  figcaption {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-2);
+  }
+  figcaption b {
+    color: var(--sl-color-white);
+  }
+  .lightbox {
+    max-width: min(1500px, 96vw);
+    max-height: 96vh;
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
+    background: var(--sl-color-black);
+    overflow: visible;
+  }
+  .lightbox::backdrop {
+    background: rgb(0 0 0 / 0.8);
+  }
+  .lightbox img {
+    display: block;
+    max-width: 100%;
+    max-height: calc(96vh - 3rem);
+    border-radius: 12px 12px 0 0;
+  }
+  .cap {
+    margin: 0;
+    padding: 0.7rem 1rem;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-2);
+  }
+  .close {
+    position: absolute;
+    top: -2.4rem;
+    right: 0;
+    font-size: 1.8rem;
+    line-height: 1;
+    color: #fff;
+    background: none;
+    border: 0;
+    cursor: pointer;
+  }
+  .nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 50%;
+    border: 0;
+    background: rgb(0 0 0 / 0.55);
+    color: #fff;
+    font-size: 1.6rem;
+    cursor: pointer;
+  }
+  .prev {
+    left: 0.6rem;
+  }
+  .next {
+    right: 0.6rem;
+  }
+</style>

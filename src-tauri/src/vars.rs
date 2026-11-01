@@ -199,8 +199,11 @@ impl Vars {
                 bump.push(("session.subs", 1.0));
             }
             EventKind::GiftSub => {
-                set("last.gift.name", name.clone());
-                set("last.gift.amount", num(1.0));
+                // Gifts that belong to a community gift keep its total in last.gift.amount.
+                if !e.data.contains_key("community_gift_id") {
+                    set("last.gift.name", name.clone());
+                    set("last.gift.amount", num(1.0));
+                }
                 set(
                     "last.sub.name",
                     Value::String(

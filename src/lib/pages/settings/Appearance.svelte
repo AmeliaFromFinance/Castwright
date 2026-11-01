@@ -32,7 +32,6 @@
   const effects = $derived.by(() => {
     const list: Array<{ value: WindowEffect; label: string }> = [{ value: 'solid', label: 'Solid' }];
     if (os === 'windows') list.push({ value: 'mica', label: 'Mica' }, { value: 'acrylic', label: 'Acrylic' });
-    if (os === 'macos') list.push({ value: 'vibrancy', label: 'Vibrancy' });
     if (list.length > 1) list.unshift({ value: 'auto', label: 'Auto' });
     return list;
   });

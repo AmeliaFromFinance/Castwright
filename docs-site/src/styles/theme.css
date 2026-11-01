@@ -1,0 +1,38 @@
+/* Castwright colours: violet accent, slightly cool greys. */
+:root {
+  --sl-font: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --sl-color-accent-low: #221d4a;
+  --sl-color-accent: #7c6cf6;
+  --sl-color-accent-high: #d4cfff;
+  --sl-color-white: #ffffff;
+  --sl-color-gray-1: #e9e9f2;
+  --sl-color-gray-2: #c4c4d2;
+  --sl-color-gray-3: #9393a6;
+  --sl-color-gray-4: #5d5d70;
+  --sl-color-gray-5: #3a3a4a;
+  --sl-color-gray-6: #23232f;
+  --sl-color-black: #16161e;
+}
+:root[data-theme='light'] {
+  --sl-color-accent-low: #e6e2ff;
+  --sl-color-accent: #5546d6;
+  --sl-color-accent-high: #2e2485;
+  --sl-color-white: #16161e;
+  --sl-color-gray-1: #23232f;
+  --sl-color-gray-2: #3a3a4a;
+  --sl-color-gray-3: #5d5d70;
+  --sl-color-gray-4: #8b8b9e;
+  --sl-color-gray-5: #c9c9d6;
+  --sl-color-gray-6: #ececf3;
+  --sl-color-gray-7: #f6f6fa;
+  --sl-color-black: #ffffff;
+}
+
+.hero img {
+  border-radius: 14px;
+}
+.shot {
+  border-radius: 10px;
+  border: 1px solid var(--sl-color-gray-5);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.25);
+}

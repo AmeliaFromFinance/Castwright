@@ -1,0 +1,65 @@
+---
+title: Automation
+description: Chat commands, timers and reactions to events, built from simple steps.
+---
+
+An **action** is a list of steps that runs when one of its triggers fires. Use actions for chat commands, timed messages, raid welcomes, counters, scene switches and much more.
+
+![Automation](../../../assets/screens/automation.png)
+
+## Start an action
+
+Click **New action** and pick a template (chat command, timer message, raid welcome, deaths counter) or start blank. Every change saves on its own.
+
+| Setting | What it does |
+| --- | --- |
+| **Group** | Sorts actions in the list, for example "Chat commands". |
+| **Cooldown** | Shortest time between two runs. 0 means no limit. |
+| **Enabled** | Off stops all triggers. **Run now** still works. |
+
+## Triggers
+
+An action can have several triggers. Any of them starts it.
+
+| Trigger | Fires when |
+| --- | --- |
+| **Chat command** | Someone types the command, like `!so @name`. Set other names it answers to, **who can use it** and a **per-viewer cooldown** (moderators and you skip it). |
+| **Twitch event** | A follow, sub, raid, redemption and so on happens, optionally only when [conditions](/reference/conditions/) match. |
+| **Timer** | Every few minutes. Can be limited to while you're live and to when chat has been active. Runs at most every 10 seconds. |
+| **Stream goes live** / **Stream ends** | Your stream starts or stops. |
+| **Scene changes** | OBS switches to a scene (or any scene). |
+| **Button or Stream Deck** | Only runs when you click **Run now** or call its [run link](/guide/stream-deck/). |
+
+Messages from your bot and from Castwright itself never trigger actions, so actions can't set each other off in a loop.
+
+## Steps
+
+Steps run from top to bottom. Use **Add step** and pick from:
+
+| Group | Steps |
+| --- | --- |
+| **Chat** | Send chat message (as you or the bot, optionally as a reply), announcement |
+| **Twitch** | Shoutout, create clip, stream marker, run ad, set title and category, time out user |
+| **OBS** | Switch scene, show/hide source, mute/unmute, recording, save replay |
+| **Overlays & alerts** | Show/hide overlay layer, play a custom alert, play sound |
+| **Variables** | Set variable, add to variable |
+| **Logic** | If, wait, run another action, stop |
+| **Advanced** | Web request, run a [script](/reference/scripting/), write to the log |
+
+Text fields accept live values in `{{double braces}}`. The chips under each field show what's available, such as `name`, `arg1` (the first word after a command) and `input` (everything after it). See [templates](/reference/templates/).
+
+**If** steps run their **Then** steps only when the conditions match, and **Otherwise** steps when they don't. They can be nested.
+
+Every step and option is described in the [automation steps reference](/reference/automation-steps/).
+
+## Examples
+
+**`!so` shoutout**: trigger *Chat command* `so`, who can use it *Moderators and the streamer*; step *Shoutout* with `{{arg1}}`.
+
+**Deaths counter**: trigger *Chat command* `death`; steps *Add to variable* `counter.deaths` by 1, then *Send chat message* `Deaths: {{counter.deaths}}`. Show it on stream with a **Counter** layer.
+
+**Raid welcome**: trigger *Twitch event* `Raid` when `amount is at least 10`; steps *Switch scene* to "Raid", *Wait* 15 seconds, *Switch scene* back.
+
+## Run log and variables
+
+The right side shows each run with its result and any errors, plus every [variable](/reference/variables/). Edit a value inline, delete it, or add one. The pin keeps a variable after Castwright restarts.

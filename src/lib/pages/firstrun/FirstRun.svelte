@@ -1,7 +1,7 @@
 <script lang="ts">
   import { app } from '$lib/state/app.svelte';
   import { api } from '$lib/api';
-  import { attempt } from '$lib/state/toast.svelte';
+  import { attemptOk } from '$lib/state/toast.svelte';
   import { BUILT_IN, generateTokens } from '$lib/theme/themes';
   import { updateAppearance } from '$lib/pages/settings/appearance.svelte';
   import Button from '$lib/ui/Button.svelte';
@@ -41,7 +41,7 @@
 
   async function finish() {
     finishing = true;
-    if ((await attempt(() => api.setFirstRunDone(true))) !== undefined) {
+    if (await attemptOk(() => api.setFirstRunDone(true))) {
       app.page = 'studio';
       await app.reloadSettings();
     }

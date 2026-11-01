@@ -4,9 +4,10 @@
   import Toasts from '$lib/ui/Toasts.svelte';
   import StatusBar from '$lib/shell/StatusBar.svelte';
   import Studio from '$lib/pages/studio/Studio.svelte';
-  import Overlays from '$lib/pages/overlays/Overlays.svelte';
-  import Alerts from '$lib/pages/alerts/Alerts.svelte';
-  import Automation from '$lib/pages/automation/Automation.svelte';
+  // Editors are loaded when first opened so start-up stays quick.
+  const loadOverlays = () => import('$lib/pages/overlays/Overlays.svelte');
+  const loadAlerts = () => import('$lib/pages/alerts/Alerts.svelte');
+  const loadAutomation = () => import('$lib/pages/automation/Automation.svelte');
   import Activity from '$lib/pages/activity/Activity.svelte';
   import SettingsPage from '$lib/pages/settings/Settings.svelte';
   import FirstRun from '$lib/pages/firstrun/FirstRun.svelte';
@@ -82,7 +83,7 @@
           class="nav"
           class:on={app.page === p.id}
           aria-current={app.page === p.id ? 'page' : undefined}
-          title="{p.label} (Ctrl+{i + 1})"
+          title="{p.label} ({isMac ? `⌘${i + 1}` : `Ctrl+${i + 1}`})"
           onclick={() => (app.page = p.id)}
         >
           <p.icon size={20} strokeWidth={1.8} />
@@ -95,7 +96,7 @@
         class="nav"
         class:on={app.page === 'settings'}
         aria-current={app.page === 'settings' ? 'page' : undefined}
-        title="Settings (Ctrl+,)"
+        title="Settings ({isMac ? '⌘,' : 'Ctrl+,'})"
         onclick={() => (app.page = 'settings')}
       >
         <Settings size={20} strokeWidth={1.8} />
@@ -104,9 +105,9 @@
     </nav>
     <main class="page">
       {#if app.page === 'studio'}<Studio />
-      {:else if app.page === 'overlays'}<Overlays />
-      {:else if app.page === 'alerts'}<Alerts />
-      {:else if app.page === 'automation'}<Automation />
+      {:else if app.page === 'overlays'}{#await loadOverlays() then m}<m.default />{/await}
+      {:else if app.page === 'alerts'}{#await loadAlerts() then m}<m.default />{/await}
+      {:else if app.page === 'automation'}{#await loadAutomation() then m}<m.default />{/await}
       {:else if app.page === 'activity'}<Activity />
       {:else}<SettingsPage />{/if}
     </main>

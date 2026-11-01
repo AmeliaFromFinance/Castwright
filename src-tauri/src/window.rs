@@ -16,9 +16,12 @@ mod imp {
     use super::WindowEffect;
 
     fn is_windows_11() -> bool {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         // Windows 11 reports build 22000 or later.
         let Ok(out) = std::process::Command::new("cmd")
             .args(["/C", "ver"])
+            .creation_flags(CREATE_NO_WINDOW)
             .output()
         else {
             return false;

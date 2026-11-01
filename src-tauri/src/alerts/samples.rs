@@ -121,7 +121,9 @@ pub fn sample_event(kind: EventKind) -> Event {
 mod fixtures {
     /// Writes the starter project and sample events for the UI's demo mode,
     /// so the browser preview always matches what the app really creates.
+    /// Ids and names are random, so it only runs with `npm run bindings`.
     #[test]
+    #[ignore]
     fn export_ui_fixtures() {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/lib/api/fixtures");
         std::fs::create_dir_all(&dir).unwrap();

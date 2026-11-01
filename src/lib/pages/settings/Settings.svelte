@@ -3,7 +3,7 @@
   import { app } from '$lib/state/app.svelte';
   import { api } from '$lib/api';
   import { isTauri } from '$lib/api/backend';
-  import { attempt, toasts } from '$lib/state/toast.svelte';
+  import { attempt, attemptOk, toasts } from '$lib/state/toast.svelte';
   import type { SnapshotInfo } from '$lib/bindings/SnapshotInfo';
   import { ago, bytes } from '$lib/format';
   import { copyText, openExternal, reveal } from '$lib/util/os';
@@ -89,8 +89,8 @@
       projectName = app.project?.name ?? '';
       return;
     }
-    if (await attempt(() => api.renameProject(name), 'Project renamed')) await app.reloadProject();
-    else await app.reloadProject();
+    await attemptOk(() => api.renameProject(name), 'Project renamed');
+    await app.reloadProject();
     projectName = app.project?.name ?? name;
   }
 
@@ -102,7 +102,7 @@
     const { open } = await import('@tauri-apps/plugin-dialog');
     const dir = await open({ directory: true, title: 'Choose a project folder' });
     if (typeof dir !== 'string') return;
-    if ((await attempt(() => api.setProjectDir(dir))) !== undefined) {
+    if (await attemptOk(() => api.setProjectDir(dir))) {
       projectDir = dir;
       dirChanged = true;
     }
@@ -357,7 +357,7 @@
       variant="danger"
       onclick={async () => {
         confirmClear = false;
-        if ((await attempt(() => api.clearHistory(), 'History cleared')) !== undefined) app.feed = [];
+        if (await attemptOk(() => api.clearHistory(), 'History cleared')) app.feed = [];
       }}>Clear history</Button
     >
   {/snippet}

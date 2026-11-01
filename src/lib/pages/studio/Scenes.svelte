@@ -10,7 +10,25 @@
     if (obs.studio_mode) attempt(() => api.obsSetPreviewScene(scene));
     else attempt(() => api.obsSetProgramScene(scene));
   }
+
+  function typing(t: EventTarget | null): boolean {
+    const el = t as HTMLElement | null;
+    return !!el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
+  }
+
+  function onKey(e: KeyboardEvent) {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || typing(e.target)) return;
+    if (document.querySelector('dialog[open]')) return;
+    const n = Number(e.key);
+    if (!Number.isInteger(n) || n < 1 || n > 9) return;
+    const scene = obs.scenes[n - 1];
+    if (!scene) return;
+    e.preventDefault();
+    pick(scene);
+  }
 </script>
+
+<svelte:window onkeydown={onKey} />
 
 <Panel title="Scenes" flush>
   <ul class="list" role="listbox" aria-label="Scenes">
@@ -29,7 +47,7 @@
         >
           {#if isProgram}<span class="dot live" title="On air"></span>{:else if isPreview}<span class="dot prev" title="In preview"></span>{:else}<span class="dot"></span>{/if}
           <span class="grow truncate">{scene}</span>
-          {#if i < 9}<span class="faint key mono">{i + 1}</span>{/if}
+          {#if i < 9}<span class="faint key mono" title="Press {i + 1}">{i + 1}</span>{/if}
         </button>
       </li>
     {:else}

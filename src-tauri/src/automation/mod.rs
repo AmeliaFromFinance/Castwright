@@ -188,7 +188,9 @@ impl Automation {
         for action in self.actions() {
             let hit = action.triggers.iter().find_map(|trigger| match trigger {
                 Trigger::Event { kind, conditions }
-                    if *kind == event.kind && conditions.evaluate(&ctx) =>
+                    if *kind == event.kind
+                        && !(event.kind == EventKind::Chat && self.is_own_chat(event))
+                        && conditions.evaluate(&ctx) =>
                 {
                     Some((event.kind.as_str().to_string(), Map::new(), None))
                 }
@@ -205,6 +207,10 @@ impl Automation {
                     user_cooldown_s,
                 } if event.kind == EventKind::Chat => {
                     let args = self.match_command(event, name, aliases, *permission)?;
+                    // Don't use up the viewer's cooldown when the action can't run anyway.
+                    if !action.enabled || !self.cooldown_ready(&action) {
+                        return None;
+                    }
                     self.user_cooldown_ok(&action.id, event, *user_cooldown_s)
                         .then(|| {
                             (
@@ -290,22 +296,7 @@ impl Automation {
         aliases: &[String],
         permission: Permission,
     ) -> Option<Map<String, Value>> {
-        if event
-            .data
-            .get("sent_by_castwright")
-            .and_then(Value::as_bool)
-            == Some(true)
-        {
-            return None;
-        }
-        if let Some(u) = &event.user
-            && self
-                .ignored_users
-                .read()
-                .unwrap()
-                .iter()
-                .any(|id| *id == u.id && !u.id.is_empty())
-        {
+        if self.is_own_chat(event) {
             return None;
         }
         let text = event.message.as_deref()?.trim();
@@ -336,6 +327,24 @@ impl Automation {
             );
         }
         Some(args)
+    }
+
+    /// Chat sent by Castwright or by the bot account; never triggers actions.
+    fn is_own_chat(&self, event: &Event) -> bool {
+        if event.data.get("sent_by_castwright").and_then(Value::as_bool) == Some(true) {
+            return true;
+        }
+        event.user.as_ref().is_some_and(|u| {
+            !u.id.is_empty() && self.ignored_users.read().unwrap().contains(&u.id)
+        })
+    }
+
+    /// Whether the action's own cooldown has passed, without starting it.
+    fn cooldown_ready(&self, action: &Action) -> bool {
+        action.cooldown_s == 0
+            || self.last_run.lock().unwrap().get(&action.id).is_none_or(|last| {
+                last.elapsed() >= Duration::from_secs(action.cooldown_s as u64)
+            })
     }
 
     fn user_cooldown_ok(&self, action_id: &str, event: &Event, cooldown_s: u32) -> bool {

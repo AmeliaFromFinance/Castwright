@@ -11,12 +11,14 @@ export default defineConfig({
     alias: { $lib: resolve(import.meta.dirname, 'src/lib') }
   },
   clearScreen: false,
+  // Scan lazily loaded pages too, so the dev server doesn't reload when one opens.
+  optimizeDeps: { entries: ['index.html', 'overlay.html', 'src/**/*.svelte'] },
   server: {
     port: 1420,
     strictPort: true,
     host: host || false,
     hmr: host ? { protocol: 'ws', host, port: 1421 } : undefined,
-    watch: { ignored: ['**/src-tauri/**'] }
+    watch: { ignored: ['**/src-tauri/**', '**/docs-site/**'] }
   },
   envPrefix: ['VITE_', 'TAURI_ENV_'],
   build: {
@@ -24,6 +26,8 @@ export default defineConfig({
     assetsDir: '_app',
     minify: !debug,
     sourcemap: debug,
+    // Loaded from disk, not the network; the code editor chunk is large but lazy.
+    chunkSizeWarningLimit: 800,
     rollupOptions: {
       input: {
         main: resolve(import.meta.dirname, 'index.html'),

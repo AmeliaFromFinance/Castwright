@@ -1,0 +1,50 @@
+---
+title: Castwright
+description: Overlays, alerts, chat and automation for Twitch streamers. Free, open source and local.
+template: splash
+hero:
+  tagline: Overlays, alerts, chat and automation for your Twitch stream. One desktop app, free and open source.
+  image:
+    file: ../../assets/screens/studio.png
+    alt: The Castwright Studio screen
+  actions:
+    - text: Download
+      link: https://github.com/AmeliaFromFinance/castwright/releases/latest
+      icon: download
+    - text: Read the guide
+      link: /guide/install/
+      variant: secondary
+      icon: right-arrow
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<CardGrid stagger>
+  <Card title="Studio" icon="seti:video">
+    Scenes, sources, audio and going live. Castwright drives OBS, so you rarely need to switch windows.
+  </Card>
+  <Card title="Overlay editor" icon="pencil">
+    Drag in text, images, video, goals, timers, chat and alerts. One click adds the overlay to OBS.
+  </Card>
+  <Card title="Alerts" icon="rocket">
+    Follows, subs, gifts, cheers and raids. Different looks by tier or amount, sounds, animations and text to speech.
+  </Card>
+  <Card title="Automation" icon="setting">
+    Chat commands, timers and reactions to events. Switch scenes, toggle sources, send chat or run a script.
+  </Card>
+  <Card title="Custom widgets" icon="seti:html">
+    Write HTML, CSS and JS, or paste in many StreamElements custom widgets.
+  </Card>
+  <Card title="Yours to keep" icon="laptop">
+    Everything is saved on your computer. No account, no cloud, no telemetry. Windows, macOS and Linux.
+  </Card>
+</CardGrid>
+
+## Get going
+
+<CardGrid>
+  <LinkCard title="Install" description="Windows, macOS and Linux downloads." href="/guide/install/" />
+  <LinkCard title="First-time setup" description="Connect Twitch and OBS in two minutes." href="/guide/first-run/" />
+  <LinkCard title="Your first overlay" description="Build an overlay and put it on stream." href="/guide/quick-start/" />
+  <LinkCard title="Screenshots" description="See every screen." href="/gallery/" />
+</CardGrid>

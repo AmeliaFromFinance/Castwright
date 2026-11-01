@@ -112,7 +112,7 @@ pub struct AlertSettings {
     pub gap_ms: u32,
     /// Show one alert for a community gift instead of one per gifted sub.
     pub combine_gifts: bool,
-    /// Ignore alerts whose viewer message contains any of these words.
+    /// Hide the viewer message (and skip reading it aloud) when it contains any of these words.
     pub blocked_words: Vec<String>,
     /// Replace links in viewer messages with "[link]".
     pub hide_links: bool,
