@@ -1,0 +1,63 @@
+[package]
+name = "castwright"
+version = "0.1.0"
+description = "Local-first Twitch broadcaster suite and overlay creator"
+authors = ["karasu"]
+license = "MIT"
+repository = "https://github.com/AmeliaFromFinance/Castwright"
+edition = "2024"
+rust-version = "1.90"
+
+[lib]
+name = "castwright_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+ts-rs = { version = "11", features = ["serde-json-impl", "no-serde-warnings"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+rand = "0.9"
+futures-util = "0.3"
+axum = { version = "0.8", features = ["ws"] }
+tower-http = { version = "0.6", features = ["fs"] }
+tower = { version = "0.5", features = ["util"] }
+rust-embed = { version = "8", features = ["include-exclude"] }
+mime_guess = "2"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "http2"] }
+tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
+url = "2"
+obws = { version = "0.15", features = ["events"] }
+rhai = { version = "1", features = ["sync", "serde"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
+base64 = "0.22"
+async-trait = "0.1"
+
+[target.'cfg(any(windows, target_os = "macos"))'.dependencies]
+window-vibrancy = "0.6"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full", "test-util"] }
+tempfile = "3"
+pretty_assertions = "1"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+opt-level = 3
+strip = "symbols"
+panic = "unwind"

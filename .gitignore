@@ -1,0 +1,16 @@
+node_modules/
+dist/
+/target/
+src-tauri/target/
+src-tauri/gen/schemas/
+.DS_Store
+*.log
+/test-results/
+/playwright-report/
+/e2e/.output/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+docs-site/node_modules/
+docs-site/dist/
+docs-site/.astro/

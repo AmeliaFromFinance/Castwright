@@ -1,0 +1,83 @@
+{
+  "context": {
+    "name": "nova_kat",
+    "tier": 3,
+    "months": 14,
+    "amount": 500,
+    "message": "Been here since the FIRST stream",
+    "is_gift": false,
+    "is_anonymous": true,
+    "amount_text": " 42 ",
+    "hex": "0x10",
+    "empty": "",
+    "nothing": null,
+    "yes_text": "Yes",
+    "zero": 0,
+    "user": { "login": "nova_kat", "display_name": "Nova_Kat" },
+    "badges": ["subscriber", "vip"],
+    "data": { "level": 2, "choices": [{ "title": "Red" }, { "title": "Blue" }] },
+    "last.sub.name": "flat key wins"
+  },
+  "cases": [
+    { "name": "eq number", "condition": { "field": "tier", "op": "eq", "value": 3 }, "expected": true },
+    { "name": "eq numeric string", "condition": { "field": "tier", "op": "eq", "value": "3" }, "expected": true },
+    { "name": "eq string ignores case", "condition": { "field": "name", "op": "eq", "value": "NOVA_KAT" }, "expected": true },
+    { "name": "eq mismatch", "condition": { "field": "name", "op": "eq", "value": "someone" }, "expected": false },
+    { "name": "ne", "condition": { "field": "tier", "op": "ne", "value": 1 }, "expected": true },
+    { "name": "ne on missing is true", "condition": { "field": "missing", "op": "ne", "value": 1 }, "expected": true },
+    { "name": "eq on missing is false", "condition": { "field": "missing", "op": "eq", "value": "" }, "expected": false },
+    { "name": "eq bool", "condition": { "field": "is_gift", "op": "eq", "value": false }, "expected": true },
+    { "name": "eq bool as text", "condition": { "field": "is_anonymous", "op": "eq", "value": "TRUE" }, "expected": true },
+    { "name": "gt", "condition": { "field": "months", "op": "gt", "value": 12 }, "expected": true },
+    { "name": "gte equal", "condition": { "field": "months", "op": "gte", "value": 14 }, "expected": true },
+    { "name": "lt", "condition": { "field": "amount", "op": "lt", "value": 100 }, "expected": false },
+    { "name": "lte with numeric string value", "condition": { "field": "amount", "op": "lte", "value": "500" }, "expected": true },
+    { "name": "gt on trimmed numeric string", "condition": { "field": "amount_text", "op": "gt", "value": 41 }, "expected": true },
+    { "name": "gt rejects hex", "condition": { "field": "hex", "op": "gt", "value": 1 }, "expected": false },
+    { "name": "gt rejects empty string", "condition": { "field": "empty", "op": "lt", "value": 1 }, "expected": false },
+    { "name": "gt on text is false", "condition": { "field": "name", "op": "gt", "value": 1 }, "expected": false },
+    { "name": "gt on missing is false", "condition": { "field": "missing", "op": "gt", "value": 0 }, "expected": false },
+    { "name": "gt rejects non-numeric value", "condition": { "field": "months", "op": "gt", "value": "abc" }, "expected": false },
+    { "name": "contains ignores case", "condition": { "field": "message", "op": "contains", "value": "first" }, "expected": true },
+    { "name": "not_contains", "condition": { "field": "message", "op": "not_contains", "value": "last" }, "expected": true },
+    { "name": "not_contains on missing", "condition": { "field": "missing", "op": "not_contains", "value": "x" }, "expected": true },
+    { "name": "contains on missing", "condition": { "field": "missing", "op": "contains", "value": "x" }, "expected": false },
+    { "name": "contains in array", "condition": { "field": "badges", "op": "contains", "value": "VIP" }, "expected": true },
+    { "name": "contains in array needs whole item", "condition": { "field": "badges", "op": "contains", "value": "vi" }, "expected": false },
+    { "name": "starts_with", "condition": { "field": "message", "op": "starts_with", "value": "been" }, "expected": true },
+    { "name": "ends_with", "condition": { "field": "message", "op": "ends_with", "value": "STREAM" }, "expected": true },
+    { "name": "nested path", "condition": { "field": "user.login", "op": "eq", "value": "nova_kat" }, "expected": true },
+    { "name": "array index path", "condition": { "field": "data.choices.1.title", "op": "eq", "value": "blue" }, "expected": true },
+    { "name": "array index out of range", "condition": { "field": "data.choices.5.title", "op": "exists", "value": null }, "expected": false },
+    { "name": "flat key with dots wins", "condition": { "field": "last.sub.name", "op": "eq", "value": "flat key wins" }, "expected": true },
+    { "name": "exists", "condition": { "field": "data.level", "op": "exists", "value": null }, "expected": true },
+    { "name": "exists is false for null", "condition": { "field": "nothing", "op": "exists", "value": null }, "expected": false },
+    { "name": "not_exists", "condition": { "field": "missing", "op": "not_exists", "value": null }, "expected": true },
+    { "name": "is_true bool", "condition": { "field": "is_anonymous", "op": "is_true", "value": null }, "expected": true },
+    { "name": "is_true yes text", "condition": { "field": "yes_text", "op": "is_true", "value": null }, "expected": true },
+    { "name": "is_true number", "condition": { "field": "tier", "op": "is_true", "value": null }, "expected": true },
+    { "name": "is_true zero", "condition": { "field": "zero", "op": "is_true", "value": null }, "expected": false },
+    { "name": "is_false missing", "condition": { "field": "missing", "op": "is_false", "value": null }, "expected": true },
+    { "name": "is_false bool", "condition": { "field": "is_gift", "op": "is_false", "value": null }, "expected": true }
+  ],
+  "groups": [
+    { "name": "empty all is true", "group": { "mode": "all", "conditions": [] }, "expected": true },
+    { "name": "empty any is true", "group": { "mode": "any", "conditions": [] }, "expected": true },
+    {
+      "name": "all needs every one",
+      "group": { "mode": "all", "conditions": [
+        { "field": "tier", "op": "eq", "value": 3 },
+        { "field": "months", "op": "lt", "value": 12 }
+      ] },
+      "expected": false
+    },
+    {
+      "name": "any needs one",
+      "group": { "mode": "any", "conditions": [
+        { "field": "tier", "op": "eq", "value": 1 },
+        { "field": "months", "op": "gte", "value": 12 }
+      ] },
+      "expected": true
+    }
+  ]
+}
