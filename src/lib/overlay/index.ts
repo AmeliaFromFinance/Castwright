@@ -1,0 +1,13 @@
+export { default as OverlayStage } from './OverlayStage.svelte';
+export { default as StyledText } from './StyledText.svelte';
+export { OverlayRuntime, type RuntimeOptions } from './runtime.svelte';
+export { parseLocation, backoffDelay, type Endpoint } from './connection';
+export { resolveAsset, assetResolver } from './assets';
+export { reduce, emptyState, parseMsg, setWidgetValue, type OverlayState, type ActiveAlert, type WidgetState } from './state';
+export { Feed, type OverlayFeed } from './feed';
+export { eventLabel, eventContext, amountText, displayName, ALERTABLE_KINDS } from './labels';
+export { formatDuration, timerText } from './format';
+export { animSpec, easingCss, type Phase } from './anim';
+export { fontsFor, ensureFonts, googleFontsHref } from './fonts';
+export { textStyleCss, boxStyleCss, scopeCss, scopeClass } from './styles';
+export type { StageMode, WidgetStoreFn } from './context';

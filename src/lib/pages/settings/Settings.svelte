@@ -1,4 +1,522 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { app } from '$lib/state/app.svelte';
+  import { api } from '$lib/api';
+  import { isTauri } from '$lib/api/backend';
+  import { attempt, toasts } from '$lib/state/toast.svelte';
+  import type { SnapshotInfo } from '$lib/bindings/SnapshotInfo';
+  import { ago, bytes } from '$lib/format';
+  import { copyText, openExternal, reveal } from '$lib/util/os';
+  import Button from '$lib/ui/Button.svelte';
+  import Badge from '$lib/ui/Badge.svelte';
+  import Dialog from '$lib/ui/Dialog.svelte';
+  import Field from '$lib/ui/Field.svelte';
+  import Switch from '$lib/ui/Switch.svelte';
+  import ObsForm from '$lib/widgets/ObsForm.svelte';
+  import TwitchAccounts from '$lib/widgets/TwitchAccounts.svelte';
+  import Section from './Section.svelte';
+  import Row from './Row.svelte';
+  import Appearance from './Appearance.svelte';
+  import { Copy, Eye, EyeOff, FolderOpen, RefreshCw, ExternalLink, TriangleAlert } from '@lucide/svelte';
+
+  const SITE = 'https://castwright.sinist3r.lol';
+  const REPO = 'https://github.com/AmeliaFromFinance/castwright';
+
+  const sections = [
+    { id: 'general', label: 'General' },
+    { id: 'obs', label: 'OBS' },
+    { id: 'twitch', label: 'Twitch' },
+    { id: 'server', label: 'Overlay server' },
+    { id: 'appearance', label: 'Appearance' },
+    { id: 'backups', label: 'Backups and data' },
+    { id: 'about', label: 'About' }
+  ];
+  let active = $state('general');
+  let scroller: HTMLElement | undefined = $state();
+
+  // General
+  let projectName = $state(app.project?.name ?? '');
+  let projectDir = $state(app.info?.project_dir ?? '');
+  let dirChanged = $state(false);
+
+  // Twitch client id
+  let clientId = $state(app.settings?.twitch.client_id ?? '');
+  let clientIdError = $state<string | null>(null);
+
+  // Server
+  let port = $state(app.settings?.server.port ?? 7470);
+  let allowLan = $state(app.settings?.server.allow_lan ?? false);
+  let showToken = $state(false);
+  let confirmToken = $state(false);
+  let restarting = $state(false);
+  const portValid = $derived(Number.isInteger(port) && port >= 1024 && port <= 65535);
+  const serverDirty = $derived(port !== app.settings?.server.port || allowLan !== app.settings?.server.allow_lan);
+
+  // Backups
+  let snapshots = $state<SnapshotInfo[]>([]);
+  let restoreTarget = $state<SnapshotInfo | null>(null);
+  let confirmClear = $state(false);
+  let confirmSession = $state(false);
+
+  onMount(() => {
+    loadSnapshots();
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) active = visible[0].target.id;
+      },
+      { root: scroller, rootMargin: '0px 0px -65% 0px' }
+    );
+    for (const s of sections) {
+      const el = document.getElementById(s.id);
+      if (el) obs.observe(el);
+    }
+    return () => obs.disconnect();
+  });
+
+  function go(id: string) {
+    active = id;
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function loadSnapshots() {
+    snapshots = (await attempt(() => api.listSnapshots())) ?? [];
+  }
+
+  async function saveName() {
+    const name = projectName.trim();
+    if (!name || name === app.project?.name) {
+      projectName = app.project?.name ?? '';
+      return;
+    }
+    if (await attempt(() => api.renameProject(name), 'Project renamed')) await app.reloadProject();
+    else await app.reloadProject();
+    projectName = app.project?.name ?? name;
+  }
+
+  async function pickDir() {
+    if (!isTauri()) {
+      toasts.show('Choosing a folder needs the desktop app');
+      return;
+    }
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const dir = await open({ directory: true, title: 'Choose a project folder' });
+    if (typeof dir !== 'string') return;
+    if ((await attempt(() => api.setProjectDir(dir))) !== undefined) {
+      projectDir = dir;
+      dirChanged = true;
+    }
+  }
+
+  async function saveClientId() {
+    clientIdError = null;
+    const id = clientId.trim();
+    try {
+      await api.setTwitchClientId(id);
+      await app.reloadSettings();
+      app.twitch = await api.twitchStatus();
+      toasts.success(id ? 'Client ID saved' : 'Using the built-in client ID');
+    } catch (e) {
+      clientIdError = (e as { message?: string })?.message ?? String(e);
+    }
+  }
+
+  async function applyServer() {
+    restarting = true;
+    const info = await attempt(() => api.restartServer(port, allowLan));
+    if (info) {
+      app.server = info;
+      await app.reloadSettings();
+      if (info.error) toasts.error(info.error);
+      else toasts.success(`Overlay server running on port ${info.port}`);
+    }
+    restarting = false;
+  }
+
+  async function newToken() {
+    confirmToken = false;
+    const info = await attempt(() => api.regenerateToken(), 'New link secret created');
+    if (info) {
+      app.server = info;
+      await app.reloadSettings();
+    }
+  }
+
+  async function restore() {
+    if (!restoreTarget) return;
+    const file = restoreTarget.file;
+    restoreTarget = null;
+    const p = await attempt(() => api.restoreSnapshot(file), 'Backup restored');
+    if (p) {
+      app.project = p;
+      projectName = p.name;
+      await loadSnapshots();
+    }
+  }
+
+  const maskedToken = $derived(app.server ? app.server.token.slice(0, 4) + '•'.repeat(12) : '');
 </script>
 
-<div class="todo">Settings</div>
+<div class="settings">
+  <nav class="toc" aria-label="Settings sections">
+    <div class="eyebrow pad">Settings</div>
+    {#each sections as s (s.id)}
+      <button type="button" class="toc-item" class:on={active === s.id} aria-current={active === s.id ? 'true' : undefined} onclick={() => go(s.id)}>
+        {s.label}
+      </button>
+    {/each}
+  </nav>
+
+  <div class="scroll" bind:this={scroller}>
+    <div class="content">
+      <Section id="general" title="General" description="Your project holds every overlay, alert, action and uploaded file.">
+        <Field label="Project name" for="project-name">
+          <input
+            id="project-name"
+            class="input name"
+            maxlength="80"
+            bind:value={projectName}
+            onblur={saveName}
+            onkeydown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
+          />
+        </Field>
+        <Row label="Project folder" hint={dirChanged ? 'Restart Castwright to switch to this folder.' : undefined}>
+          <span class="path mono selectable truncate" title={projectDir}>{projectDir}</span>
+          <Button size="sm" variant="ghost" onclick={() => reveal(projectDir)} aria-label="Show in file manager"><FolderOpen size={14} /></Button>
+          <Button size="sm" onclick={pickDir}>Change…</Button>
+        </Row>
+        <Row label="Setup guide" hint="Walk through the first-time setup again.">
+          <Button size="sm" onclick={() => attempt(() => api.setFirstRunDone(false)).then(() => app.reloadSettings())}>Run setup</Button>
+        </Row>
+      </Section>
+
+      <Section
+        id="obs"
+        title="OBS"
+        description="Castwright controls OBS Studio 28 or newer through its built-in WebSocket server. In OBS open Tools → WebSocket Server Settings and tick Enable WebSocket server."
+      >
+        <ObsForm />
+      </Section>
+
+      <Section id="twitch" title="Twitch" description="Sign in so Castwright can receive follows, subs, cheers, raids and chat, and update your stream info.">
+        <TwitchAccounts />
+        <details class="advanced">
+          <summary>Use your own Twitch app</summary>
+          <p class="muted">
+            {app.info?.built_in_client_id
+              ? 'This build has a client ID built in, so this is optional.'
+              : "This build doesn't include a client ID, so you need your own."}
+            Create an app at
+            <button type="button" class="link" onclick={() => openExternal('https://dev.twitch.tv/console/apps')}>dev.twitch.tv/console <ExternalLink size={11} /></button>
+            with the client type set to <b>Public</b> and the redirect URL <span class="mono">http://localhost</span>, then paste its client ID here.
+          </p>
+          <div class="row gap client">
+            <input
+              class="input mono"
+              placeholder={app.info?.built_in_client_id ? 'Built-in client ID' : 'Client ID'}
+              bind:value={clientId}
+              aria-label="Twitch client ID"
+              aria-invalid={!!clientIdError}
+              spellcheck="false"
+              autocomplete="off"
+            />
+            <Button onclick={saveClientId} disabled={clientId.trim() === (app.settings?.twitch.client_id ?? '')}>Save</Button>
+          </div>
+          {#if clientIdError}<p class="err" role="alert">{clientIdError}</p>{/if}
+          <p class="faint small">Changing it signs you out of both accounts.</p>
+        </details>
+      </Section>
+
+      <Section id="server" title="Overlay server" description="OBS loads your overlays from a small web server inside Castwright. It only runs while the app is open.">
+        <Row label="Status">
+          {#if app.server?.running}
+            <Badge tone="ok">Running</Badge>
+            <span class="mono selectable">{app.server.base_url}</span>
+          {:else}
+            <Badge tone="danger">Stopped</Badge>
+          {/if}
+        </Row>
+        {#if app.server?.error}<p class="err" role="alert">{app.server.error}</p>{/if}
+        <Row label="Port" hint="Change it if another program already uses this one. 1024 to 65535.">
+          <input class="input mono port" type="number" min="1024" max="65535" bind:value={port} aria-label="Port" aria-invalid={!portValid} />
+        </Row>
+        <Row label="Allow other devices" hint="Lets a phone or second PC on your network open overlays and run actions. Leave off unless you need it.">
+          <Switch label="Allow other devices" bind:checked={allowLan} />
+        </Row>
+        {#if serverDirty}
+          <div class="row gap">
+            <Button variant="primary" busy={restarting} disabled={!portValid} onclick={applyServer}>Apply and restart server</Button>
+            <Button variant="ghost" onclick={() => ((port = app.settings?.server.port ?? 7470), (allowLan = app.settings?.server.allow_lan ?? false))}>Undo</Button>
+          </div>
+        {/if}
+        <Row label="Link secret" hint="Part of every overlay link so other programs can't read your overlays.">
+          <span class="mono selectable token">{showToken ? app.server?.token : maskedToken}</span>
+          <Button size="sm" variant="ghost" aria-label={showToken ? 'Hide secret' : 'Show secret'} onclick={() => (showToken = !showToken)}>
+            {#if showToken}<EyeOff size={14} />{:else}<Eye size={14} />{/if}
+          </Button>
+          <Button size="sm" variant="ghost" aria-label="Copy secret" onclick={() => copyText(app.server?.token ?? '', 'Secret copied')}><Copy size={14} /></Button>
+          <Button size="sm" onclick={() => (confirmToken = true)}><RefreshCw size={14} />New secret</Button>
+        </Row>
+      </Section>
+
+      <Section id="appearance" title="Appearance" description="Pick a theme or make your own. Every built-in theme meets WCAG AA contrast.">
+        <Appearance />
+      </Section>
+
+      <Section id="backups" title="Backups and data" description="Castwright saves a backup of your project every 10 minutes while you make changes and keeps the latest 20.">
+        <div class="row gap">
+          <Button size="sm" onclick={() => attempt(() => api.createSnapshot(), 'Backup saved').then(loadSnapshots)}>Back up now</Button>
+        </div>
+        {#if snapshots.length}
+          <ul class="snaps">
+            {#each snapshots as s (s.file)}
+              <li>
+                <span>{new Date(s.ts).toLocaleString()}</span>
+                <span class="faint">{ago(s.ts)} · {bytes(s.bytes)}</span>
+                <div class="grow"></div>
+                <Button size="sm" variant="ghost" onclick={() => (restoreTarget = s)}>Restore</Button>
+              </li>
+            {/each}
+          </ul>
+        {:else}
+          <p class="faint small">No backups yet.</p>
+        {/if}
+        <Row label="Session counters" hint="Sets this stream's follow, sub, bit and raid totals back to zero.">
+          <Button size="sm" onclick={() => (confirmSession = true)}>Reset</Button>
+        </Row>
+        <Row label="Event history" hint="Deletes saved events. Overlays like recent events lists will be empty.">
+          <Button size="sm" variant="danger" onclick={() => (confirmClear = true)}>Clear history</Button>
+        </Row>
+      </Section>
+
+      <Section id="about" title="About">
+        <div class="about">
+          <div class="brand">
+            <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true">
+              <rect x="6" y="10" width="52" height="36" rx="9" fill="none" stroke="currentColor" stroke-width="5" />
+              <path d="M22 56h20" stroke="currentColor" stroke-width="5" stroke-linecap="round" />
+              <circle cx="32" cy="28" r="7" fill="currentColor" />
+            </svg>
+            <div>
+              <b>Castwright</b>
+              <div class="faint small">Version {app.info?.version} · {app.info?.os}</div>
+            </div>
+          </div>
+          <dl>
+            <dt>Settings folder</dt>
+            <dd class="mono selectable">{app.info?.config_dir}</dd>
+          </dl>
+          {#if app.info?.secrets_in_file}
+            <p class="warn-note">
+              <TriangleAlert size={14} /> No system keychain was found, so passwords and sign-ins are saved in a private file in the settings folder.
+            </p>
+          {/if}
+          <div class="row gap">
+            <Button size="sm" onclick={() => openExternal(SITE)}>Guide <ExternalLink size={12} /></Button>
+            <Button size="sm" variant="ghost" onclick={() => openExternal(REPO)}>Source code <ExternalLink size={12} /></Button>
+            <Button size="sm" variant="ghost" onclick={() => openExternal(`${REPO}/issues`)}>Report a problem <ExternalLink size={12} /></Button>
+          </div>
+          <p class="faint small">MIT licence. Not affiliated with Twitch or OBS.</p>
+        </div>
+      </Section>
+    </div>
+  </div>
+</div>
+
+<Dialog bind:open={confirmToken} title="Create a new link secret?" description="Overlay links you already added to OBS stop working. Use Add to OBS or copy the new links afterwards." width={440}>
+  {#snippet footer()}
+    <Button onclick={() => (confirmToken = false)}>Cancel</Button>
+    <Button variant="danger" onclick={newToken}>Create new secret</Button>
+  {/snippet}
+</Dialog>
+
+<Dialog
+  open={restoreTarget !== null}
+  onclose={() => (restoreTarget = null)}
+  title="Restore this backup?"
+  description="Your current project is backed up first, so you can undo this."
+  width={420}
+>
+  {#snippet footer()}
+    <Button onclick={() => (restoreTarget = null)}>Cancel</Button>
+    <Button variant="primary" onclick={restore}>Restore</Button>
+  {/snippet}
+</Dialog>
+
+<Dialog bind:open={confirmSession} title="Reset session counters?" width={400}>
+  {#snippet footer()}
+    <Button onclick={() => (confirmSession = false)}>Cancel</Button>
+    <Button variant="primary" onclick={() => ((confirmSession = false), attempt(() => api.resetSession(), 'Counters reset'))}>Reset</Button>
+  {/snippet}
+</Dialog>
+
+<Dialog bind:open={confirmClear} title="Clear event history?" description="This can't be undone." width={400}>
+  {#snippet footer()}
+    <Button onclick={() => (confirmClear = false)}>Cancel</Button>
+    <Button
+      variant="danger"
+      onclick={async () => {
+        confirmClear = false;
+        if ((await attempt(() => api.clearHistory(), 'History cleared')) !== undefined) app.feed = [];
+      }}>Clear history</Button
+    >
+  {/snippet}
+</Dialog>
+
+<style>
+  .settings {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+  .toc {
+    width: 200px;
+    flex: none;
+    padding: 16px 10px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .pad {
+    padding: 0 10px 8px;
+  }
+  .toc-item {
+    text-align: left;
+    padding: 7px 10px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .toc-item:hover {
+    background: var(--bg-2);
+    color: var(--text);
+  }
+  .toc-item.on {
+    background: var(--bg-3);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .scroll {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .content {
+    max-width: 1040px;
+    padding: 0 40px 80px;
+  }
+  .name {
+    max-width: 360px;
+  }
+  .path {
+    max-width: 320px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .mono {
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .port {
+    width: 110px;
+  }
+  .token {
+    color: var(--text-muted);
+  }
+  .gap {
+    gap: 8px;
+  }
+  .advanced {
+    max-width: 640px;
+    font-size: 13px;
+  }
+  .advanced summary {
+    cursor: pointer;
+    color: var(--accent-text);
+    font-size: 13px;
+    width: max-content;
+  }
+  .advanced[open] summary {
+    margin-bottom: 10px;
+  }
+  .advanced p {
+    line-height: 1.5;
+  }
+  .client {
+    margin: 10px 0 6px;
+    max-width: 480px;
+  }
+  .link {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    color: var(--accent-text);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .err {
+    color: var(--danger);
+    font-size: 12.5px;
+  }
+  .small {
+    font-size: 12px;
+  }
+  .snaps {
+    list-style: none;
+    max-width: 640px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .snaps li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 8px 6px 12px;
+    font-size: 13px;
+  }
+  .snaps li + li {
+    border-top: 1px solid var(--border);
+  }
+  .about {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .brand {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    color: var(--accent-text);
+  }
+  .brand b {
+    color: var(--text);
+    font-size: 15px;
+  }
+  dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    font-size: 13px;
+  }
+  dt {
+    color: var(--text-muted);
+  }
+  .warn-note {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    color: var(--warn);
+    font-size: 12.5px;
+    max-width: 620px;
+  }
+  @media (max-width: 1100px) {
+    .toc {
+      width: 170px;
+    }
+    .content {
+      padding: 0 24px 80px;
+    }
+  }
+</style>

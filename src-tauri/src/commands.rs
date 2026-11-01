@@ -452,12 +452,220 @@ pub async fn twitch_update_stream_info(
     if tags.len() > 10 {
         return user_err("Twitch allows at most 10 tags.");
     }
-    core.twitch.update_stream_info(&title, &category_id, tags).await
+    core.twitch
+        .update_stream_info(&title, &category_id, tags)
+        .await
 }
 
 #[tauri::command]
 pub async fn twitch_send_chat(core: Ctx<'_>, message: String, as_bot: bool) -> AppResult<()> {
     core.twitch.send_chat(&message, as_bot, None).await
+}
+
+// ---------- obs ----------
+
+use crate::model::runtime::ObsSnapshot;
+
+#[tauri::command]
+pub fn obs_snapshot(core: Ctx) -> ObsSnapshot {
+    core.obs.snapshot()
+}
+
+#[tauri::command]
+pub async fn obs_connect(core: Ctx<'_>) -> AppResult<()> {
+    core.obs.connect().await
+}
+
+#[tauri::command]
+pub async fn obs_disconnect(core: Ctx<'_>) -> AppResult<()> {
+    core.obs.disconnect().await
+}
+
+#[tauri::command]
+pub async fn obs_test_connection(
+    core: Ctx<'_>,
+    host: String,
+    port: u16,
+    password: Option<String>,
+) -> AppResult<String> {
+    // An empty password box with a saved password means "use the saved one".
+    let saved = if password.is_none() && core.settings.get().obs.has_password {
+        core.secrets.get(crate::store::secrets::keys::OBS_PASSWORD)
+    } else {
+        None
+    };
+    let pw = password.or(saved);
+    core.obs
+        .test_connection(host.trim(), port, pw.as_deref().filter(|p| !p.is_empty()))
+        .await
+}
+
+#[tauri::command]
+pub async fn obs_save_connection(
+    core: Ctx<'_>,
+    host: String,
+    port: u16,
+    password: Option<String>,
+    keep_password: bool,
+    auto_connect: bool,
+) -> AppResult<()> {
+    let host = host.trim().to_string();
+    if host.is_empty() {
+        return user_err("Enter the address of the computer running OBS (usually 127.0.0.1).");
+    }
+    if port == 0 {
+        return user_err("Enter the OBS WebSocket port (usually 4455).");
+    }
+    core.settings.update(|s| {
+        s.obs.host = host;
+        s.obs.port = port;
+        s.obs.auto_connect = auto_connect;
+    })?;
+    if !keep_password {
+        core.obs.save_password(password.filter(|p| !p.is_empty()))?;
+    }
+    let _ = core.obs.disconnect().await;
+    core.obs.start();
+    if !auto_connect {
+        core.obs.connect().await?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn obs_set_program_scene(core: Ctx<'_>, scene: String) -> AppResult<()> {
+    core.obs.set_program_scene(&scene).await
+}
+
+#[tauri::command]
+pub async fn obs_set_preview_scene(core: Ctx<'_>, scene: String) -> AppResult<()> {
+    core.obs.set_preview_scene(&scene).await
+}
+
+#[tauri::command]
+pub async fn obs_set_studio_mode(core: Ctx<'_>, enabled: bool) -> AppResult<()> {
+    core.obs.set_studio_mode(enabled).await
+}
+
+#[tauri::command]
+pub async fn obs_transition(core: Ctx<'_>) -> AppResult<()> {
+    core.obs.trigger_transition().await
+}
+
+#[tauri::command]
+pub async fn obs_set_transition(core: Ctx<'_>, name: String) -> AppResult<()> {
+    core.obs.set_transition(&name).await
+}
+
+#[tauri::command]
+pub async fn obs_set_transition_duration(core: Ctx<'_>, ms: u32) -> AppResult<()> {
+    core.obs.set_transition_duration(ms.min(20_000)).await
+}
+
+#[tauri::command]
+pub async fn obs_stream(core: Ctx<'_>, action: String) -> AppResult<()> {
+    match action.as_str() {
+        "start" => core.obs.start_stream().await,
+        "stop" => core.obs.stop_stream().await,
+        "toggle" => core.obs.toggle_stream().await,
+        _ => user_err("Unknown stream action."),
+    }
+}
+
+#[tauri::command]
+pub async fn obs_record(core: Ctx<'_>, action: String) -> AppResult<()> {
+    match action.as_str() {
+        "start" => core.obs.start_record().await,
+        "stop" => core.obs.stop_record().await,
+        "toggle" => core.obs.toggle_record().await,
+        "pause" => core.obs.pause_record().await,
+        "resume" => core.obs.resume_record().await,
+        _ => user_err("Unknown recording action."),
+    }
+}
+
+#[tauri::command]
+pub async fn obs_replay(core: Ctx<'_>, action: String) -> AppResult<()> {
+    match action.as_str() {
+        "toggle" => core.obs.toggle_replay_buffer().await,
+        "save" => core.obs.save_replay().await,
+        _ => user_err("Unknown replay action."),
+    }
+}
+
+#[tauri::command]
+pub async fn obs_virtual_cam(core: Ctx<'_>) -> AppResult<()> {
+    core.obs.toggle_virtual_cam().await
+}
+
+#[tauri::command]
+pub async fn obs_set_volume(core: Ctx<'_>, input: String, db: f64) -> AppResult<()> {
+    core.obs
+        .set_input_volume_db(&input, db.clamp(-100.0, 26.0))
+        .await
+}
+
+#[tauri::command]
+pub async fn obs_set_mute(core: Ctx<'_>, input: String, muted: bool) -> AppResult<()> {
+    core.obs.set_input_mute(&input, muted).await
+}
+
+#[tauri::command]
+pub async fn obs_set_monitoring(core: Ctx<'_>, input: String, enabled: bool) -> AppResult<()> {
+    core.obs.set_input_monitoring(&input, enabled).await
+}
+
+#[tauri::command]
+pub async fn obs_set_item_enabled(
+    core: Ctx<'_>,
+    scene: String,
+    item_id: i64,
+    enabled: bool,
+) -> AppResult<()> {
+    core.obs
+        .set_scene_item_enabled(&scene, item_id, enabled)
+        .await
+}
+
+#[tauri::command]
+pub async fn obs_set_item_locked(
+    core: Ctx<'_>,
+    scene: String,
+    item_id: i64,
+    locked: bool,
+) -> AppResult<()> {
+    core.obs
+        .set_scene_item_locked(&scene, item_id, locked)
+        .await
+}
+
+#[tauri::command]
+pub async fn obs_levels(core: Ctx<'_>, enabled: bool) -> AppResult<()> {
+    core.obs.set_levels_enabled(enabled).await
+}
+
+#[tauri::command]
+pub async fn obs_screenshot(core: Ctx<'_>, source: String, width: u32) -> AppResult<String> {
+    core.obs.screenshot(&source, width.clamp(64, 1920)).await
+}
+
+/// Add (or update) a Browser Source for an overlay in an OBS scene.
+#[tauri::command]
+pub async fn obs_add_overlay(core: Ctx<'_>, overlay_id: String, scene: String) -> AppResult<()> {
+    let Some(overlay) = core
+        .project
+        .read(|p| p.overlays.iter().find(|o| o.id == overlay_id).cloned())
+    else {
+        return Err(AppError::NotFound("overlay".into()));
+    };
+    let url = core
+        .server
+        .overlay_url(&overlay.id)
+        .ok_or_else(|| AppError::User("The overlay server isn't running.".into()))?;
+    let name = format!("Castwright · {}", overlay.name);
+    core.obs
+        .ensure_browser_source(&scene, &name, &url, overlay.width, overlay.height)
+        .await
 }
 
 // ---------- settings ----------
@@ -485,10 +693,18 @@ pub fn set_first_run_done(core: Ctx, done: bool) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub fn set_twitch_client_id(core: Ctx, client_id: String) -> AppResult<()> {
+pub async fn set_twitch_client_id(core: Ctx<'_>, client_id: String) -> AppResult<()> {
     let id = client_id.trim().to_string();
     if !id.is_empty() && (id.len() > 64 || !id.chars().all(|c| c.is_ascii_alphanumeric())) {
         return user_err("That doesn't look like a Twitch client ID.");
+    }
+    if core.twitch.client_id().unwrap_or_default() == id {
+        core.settings.update(|s| s.twitch.client_id = id)?;
+        return Ok(());
+    }
+    // Sign-ins belong to the old app, so sign out before switching.
+    for role in [AccountRole::Bot, AccountRole::Broadcaster] {
+        core.twitch.logout(role).await?;
     }
     core.settings.update(|s| s.twitch.client_id = id)?;
     Ok(())

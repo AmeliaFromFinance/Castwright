@@ -403,7 +403,8 @@ impl TwitchService {
                 }
                 let mut e = *e;
                 if e.kind == EventKind::Chat && self.was_sent_by_app(&e.id) {
-                    e.data.insert("sent_by_castwright".into(), Value::Bool(true));
+                    e.data
+                        .insert("sent_by_castwright".into(), Value::Bool(true));
                 }
                 self.hub.publish(e);
             }

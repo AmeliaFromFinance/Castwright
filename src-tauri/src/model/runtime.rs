@@ -282,6 +282,6 @@ pub enum OverlayClientMsg {
         layer_id: String,
         key: String,
     },
-    /// A custom widget asked to hold or release the alert queue.
+    /// Keep-alive sent by the page every 25 seconds.
     Ping,
 }

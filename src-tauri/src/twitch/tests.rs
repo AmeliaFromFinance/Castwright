@@ -611,7 +611,10 @@ async fn actions_send_the_right_requests() {
     assert_eq!(b["reply_parent_message_id"], "parent-1");
     assert_eq!(b["message"].as_str().unwrap().len(), 500);
 
-    assert!(s.svc.was_sent_by_app("m1"), "posted message ids are remembered");
+    assert!(
+        s.svc.was_sent_by_app("m1"),
+        "posted message ids are remembered"
+    );
     assert!(!s.svc.was_sent_by_app("someone-else"));
 
     s.svc.send_chat("hi", false, None).await.unwrap();

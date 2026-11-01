@@ -126,11 +126,19 @@ mod fixtures {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/lib/api/fixtures");
         std::fs::create_dir_all(&dir).unwrap();
         let project = crate::model::project::Project::starter();
-        std::fs::write(dir.join("starter-project.json"), serde_json::to_string_pretty(&project).unwrap()).unwrap();
+        std::fs::write(
+            dir.join("starter-project.json"),
+            serde_json::to_string_pretty(&project).unwrap(),
+        )
+        .unwrap();
         let samples: Vec<_> = crate::model::event::EventKind::ALL
             .iter()
             .map(|k| super::sample_event(*k))
             .collect();
-        std::fs::write(dir.join("sample-events.json"), serde_json::to_string_pretty(&samples).unwrap()).unwrap();
+        std::fs::write(
+            dir.join("sample-events.json"),
+            serde_json::to_string_pretty(&samples).unwrap(),
+        )
+        .unwrap();
     }
 }

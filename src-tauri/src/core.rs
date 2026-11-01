@@ -4,6 +4,7 @@ use crate::alerts::AlertEngine;
 use crate::automation::Automation;
 use crate::hub::{Hub, UiSink};
 use crate::model::runtime::LogLevel;
+use crate::obs::ObsService;
 use crate::server::OverlayServer;
 use crate::store::db::Db;
 use crate::store::project::{LoadOutcome, ProjectStore};
@@ -29,6 +30,7 @@ pub struct Core {
     pub automation: Arc<Automation>,
     pub server: Arc<OverlayServer>,
     pub twitch: Arc<TwitchService>,
+    pub obs: Arc<ObsService>,
     pub paths: Paths,
 }
 
@@ -100,16 +102,28 @@ impl Core {
             // commands, and timers know whether the stream is live.
             let twitch = twitch.clone();
             let automation = automation.clone();
+            let hub_sync = hub.clone();
             tokio::spawn(async move {
                 let mut tick = tokio::time::interval(Duration::from_secs(5));
                 loop {
                     tick.tick().await;
                     let st = twitch.status();
+                    let (login, name) = st
+                        .broadcaster
+                        .as_ref()
+                        .map(|b| (b.login.clone(), b.display_name.clone()))
+                        .unwrap_or_default();
+                    hub_sync.set_var("twitch.login", login.into(), false);
+                    hub_sync.set_var("twitch.display_name", name.into(), false);
                     automation.set_ignored_users(st.bot.map(|b| vec![b.id]).unwrap_or_default());
                     automation.set_live(st.stream.live);
                 }
             });
         }
+
+        let obs = ObsService::new(hub.clone(), secrets.clone(), settings.clone());
+        automation.set_obs(obs.clone());
+        obs.start();
 
         let s = settings.get();
         let server = OverlayServer::new(
@@ -156,12 +170,18 @@ impl Core {
             automation,
             server,
             twitch,
+            obs,
             paths,
         }))
     }
 
     /// Save everything that's pending. Called when the app exits.
-    pub fn shutdown(&self) {
+    pub async fn shutdown(&self) {
+        self.obs.shutdown().await;
+        self.shutdown_sync();
+    }
+
+    fn shutdown_sync(&self) {
         if let Err(e) = self.project.flush() {
             tracing::error!("couldn't save project on exit: {e}");
         }
@@ -205,7 +225,7 @@ mod tests {
         core.hub.set_var("counter.x", serde_json::json!(1), true);
         core.project.update(|p| p.name = "Exit test".into());
         core.project.mark_dirty();
-        core.shutdown();
+        core.shutdown().await;
         let saved: serde_json::Value = serde_json::from_slice(
             &std::fs::read(dir.path().join("project/project.json")).unwrap(),
         )
@@ -240,6 +260,6 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(core.project_dir(), dir.path().join("default"));
-        core.shutdown();
+        core.shutdown().await;
     }
 }

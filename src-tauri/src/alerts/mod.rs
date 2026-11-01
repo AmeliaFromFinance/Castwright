@@ -230,6 +230,8 @@ impl AlertEngine {
                 _ = tokio::time::sleep(Duration::from_millis(total as u64)) => {}
                 _ = self.skip.notified() => {
                     self.hub.to_overlays(None, OverlayMsg::AlertStop { id: play.id.clone() });
+                    // Let the exit animation finish before the next alert starts.
+                    tokio::time::sleep(Duration::from_millis(play.exit.duration_ms.min(5000) as u64)).await;
                 }
             }
             self.state.lock().unwrap().playing = None;

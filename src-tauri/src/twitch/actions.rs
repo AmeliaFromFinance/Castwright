@@ -236,7 +236,10 @@ impl TwitchActions for TwitchService {
                 "Twitch didn't post the message: {reason}"
             )));
         }
-        if let Some(id) = Self::first(&v).and_then(|r| r.get("message_id")).and_then(Value::as_str) {
+        if let Some(id) = Self::first(&v)
+            .and_then(|r| r.get("message_id"))
+            .and_then(Value::as_str)
+        {
             self.remember_sent(id);
         }
         Ok(())

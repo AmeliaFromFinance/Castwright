@@ -22,6 +22,8 @@ export function applyTheme(appearance: AppearanceSettings, effect: WindowEffect 
   root.style.colorScheme = theme.spec.base;
   root.dataset.base = theme.spec.base;
   root.dataset.reduceMotion = String(appearance.reduce_motion);
+  const scale = Math.min(175, Math.max(90, appearance.ui_scale || 100));
+  root.style.setProperty('zoom', scale === 100 ? '' : String(scale / 100));
   root.dataset.effect = translucent ? 'translucent' : 'solid';
   return theme;
 }

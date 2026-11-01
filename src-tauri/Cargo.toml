@@ -40,7 +40,7 @@ mime_guess = "2"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "http2"] }
 tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
 url = "2"
-obws = { version = "0.15", features = ["events"] }
+sha2 = "0.10"
 rhai = { version = "1", features = ["sync", "serde"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }

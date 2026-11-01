@@ -5,6 +5,7 @@ pub mod core;
 pub mod error;
 pub mod hub;
 pub mod model;
+pub mod obs;
 pub mod server;
 pub mod services;
 pub mod store;
@@ -116,6 +117,29 @@ pub fn run() {
             commands::twitch_search_categories,
             commands::twitch_update_stream_info,
             commands::twitch_send_chat,
+            commands::obs_snapshot,
+            commands::obs_connect,
+            commands::obs_disconnect,
+            commands::obs_test_connection,
+            commands::obs_save_connection,
+            commands::obs_set_program_scene,
+            commands::obs_set_preview_scene,
+            commands::obs_set_studio_mode,
+            commands::obs_transition,
+            commands::obs_set_transition,
+            commands::obs_set_transition_duration,
+            commands::obs_stream,
+            commands::obs_record,
+            commands::obs_replay,
+            commands::obs_virtual_cam,
+            commands::obs_set_volume,
+            commands::obs_set_mute,
+            commands::obs_set_monitoring,
+            commands::obs_set_item_enabled,
+            commands::obs_set_item_locked,
+            commands::obs_levels,
+            commands::obs_screenshot,
+            commands::obs_add_overlay,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Castwright");
@@ -124,7 +148,8 @@ pub fn run() {
         if let tauri::RunEvent::Exit = event
             && let Some(core) = handle.try_state::<Arc<core::Core>>()
         {
-            core.shutdown();
+            let core = core.inner().clone();
+            tauri::async_runtime::block_on(async move { core.shutdown().await });
         }
     });
 }

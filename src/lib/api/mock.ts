@@ -1,6 +1,7 @@
 // In-browser stand-in for the Rust backend. Used when the UI runs outside the
 // desktop app: development in a browser, end-to-end tests and documentation
-// screenshots. Add `?demo=static` to the URL to turn off the simulated activity.
+// screenshots. Add `?demo=static` to the URL to turn off the simulated activity,
+// and `&setup` to start at first-time setup.
 
 import type { Backend, Unlisten } from './backend';
 import starter from './fixtures/starter-project.json';
@@ -204,6 +205,12 @@ export function createDemoBackend(): Backend {
   let settings = defaultSettings();
   const obs = demoObs();
   const twitch = demoTwitch();
+  const signedIn = { broadcaster: twitch.broadcaster, bot: twitch.bot };
+  if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('setup')) {
+    settings.first_run_done = false;
+    twitch.broadcaster = null;
+    twitch.bot = null;
+  }
   const queue: QueueState = { paused: false, playing: null, waiting: [] };
   const logs: LogEntry[] = [
     { ts: now() - 5_100_000, level: 'info', source: 'obs', message: 'Connected to OBS 32.1.0' },
@@ -499,7 +506,15 @@ export function createDemoBackend(): Backend {
     }),
     set_window_effect: () => 'solid',
     twitch_status: () => twitch,
-    twitch_login: () => ({ user_code: 'WDJB-MJHT', verification_uri: 'https://www.twitch.tv/activate', expires_in_s: 1800 }),
+    twitch_login: ({ role }) => {
+      // Pretend the user approves the code a few seconds later.
+      setTimeout(() => {
+        if (role === 'bot') twitch.bot = signedIn.bot;
+        else twitch.broadcaster = signedIn.broadcaster;
+        emit('cw://twitch', twitch);
+      }, 4000);
+      return { user_code: 'WDJB-MJHT', verification_uri: 'https://www.twitch.tv/activate', expires_in_s: 1800 };
+    },
     twitch_cancel_login: () => undefined,
     twitch_logout: ({ role }) => {
       if (role === 'bot') twitch.bot = null;

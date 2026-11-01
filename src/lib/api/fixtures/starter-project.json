@@ -3,13 +3,13 @@
   "name": "My stream",
   "overlays": [
     {
-      "id": "m36hqa7711ov",
+      "id": "qm5w7of6usii",
       "name": "Gameplay HUD",
       "width": 1920,
       "height": 1080,
       "layers": [
         {
-          "id": "j99r7vg4ig94",
+          "id": "ui9jlu9w5cik",
           "name": "Sub goal",
           "kind": {
             "type": "goal",
@@ -76,7 +76,7 @@
           "css": ""
         },
         {
-          "id": "v0blhtkto6m0",
+          "id": "b1fgvwmokqt0",
           "name": "Chat",
           "kind": {
             "type": "chat",
@@ -152,7 +152,7 @@
           "css": ""
         },
         {
-          "id": "a45cfk3t7duw",
+          "id": "bbxcdjxa0i38",
           "name": "Recent events",
           "kind": {
             "type": "event_list",
@@ -225,7 +225,7 @@
           "css": ""
         },
         {
-          "id": "8hnv9umh0ciw",
+          "id": "2ehfa7vu39gt",
           "name": "Alerts",
           "kind": {
             "type": "alerts"
@@ -294,7 +294,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "nlw9tlqgk924",
+            "id": "jxhs4qdaxq8i",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -362,7 +362,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "c005y7h4yxph",
+            "id": "8whajya7ndx1",
             "name": "Tier 3",
             "enabled": true,
             "conditions": {
@@ -430,7 +430,7 @@
             "run_action": null
           },
           {
-            "id": "wg0ow5azdljk",
+            "id": "xdnv7raz5etz",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -498,7 +498,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "ufuf2034nz8w",
+            "id": "zrny5kompqzu",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -566,7 +566,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "6upomc15j6nz",
+            "id": "i6zjjp1gr292",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -634,7 +634,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "qelmyba6npgs",
+            "id": "96fp16e4sztl",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -702,7 +702,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "q9zaxbdjh7uy",
+            "id": "vt30jlpa9svn",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -770,7 +770,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "dk4m70f3ekxp",
+            "id": "wvoaxuevtlz6",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -838,7 +838,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "bb6ndqmw8kum",
+            "id": "5ru51bdw3ixl",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -906,7 +906,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "6f3pcr3frczq",
+            "id": "3kormi6q8esa",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -974,7 +974,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "vqnowql48nnk",
+            "id": "1oipg9jc28ya",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -1042,7 +1042,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "dbi4ek3cs62g",
+            "id": "e1ocz7i8n4in",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -1110,7 +1110,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "2mm6h83qdoum",
+            "id": "je4pzv0l4n6r",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -1178,7 +1178,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "zmf0pyg6znvl",
+            "id": "1aad3px64jgp",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -1245,7 +1245,7 @@
   },
   "actions": [
     {
-      "id": "9lkwfhszksou",
+      "id": "fknlu4xfxd70",
       "name": "!uptime",
       "group": "Chat commands",
       "enabled": true,
@@ -1269,7 +1269,7 @@
       "cooldown_s": 5
     },
     {
-      "id": "o7gxasqu5rgl",
+      "id": "nklh3n7voc16",
       "name": "!so",
       "group": "Chat commands",
       "enabled": true,
@@ -1294,7 +1294,7 @@
       "cooldown_s": 0
     },
     {
-      "id": "1cpjo3ei32ah",
+      "id": "q08huxc9pdqi",
       "name": "Count deaths",
       "group": "Chat commands",
       "enabled": true,
@@ -1326,7 +1326,7 @@
       "cooldown_s": 0
     },
     {
-      "id": "xt3si8q94pkq",
+      "id": "p044hpu7qjbh",
       "name": "Big raid welcome",
       "group": "Stream events",
       "enabled": true,
@@ -1365,7 +1365,7 @@
       "cooldown_s": 60
     },
     {
-      "id": "em5bx7cpi5tf",
+      "id": "df07n75mzww9",
       "name": "Hydrate reminder",
       "group": "Timers",
       "enabled": false,

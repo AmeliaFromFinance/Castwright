@@ -8,7 +8,7 @@
     description?: string;
     width?: number;
     onclose?: () => void;
-    children: Snippet;
+    children?: Snippet;
     footer?: Snippet;
   }
 
@@ -48,9 +48,11 @@
         </div>
         <button type="button" class="x" aria-label="Close" onclick={close}><X size={16} /></button>
       </header>
-      <div class="content">
-        {@render children()}
-      </div>
+      {#if children}
+        <div class="content">
+          {@render children()}
+        </div>
+      {/if}
       {#if footer}
         <footer>{@render footer()}</footer>
       {/if}
