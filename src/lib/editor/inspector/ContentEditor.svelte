@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { BoxStyle } from '$lib/bindings/BoxStyle';
   import type { EventKind } from '$lib/bindings/EventKind';
   import type { Layer } from '$lib/bindings/Layer';
   import type { LayerKind } from '$lib/bindings/LayerKind';
@@ -8,6 +7,7 @@
   import { KIND_LABELS } from '$lib/format';
   import { ALERTABLE_KINDS } from '$lib/overlay/labels';
   import Button from '$lib/ui/Button.svelte';
+  import Collapse from '$lib/ui/Collapse.svelte';
   import ColorInput from '$lib/ui/ColorInput.svelte';
   import Segmented from '$lib/ui/Segmented.svelte';
   import Slider from '$lib/ui/Slider.svelte';
@@ -16,7 +16,6 @@
   import { BellRing } from '@lucide/svelte';
   import NumberInput from '../ui/NumberInput.svelte';
   import Prop from '../ui/Prop.svelte';
-  import BoxStyleEditor from './BoxStyleEditor.svelte';
   import CustomWidgetEditor from './CustomWidgetEditor.svelte';
   import TextStyleEditor from './TextStyleEditor.svelte';
 
@@ -53,12 +52,6 @@
     }, `style:${key}`);
   }
 
-  function bubbleSet(fn: (b: BoxStyle) => void, key: string) {
-    set((x) => {
-      if (x.type === 'chat') fn(x.bubble);
-    }, `bubble:${key}`);
-  }
-
   function toggleKind(kind: EventKind) {
     set((x) => {
       if (x.type !== 'event_list') return;
@@ -69,6 +62,12 @@
 
   const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 </script>
+
+{#snippet textGroup(style: TextStyle)}
+  <Collapse id="insp.text" title="Text style">
+    <div class="text-group"><TextStyleEditor {style} {uid} set={styleSet} /></div>
+  </Collapse>
+{/snippet}
 
 <datalist id="{uid}-vars">
   {#each varNames as v (v)}<option value={v}></option>{/each}
@@ -87,7 +86,7 @@
       }}
     ></textarea>
   </Prop>
-  <TextStyleEditor style={k.style} {uid} set={styleSet} />
+  {@render textGroup(k.style)}
 {:else if k.type === 'shape'}
   <Prop label="Shape">
     <Segmented
@@ -155,8 +154,21 @@
       <NumberInput label="Fade after seconds (0 keeps them)" prefix="Fade" unit="s" min={0} max={3600} value={k.fade_after_s} oninput={(v) => set((x) => x.type === 'chat' && (x.fade_after_s = Math.round(v)), 'fade')} />
     </div>
   </Prop>
-  <Prop label="Badges">
-    <Switch label="Show badges" checked={k.show_badges} onchange={(v) => set((x) => x.type === 'chat' && (x.show_badges = v), 'badges')} />
+  <Prop label="Twitch badges">
+    <Switch label="Show Twitch badges" checked={k.show_badges} onchange={(v) => set((x) => x.type === 'chat' && (x.show_badges = v), 'badges')} />
+  </Prop>
+  <Prop label="7TV badges">
+    <Switch label="Show 7TV badges" checked={k.seventv_badges !== false} onchange={(v) => set((x) => x.type === 'chat' && (x.seventv_badges = v), '7tvbadges')} />
+  </Prop>
+  <Prop label="Name paints" hint="From 7TV.">
+    <Switch label="Show 7TV name paints" checked={k.seventv_paints !== false} onchange={(v) => set((x) => x.type === 'chat' && (x.seventv_paints = v), 'paints')} />
+  </Prop>
+  <Prop label="Emotes" hint="Twitch emotes always show.">
+    <div class="switches">
+      <Switch label="7TV" showLabel checked={k.seventv_emotes !== false} onchange={(v) => set((x) => x.type === 'chat' && (x.seventv_emotes = v), '7tv')} />
+      <Switch label="BetterTTV" showLabel checked={k.bttv_emotes !== false} onchange={(v) => set((x) => x.type === 'chat' && (x.bttv_emotes = v), 'bttv')} />
+      <Switch label="FrankerFaceZ" showLabel checked={k.ffz_emotes !== false} onchange={(v) => set((x) => x.type === 'chat' && (x.ffz_emotes = v), 'ffz')} />
+    </div>
   </Prop>
   <Prop label="Hide !commands">
     <Switch label="Hide commands" checked={k.hide_commands} onchange={(v) => set((x) => x.type === 'chat' && (x.hide_commands = v), 'cmds')} />
@@ -181,10 +193,7 @@
       }}
     />
   </Prop>
-  <p class="eyebrow sub">Text</p>
-  <TextStyleEditor style={k.style} {uid} set={styleSet} />
-  <p class="eyebrow sub">Message bubble</p>
-  <BoxStyleEditor box={k.bubble} uid="{uid}-bubble" set={bubbleSet} simple />
+  {@render textGroup(k.style)}
 {:else if k.type === 'goal'}
   <Prop label="Title" for="{uid}-title">
     <input id="{uid}-title" class="input" value={k.title} oninput={(e) => {
@@ -210,8 +219,7 @@
   <Prop label="Numbers">
     <Switch label="Show numbers" checked={k.show_numbers} onchange={(v) => set((x) => x.type === 'goal' && (x.show_numbers = v), 'nums')} />
   </Prop>
-  <p class="eyebrow sub">Text</p>
-  <TextStyleEditor style={k.style} {uid} set={styleSet} />
+  {@render textGroup(k.style)}
 {:else if k.type === 'counter'}
   <Prop label="Value from" for="{uid}-var" hint="Variable to show, e.g. counter.deaths.">
     <input id="{uid}-var" class="input mono" list="{uid}-vars" spellcheck="false" value={k.var} oninput={(e) => {
@@ -225,7 +233,7 @@
       set((x) => x.type === 'counter' && (x.format = v), 'format');
     }} />
   </Prop>
-  <TextStyleEditor style={k.style} {uid} set={styleSet} />
+  {@render textGroup(k.style)}
 {:else if k.type === 'timer'}
   <Prop label="Mode" for="{uid}-mode">
     <select id="{uid}-mode" class="input" value={k.mode} onchange={(e) => {
@@ -254,7 +262,7 @@
       set((x) => x.type === 'timer' && (x.prefix = v), 'prefix');
     }} />
   </Prop>
-  <TextStyleEditor style={k.style} {uid} set={styleSet} />
+  {@render textGroup(k.style)}
 {:else if k.type === 'event_list'}
   <Prop label="Show" stacked>
     <div class="chips" role="group" aria-label="Event kinds to show">
@@ -286,12 +294,16 @@
       set((x) => x.type === 'event_list' && (x.item_format = v), 'item');
     }} />
   </Prop>
-  <TextStyleEditor style={k.style} {uid} set={styleSet} />
+  {@render textGroup(k.style)}
 {:else if k.type === 'custom'}
   <CustomWidgetEditor kind={k} {uid} {wide} {ontogglewide} set={(fn, key) => set((x) => x.type === 'custom' && fn(x), key)} />
 {/if}
 
 <style>
+  .switches {
+    display: grid;
+    gap: 2px;
+  }
   .pair {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -301,8 +313,11 @@
     font-size: 11.5px;
     color: var(--text-faint);
   }
-  .sub {
-    margin-top: 6px;
+  .text-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 2px 0 6px;
   }
   .note {
     display: flex;

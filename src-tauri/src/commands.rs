@@ -678,7 +678,7 @@ pub fn get_settings(core: Ctx) -> Settings {
 #[tauri::command]
 pub fn save_appearance(core: Ctx, appearance: AppearanceSettings) -> AppResult<()> {
     let mut a = appearance;
-    a.ui_scale = a.ui_scale.clamp(90, 175);
+    a.ui_scale = a.ui_scale.clamp(50, 250);
     if a.custom_themes.len() > 100 {
         return user_err("That's too many custom themes (100 max).");
     }

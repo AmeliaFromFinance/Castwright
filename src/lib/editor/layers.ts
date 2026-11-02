@@ -1,10 +1,12 @@
 // Layer defaults (kept in line with src-tauri/src/model/overlay.rs) and list helpers.
 import type { Animation } from '$lib/bindings/Animation';
 import type { BoxStyle } from '$lib/bindings/BoxStyle';
+import type { ItemCard } from '$lib/bindings/ItemCard';
 import type { Layer } from '$lib/bindings/Layer';
 import type { LayerKind } from '$lib/bindings/LayerKind';
 import type { Overlay } from '$lib/bindings/Overlay';
 import type { TextStyle } from '$lib/bindings/TextStyle';
+import { DEFAULT_BOX, DEFAULT_ITEM_CARD } from '$lib/overlay/styles';
 
 export type LayerType = LayerKind['type'];
 export type KindOf<T extends LayerType> = Extract<LayerKind, { type: T }>;
@@ -54,15 +56,11 @@ export function defaultTextStyle(): TextStyle {
 }
 
 export function defaultBoxStyle(): BoxStyle {
-  return {
-    background: 'transparent',
-    border_color: 'transparent',
-    border_width: 0,
-    radius: 0,
-    padding: 0,
-    shadow: '',
-    backdrop_blur: 0
-  };
+  return structuredClone(DEFAULT_BOX);
+}
+
+export function defaultItemCard(): ItemCard {
+  return { ...DEFAULT_ITEM_CARD };
 }
 
 export function defaultAnimation(): Animation {
@@ -72,6 +70,7 @@ export function defaultAnimation(): Animation {
 /** The panel look used by the starter overlay. */
 export function panelBox(): BoxStyle {
   return {
+    ...defaultBoxStyle(),
     background: 'rgba(12,15,22,0.78)',
     border_color: 'rgba(255,255,255,0.08)',
     border_width: 1,
@@ -99,7 +98,13 @@ export function kindDefaults<T extends LayerType>(type: T): KindOf<T> {
       hide_users: [],
       style: defaultTextStyle(),
       bubble: defaultBoxStyle(),
-      newest_on_top: false
+      newest_on_top: false,
+      seventv_emotes: true,
+      bttv_emotes: true,
+      ffz_emotes: true,
+      seventv_paints: true,
+      seventv_badges: true,
+      item_card: defaultItemCard()
     },
     goal: {
       type: 'goal',
@@ -113,7 +118,16 @@ export function kindDefaults<T extends LayerType>(type: T): KindOf<T> {
     },
     counter: { type: 'counter', var: '', format: '', style: defaultTextStyle() },
     timer: { type: 'timer', mode: 'countdown', duration_s: 0, anchor_var: '', style: defaultTextStyle(), prefix: '' },
-    event_list: { type: 'event_list', kinds: [], max_items: 5, direction: 'vertical', item_format: '', style: defaultTextStyle() },
+    event_list: {
+      type: 'event_list',
+      kinds: [],
+      max_items: 5,
+      direction: 'vertical',
+      item_format: '',
+      style: defaultTextStyle(),
+      item_box: defaultBoxStyle(),
+      item_card: defaultItemCard()
+    },
     custom: { type: 'custom', html: '', css: '', js: '', fields: {}, values: {} }
   };
   return k[type] as KindOf<T>;

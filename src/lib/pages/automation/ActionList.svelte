@@ -1,23 +1,15 @@
 <script lang="ts">
   import type { Action } from '$lib/bindings/Action';
+  import Collapse from '$lib/ui/Collapse.svelte';
   import Switch from '$lib/ui/Switch.svelte';
   import { Search } from '@lucide/svelte';
   import { describeTriggers } from './describe';
+  import { groupActions } from './sections';
   import { actionsEditor as ed, runLog } from './store.svelte';
   import { blocking } from './validate';
 
-  const groups = $derived.by(() => {
-    const q = ed.search.trim().toLowerCase();
-    const list = (ed.actions ?? []).filter(
-      (a) => !q || a.name.toLowerCase().includes(q) || a.group.toLowerCase().includes(q) || describeTriggers(a).toLowerCase().includes(q)
-    );
-    const map = new Map<string, Action[]>();
-    for (const a of list) {
-      const g = a.group.trim() || 'General';
-      map.set(g, [...(map.get(g) ?? []), a]);
-    }
-    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
-  });
+  const groups = $derived(groupActions(ed.actions ?? [], ed.search));
+  const searching = $derived(ed.search.trim() !== '');
 
   function status(a: Action): { tone: string; text: string } {
     if (blocking(ed.issues[a.id] ?? []).length) return { tone: 'warn', text: 'Needs fixing' };
@@ -33,11 +25,10 @@
     <input class="input" type="search" placeholder="Search actions" aria-label="Search actions" bind:value={ed.search} />
   </div>
   <div class="scroll">
-    {#each groups as [group, items] (group)}
-      <section aria-label={group}>
-        <h3 class="eyebrow">{group} <span class="count">{items.length}</span></h3>
-        <ul>
-          {#each items as a (a.id)}
+    {#each groups as g (g.name)}
+      <Collapse id="automation.section.{g.name}" title={g.name} meta={g.actions.length} forceOpen={searching} class="sec">
+        <ul aria-label={g.name}>
+          {#each g.actions as a (a.id)}
             {@const st = status(a)}
             <li class:on={ed.selectedId === a.id}>
               <button
@@ -53,18 +44,11 @@
                 </span>
                 <span class="sr-only">({st.text})</span>
               </button>
-              <Switch
-                label="{a.name} on"
-                checked={a.enabled}
-                onchange={(v) => {
-                  a.enabled = v;
-                  ed.changed();
-                }}
-              />
+              <Switch label="{a.name} on" checked={a.enabled} onchange={(v) => ed.patchAction(a.id, { enabled: v })} />
             </li>
           {/each}
         </ul>
-      </section>
+      </Collapse>
     {:else}
       <p class="none faint">{ed.search ? 'No actions match.' : 'No actions yet.'}</p>
     {/each}
@@ -76,7 +60,7 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    border-right: 1px solid var(--border);
+    min-width: 0;
     background: color-mix(in srgb, var(--bg-1) 60%, transparent);
   }
   .search {
@@ -99,13 +83,11 @@
     min-height: 0;
     padding: 0 6px 10px;
   }
-  h3 {
-    padding: 10px 8px 4px;
+  .scroll :global(.sec) {
+    margin-top: 4px;
   }
-  .count {
-    margin-left: 4px;
-    color: var(--text-faint);
-    font-weight: 500;
+  .scroll :global(.sec > .head) {
+    padding: 0 4px;
   }
   ul {
     list-style: none;

@@ -23,7 +23,9 @@ The code is valid for 30 minutes. Castwright never sees your Twitch password.
 Some builds ask for a **Twitch client ID** first. See [Use your own Twitch app](/guide/settings/#use-your-own-twitch-app).
 :::
 
-## 3. Connect OBS
+## 3. Connect OBS (optional)
+
+Connecting OBS lets Castwright add overlays to your scenes for you and lets automation switch scenes or toggle sources. Overlays and alerts work without it.
 
 In OBS:
 

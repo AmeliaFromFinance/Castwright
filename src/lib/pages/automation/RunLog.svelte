@@ -2,8 +2,11 @@
   import { clock } from '$lib/format';
   import { app } from '$lib/state/app.svelte';
   import Button from '$lib/ui/Button.svelte';
+  import Collapse from '$lib/ui/Collapse.svelte';
   import { runLog, actionsEditor as ed, type RunEntry } from './store.svelte';
   import type { LogEntry } from '$lib/bindings/LogEntry';
+
+  let { open = $bindable(true) }: { open?: boolean } = $props();
 
   type Row = { kind: 'run'; ts: number; run: RunEntry } | { kind: 'log'; ts: number; log: LogEntry; i: number };
 
@@ -17,12 +20,11 @@
   });
 </script>
 
-<section class="log" aria-label="Run log">
-  <header>
-    <h3 class="eyebrow">Run log</h3>
-    <div class="grow"></div>
-    <Button size="sm" variant="ghost" disabled={!runLog.runs.length} onclick={() => runLog.clear()}>Clear</Button>
-  </header>
+<section class="log pane" aria-label="Run log">
+  <Collapse id="automation.runlog" title="Run log" meta={runLog.runs.length || ''} bind:open>
+    {#snippet actions()}
+      <Button size="sm" variant="ghost" disabled={!runLog.runs.length} onclick={() => runLog.clear()}>Clear</Button>
+    {/snippet}
   <ol aria-live="polite">
     {#each rows as r (r.kind === 'run' ? `r${r.run.seq}` : `l${r.i}`)}
       {#if r.kind === 'run'}
@@ -50,6 +52,7 @@
       <li class="none faint">Runs show up here with their result.</li>
     {/each}
   </ol>
+  </Collapse>
 </section>
 
 <style>
@@ -57,13 +60,6 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-  }
-  header {
-    display: flex;
-    align-items: center;
-    height: 38px;
-    flex: none;
-    padding: 0 8px 0 14px;
   }
   ol {
     list-style: none;

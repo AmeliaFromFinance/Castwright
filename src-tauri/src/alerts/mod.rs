@@ -51,7 +51,7 @@ impl AlertEngine {
     pub fn start(self: &Arc<Self>) {
         let me = self.clone();
         let mut rx = self.hub.subscribe_events();
-        tokio::spawn(async move {
+        crate::util::spawn(async move {
             loop {
                 match rx.recv().await {
                     Ok(event) => me.handle_event(&event),
@@ -67,7 +67,7 @@ impl AlertEngine {
             }
         });
         let me = self.clone();
-        tokio::spawn(async move { me.player().await });
+        crate::util::spawn(async move { me.player().await });
     }
 
     pub fn subscribe_played(&self) -> broadcast::Receiver<Played> {
@@ -336,6 +336,7 @@ fn render_play(
         message_style: v.message_style.clone(),
         accent: v.accent.clone(),
         background: v.background.clone(),
+        card: v.card.clone(),
         tts,
         event,
     }

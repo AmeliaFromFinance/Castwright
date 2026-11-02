@@ -14,11 +14,12 @@ export default defineConfig({
     trace: 'retain-on-failure',
     baseURL: 'http://localhost:4317'
   },
-  // App pages run against the in-browser demo backend.
+  // App pages run against the in-browser demo backend, from a production build.
   webServer: {
-    command: 'npx vite --port 4317 --strictPort',
+    command: 'npm run build && npx vite preview --port 4317 --strictPort',
     url: 'http://localhost:4317',
-    reuseExistingServer: !process.env.CI
+    reuseExistingServer: !process.env.CI,
+    timeout: 180_000
   },
   projects: [
     {

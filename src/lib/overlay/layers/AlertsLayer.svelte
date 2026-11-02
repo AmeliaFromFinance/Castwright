@@ -9,7 +9,7 @@
   import { animSpec, durationOf, play as playAnim } from '../anim';
   import { alertTimes } from '../alert-timing';
   import { getStageCtx } from '../context';
-  import { cssValue } from '../styles';
+  import { alertCard, cssValue, frameCss, scopeClass } from '../styles';
   import StyledText from '../StyledText.svelte';
 
   interface Props {
@@ -34,9 +34,18 @@
   const videoUrl = $derived(current ? ctx.assetUrl(current.video) : '');
   const hasMedia = $derived(!!(imageUrl || videoUrl));
   const layout = $derived(current ? (hasMedia ? current.layout : 'text_only') : 'text_only');
-  const background = $derived(current ? cssValue(current.background) : '');
   const accent = $derived(current ? cssValue(current.accent) : '');
-  const carded = $derived(!!background && background !== 'transparent');
+  const cardStyle = $derived(current ? alertCard(current) : null);
+  const carded = $derived(!!cardStyle);
+  const scope = $derived(scopeClass(layerId));
+  const cardCss = $derived.by(() => {
+    const c = cardStyle;
+    if (!c) return '';
+    const s = `:where(.${scope})`;
+    const css = frameCss(c, `${s} .cw-alert`, { noLean: true });
+    const lean = c.lean ? `${s} .cw-alert-wrap{transform:rotate(${c.lean}deg)}` : '';
+    return [css, lean].filter(Boolean).join('\n').replace(/<\/style/gi, '');
+  });
 
   function clearTimers() {
     for (const t of timers) clearTimeout(t);
@@ -216,13 +225,13 @@
 </script>
 
 {#if current}
+  {#if cardCss}{@html `<style data-cw-frame="alert">${cardCss}</style>`}{/if}
   {#key current.id}
     <div class="cw-alert-wrap cw-layout-{layout}" style="--cw-h:{height}px;--cw-w:{width}px">
       <div
         bind:this={card}
         class="cw-alert cw-layout-{layout}"
         class:cw-carded={carded}
-        style:background={carded ? background : undefined}
         style:--cw-accent={accent || 'transparent'}
         data-alert-id={current.id}
         data-kind={current.kind}
@@ -272,13 +281,6 @@
     gap: 14px;
     will-change: transform, opacity;
     transform-origin: 50% 60%;
-  }
-  .cw-carded {
-    padding: 24px 32px;
-    border-radius: 20px;
-    box-shadow:
-      0 18px 50px rgba(0, 0, 0, 0.35),
-      0 2px 8px rgba(0, 0, 0, 0.25);
   }
   .cw-alert-media {
     display: flex;
@@ -335,6 +337,8 @@
     height: 100%;
     justify-content: center;
     overflow: hidden;
+  }
+  .cw-alert.cw-layout-media_behind:not(.cw-carded) {
     border-radius: 20px;
   }
   .cw-layout-media_behind .cw-alert-media {

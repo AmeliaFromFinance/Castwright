@@ -4,7 +4,7 @@ import { goTo, openApp } from './helpers';
 test('create, apply and delete a custom theme', async ({ page }) => {
   const errors = await openApp(page);
   await goTo(page, 'Settings');
-  await page.getByRole('button', { name: 'Appearance' }).click();
+  await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Appearance' }).click();
 
   await page.getByRole('button', { name: 'New theme' }).click();
   await page.locator('#theme-name').fill('Test theme');
@@ -29,7 +29,7 @@ test('create, apply and delete a custom theme', async ({ page }) => {
 test('import rejects bad JSON and accepts a valid theme', async ({ page }) => {
   const errors = await openApp(page);
   await goTo(page, 'Settings');
-  await page.getByRole('button', { name: 'Appearance' }).click();
+  await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Appearance' }).click();
   await page.getByRole('button', { name: 'Import' }).click();
   await page.getByLabel('Theme JSON').fill('{nope');
   await page.getByRole('button', { name: 'Continue' }).click();
@@ -46,14 +46,14 @@ test('import rejects bad JSON and accepts a valid theme', async ({ page }) => {
 test('interface size and server settings', async ({ page }) => {
   const errors = await openApp(page);
   await page.keyboard.press('Control+Comma');
-  await page.getByRole('button', { name: 'Appearance' }).click();
+  await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Appearance' }).click();
   const slider = page.getByRole('slider', { name: 'Interface size' });
   await slider.focus();
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowRight');
   await expect.poll(() => page.evaluate(() => document.documentElement.style.zoom)).toBe('1.1');
 
-  await page.getByRole('button', { name: 'Overlay server' }).click();
+  await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Overlay server' }).click();
   const port = page.locator('#server input.port');
   await port.fill('80');
   await expect(page.getByRole('button', { name: 'Apply and restart server' })).toBeDisabled();

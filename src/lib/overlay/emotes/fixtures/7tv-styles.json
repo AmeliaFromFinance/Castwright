@@ -1,0 +1,28 @@
+{
+ "data": {
+  "users": {
+   "u0": {
+    "id": "01FE9DRF000009TR6M9N941CYW",
+    "style": {
+     "activePaintId": "01JHXJFACX42RV996VE9933TB8",
+     "activeBadgeId": "01JJJ74CRHZBRMCM8F4Y2WBN6R"
+    }
+   },
+   "u1": null,
+   "u2": {
+    "id": "01F6RDZDRG0006GRP49Q74E2DF",
+    "style": {
+     "activePaintId": null,
+     "activeBadgeId": null
+    }
+   },
+   "u3": {
+    "id": "01GHW76AB00007HG1971WWN808",
+    "style": {
+     "activePaintId": null,
+     "activeBadgeId": "01GAF8RWW8000E8VNG1S1RMTBA"
+    }
+   }
+  }
+ }
+}

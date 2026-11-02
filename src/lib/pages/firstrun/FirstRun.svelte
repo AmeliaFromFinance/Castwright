@@ -7,7 +7,7 @@
   import Button from '$lib/ui/Button.svelte';
   import ObsForm from '$lib/widgets/ObsForm.svelte';
   import TwitchAccounts from '$lib/widgets/TwitchAccounts.svelte';
-  import { Check, ArrowLeft, ArrowRight, MonitorPlay, Layers, BellRing, Zap } from '@lucide/svelte';
+  import { Check, ArrowLeft, ArrowRight, History, Layers, BellRing, Zap } from '@lucide/svelte';
 
   const steps = ['Welcome', 'Twitch', 'OBS', 'Done'] as const;
   let step = $state(0);
@@ -42,7 +42,7 @@
   async function finish() {
     finishing = true;
     if (await attemptOk(() => api.setFirstRunDone(true))) {
-      app.page = 'studio';
+      app.page = 'overlays';
       await app.reloadSettings();
     }
     finishing = false;
@@ -112,7 +112,7 @@
       {:else if step === 2}
         <h1>Connect OBS</h1>
         <p class="lead muted">
-          Castwright uses OBS Studio (version 28 or newer) for video. In OBS, open <b>Tools → WebSocket Server Settings</b>,
+          Optional. With OBS Studio 28 or newer connected, Castwright can add overlays to your scenes and automation can switch scenes. In OBS, open <b>Tools → WebSocket Server Settings</b>,
           tick <b>Enable WebSocket server</b>, then click <b>Show Connect Info</b> for the password.
         </p>
         <ObsForm compact onsaved={() => (step = 3)} />
@@ -120,12 +120,12 @@
         <h1>You're set</h1>
         <p class="lead muted">Here's where things live:</p>
         <ul class="tour">
-          <li><MonitorPlay size={18} /><div><b>Studio</b><span class="muted">Scenes, audio, going live and chat.</span></div></li>
           <li>
             <Layers size={18} /><div><b>Overlays</b><span class="muted">Design overlays, then use Add to OBS to show them on stream.</span></div>
           </li>
           <li><BellRing size={18} /><div><b>Alerts</b><span class="muted">Follow, sub, cheer and raid alerts with sounds.</span></div></li>
           <li><Zap size={18} /><div><b>Automation</b><span class="muted">Chat commands, timers and reactions to events.</span></div></li>
+          <li><History size={18} /><div><b>Activity</b><span class="muted">Chat, event history and your stream title.</span></div></li>
         </ul>
         <div class="status">
           <span class:ok={signedIn}>{signedIn ? '✓' : '–'} Twitch {signedIn ? `signed in as ${app.twitch?.broadcaster?.display_name}` : 'not connected'}</span>

@@ -2,7 +2,7 @@
 
 use super::alert::AlertLayout;
 use super::event::{Event, EventKind};
-use super::overlay::{Animation, Overlay, TextStyle};
+use super::overlay::{Animation, BoxStyle, Overlay, TextStyle};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -177,6 +177,8 @@ pub struct AlertPlay {
     pub message_style: TextStyle,
     pub accent: String,
     pub background: String,
+    #[serde(default)]
+    pub card: Option<BoxStyle>,
     pub tts: bool,
 }
 

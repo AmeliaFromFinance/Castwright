@@ -14,10 +14,15 @@ export default defineConfig({
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 2,
     colorScheme: 'dark',
-    launchOptions: process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } : {}
+    ignoreHTTPSErrors: true,
+    // Real emote and badge images load through the proxy when one is set.
+    launchOptions: {
+      ...(process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } : {}),
+      ...(process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost,127.0.0.1' } } : {})
+    }
   },
   webServer: {
-    command: 'npx vite --port 4318 --strictPort',
+    command: 'npm run build && npx vite preview --port 4318 --strictPort',
     url: 'http://localhost:4318',
     reuseExistingServer: !process.env.CI,
     cwd: '..'

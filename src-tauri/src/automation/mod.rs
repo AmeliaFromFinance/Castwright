@@ -117,7 +117,7 @@ impl Automation {
     pub fn start(self: &Arc<Self>) {
         let me = self.clone();
         let mut events = self.hub.subscribe_events();
-        tokio::spawn(async move {
+        crate::util::spawn(async move {
             loop {
                 match events.recv().await {
                     Ok(e) => me.on_event(&e),
@@ -134,7 +134,7 @@ impl Automation {
         });
         let me = self.clone();
         let mut signals = self.hub.subscribe_signals();
-        tokio::spawn(async move {
+        crate::util::spawn(async move {
             loop {
                 match signals.recv().await {
                     Ok(s) => me.on_signal(&s),
@@ -145,7 +145,7 @@ impl Automation {
         });
         let me = self.clone();
         let mut played = self.alerts.subscribe_played();
-        tokio::spawn(async move {
+        crate::util::spawn(async move {
             loop {
                 match played.recv().await {
                     Ok(p) => {
@@ -164,7 +164,7 @@ impl Automation {
             }
         });
         let me = self.clone();
-        tokio::spawn(async move {
+        crate::util::spawn(async move {
             let mut tick = tokio::time::interval(Duration::from_secs(1));
             tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
@@ -192,7 +192,9 @@ impl Automation {
             self.hub.log(
                 LogLevel::Info,
                 "automation",
-                format!("Test event: \"{name}\" wasn't run. Use Run now to try it."),
+                format!(
+                    "Test event: \"{name}\" wasn't run. Use Test on the Automation page to try it."
+                ),
             );
         }
     }
@@ -454,7 +456,7 @@ impl Automation {
         }
         let me = self.clone();
         let trigger = trigger.to_string();
-        tokio::spawn(async move {
+        crate::util::spawn(async move {
             let run = me.execute(&action, &trigger, args, reply_to).await;
             me.hub.emit_ui(ui::ACTION_RUN, &run);
         });

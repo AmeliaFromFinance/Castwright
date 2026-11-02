@@ -11,9 +11,11 @@ import type { TwitchStatus } from '$lib/bindings/TwitchStatus';
 import type { WindowEffect } from '$lib/bindings/WindowEffect';
 import { applyTheme, watchSystemTheme } from '$lib/theme/apply';
 import { toasts } from './toast.svelte';
+import { loadPref, savePref } from './persist';
+import { updates } from './updates.svelte';
 import type { Theme } from '$lib/theme/themes';
 
-export type Page = 'studio' | 'overlays' | 'alerts' | 'automation' | 'activity' | 'settings';
+export type Page = 'overlays' | 'alerts' | 'automation' | 'activity' | 'settings';
 
 const CHAT_KEEP = 300;
 const FEED_KEEP = 200;
@@ -55,7 +57,7 @@ export function emptyObs(): ObsSnapshot {
 class AppState {
   ready = $state(false);
   fatal = $state<string | null>(null);
-  page = $state<Page>('studio');
+  page = $state<Page>('overlays');
   /** Overlay open in the editor, if any. */
   editingOverlay = $state<string | null>(null);
 
@@ -103,10 +105,26 @@ class AppState {
         this.applyAppearance();
       }
       this.ready = true;
+      this.fitToScreenOnce();
+      void updates.check(info.version);
       if (server.error) toasts.show(server.error, 'error', 12_000);
     } catch (e) {
       this.fatal = e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e);
     }
+  }
+
+  /** Large screens get a bigger interface the first time, which Ctrl + / - can change. */
+  private fitToScreenOnce() {
+    if (!this.settings || loadPref('screen-fit-done', false)) return;
+    savePref('screen-fit-done', true);
+    if (this.settings.appearance.ui_scale !== 100 || typeof screen === 'undefined') return;
+    const physical = screen.width * (window.devicePixelRatio || 1);
+    const pct = physical >= 3800 ? 150 : physical >= 2400 ? 125 : 100;
+    if (pct === 100 || (window.devicePixelRatio || 1) >= 1.25) return;
+    this.settings.appearance = { ...this.settings.appearance, ui_scale: pct };
+    this.applyAppearance();
+    api.saveAppearance($state.snapshot(this.settings.appearance)).catch(() => {});
+    toasts.show(`Interface set to ${pct}% for your screen. Ctrl - and Ctrl + change it.`, 'info', 7000);
   }
 
   applyAppearance() {

@@ -11,6 +11,6 @@ theme: string,
  */
 custom_themes: Array<Record<string, unknown>>, window_effect: WindowEffect, 
 /**
- * 90 to 175 (percent).
+ * 50 to 250 (percent).
  */
 ui_scale: number, reduce_motion: boolean, };

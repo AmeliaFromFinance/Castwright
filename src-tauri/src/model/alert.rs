@@ -1,6 +1,6 @@
 use super::condition::ConditionGroup;
 use super::event::EventKind;
-use super::overlay::{Animation, TextStyle};
+use super::overlay::{Animation, BoxStyle, TextStyle};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -31,6 +31,8 @@ pub struct Variation {
     pub message_style: TextStyle,
     pub accent: String,
     pub background: String,
+    /// Card style. Empty means the classic card in the `background` colour.
+    pub card: Option<BoxStyle>,
     /// Read the viewer message aloud with the system voice in the overlay.
     pub tts: bool,
     /// Automation action to run when this variation plays.
@@ -67,6 +69,7 @@ impl Default for Variation {
             },
             accent: "#9db8ff".into(),
             background: "rgba(12,15,22,0.82)".into(),
+            card: None,
             tts: false,
             run_action: None,
         }

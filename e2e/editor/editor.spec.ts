@@ -1,47 +1,19 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { createServer as netServer } from 'node:net';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createServer, type ViteDevServer } from 'vite';
+import { stubProviders } from '../providers';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const root = resolve(here, '../..');
 const screens = join(here, '__screens__');
 
-let vite: ViteDevServer;
-let base = '';
 let errors: string[] = [];
 
-function freePort(): Promise<number> {
-  return new Promise((ok, fail) => {
-    const s = netServer();
-    s.once('error', fail);
-    s.listen(0, '127.0.0.1', () => {
-      const addr = s.address();
-      const port = typeof addr === 'object' && addr ? addr.port : 0;
-      s.close(() => ok(port));
-    });
-  });
-}
+// The app runs on the shared server from playwright.config.ts.
+const base = 'http://localhost:4317';
 
-
-test.beforeAll(async () => {
-  test.setTimeout(120_000);
+test.beforeAll(() => {
   mkdirSync(screens, { recursive: true });
-  const port = await freePort();
-  vite = await createServer({
-    root,
-    configFile: join(root, 'vite.config.ts'),
-    logLevel: 'warn',
-    server: { port, strictPort: true, host: '127.0.0.1', hmr: false }
-  });
-  await vite.listen();
-  base = `http://127.0.0.1:${port}`;
-});
-
-test.afterAll(async () => {
-  await vite?.close();
 });
 
 test.beforeEach(async ({ page }) => {
@@ -51,8 +23,8 @@ test.beforeEach(async ({ page }) => {
     if (m.type() === 'error') errors.push(`console: ${m.text()}`);
   });
   await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (r) => r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  await stubProviders(page);
   await page.setViewportSize({ width: 1440, height: 900 });
-  // The first load compiles a lot of modules on the dev server.
   await page.goto(`${base}/?demo=static`, { timeout: 90_000 });
   await page.getByRole('button', { name: 'Overlays', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Overlays' })).toBeVisible();
@@ -260,7 +232,7 @@ test('keyboard shortcuts, resizing and saving on the way out', async ({ page }) 
 
   // Leaving through the side bar saves pending changes.
   await page.getByLabel('Overlay name').fill('Keys renamed');
-  await page.getByRole('button', { name: 'Studio', exact: true }).click();
+  await page.getByRole('button', { name: 'Activity', exact: true }).click();
   await page.getByRole('button', { name: 'Overlays', exact: true }).click();
   // The editor reopens where it was, loaded fresh from the backend.
   await expect(page.getByLabel('Overlay name')).toHaveValue('Keys renamed');

@@ -12,6 +12,7 @@ import type { TextStyle } from '$lib/bindings/TextStyle';
 import type { Variation } from '$lib/bindings/Variation';
 import { evaluateGroup, resolve } from '$lib/logic/condition';
 import { render } from '$lib/logic/template';
+import { DEFAULT_BOX } from '$lib/overlay/styles';
 import { clone, newId } from '$lib/editors/ids';
 import type { Token } from '$lib/editors/tokens';
 
@@ -54,6 +55,7 @@ export function defaultVariation(patch: Partial<Variation> = {}): Variation {
     message_style: defaultTextStyle({ font_size: 24, font_weight: 500 }),
     accent: '#9db8ff',
     background: 'rgba(12,15,22,0.82)',
+    card: null,
     tts: false,
     run_action: null,
     ...patch
@@ -358,6 +360,7 @@ export function renderPlay(
     message_style: clone(v.message_style),
     accent: v.accent,
     background: v.background,
+    card: v.card ? clone(v.card) : null,
     tts
   };
 }
@@ -412,15 +415,7 @@ export function previewOverlay(width = PREVIEW_SIZE.width, height = PREVIEW_SIZE
         visible: true,
         locked: false,
         visible_when: { mode: 'all', conditions: [] },
-        box_style: {
-          background: 'transparent',
-          border_color: 'transparent',
-          border_width: 0,
-          radius: 0,
-          padding: 0,
-          shadow: '',
-          backdrop_blur: 0
-        },
+        box_style: structuredClone(DEFAULT_BOX),
         enter: { ...none },
         exit: { ...none },
         idle: { ...none },

@@ -26,6 +26,22 @@ pub fn random_token() -> String {
 
 /// Write a file so that a crash mid-write never leaves a half-written file behind:
 /// write to a temporary file next to it, flush to disk, then rename over the original.
+/// Spawns on the current Tokio runtime, or on Tauri's when called from outside one
+/// (sync commands run on the main thread, where `tokio::spawn` would panic).
+pub fn spawn<F>(f: F) -> tokio::task::JoinHandle<F::Output>
+where
+    F: std::future::Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    match tokio::runtime::Handle::try_current() {
+        Ok(h) => h.spawn(f),
+        Err(_) => {
+            let tauri::async_runtime::RuntimeHandle::Tokio(h) = tauri::async_runtime::handle();
+            h.spawn(f)
+        }
+    }
+}
+
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     write_atomic_inner(path, bytes, false)
 }

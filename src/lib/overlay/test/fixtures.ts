@@ -3,7 +3,7 @@ import type { EventKind } from '$lib/bindings/EventKind';
 import type { Layer } from '$lib/bindings/Layer';
 import type { LayerKind } from '$lib/bindings/LayerKind';
 import type { AlertPlay } from '$lib/bindings/AlertPlay';
-import { DEFAULT_TEXT } from '../styles';
+import { DEFAULT_BOX, DEFAULT_TEXT } from '../styles';
 
 let n = 0;
 
@@ -47,7 +47,7 @@ export function layer(kind: LayerKind, patch: Partial<Layer> = {}): Layer {
     visible: true,
     locked: false,
     visible_when: { mode: 'all', conditions: [] },
-    box_style: { background: 'transparent', border_color: 'transparent', border_width: 0, radius: 0, padding: 0, shadow: '', backdrop_blur: 0 },
+    box_style: structuredClone(DEFAULT_BOX),
     enter: { ...NONE },
     exit: { ...NONE },
     idle: { ...NONE },
@@ -78,6 +78,7 @@ export function alertPlay(patch: Partial<AlertPlay> = {}): AlertPlay {
     message_style: { ...DEFAULT_TEXT },
     accent: '#9db8ff',
     background: 'rgba(12,15,22,0.82)',
+    card: null,
     tts: false,
     ...patch
   };

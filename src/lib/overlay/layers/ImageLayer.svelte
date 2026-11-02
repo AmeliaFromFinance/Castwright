@@ -22,7 +22,7 @@
 
 {#if src && !failed}
   <img
-    class="cw-media"
+    class="cw-media cw-image"
     class:cw-loaded={loaded}
     {src}
     alt=""

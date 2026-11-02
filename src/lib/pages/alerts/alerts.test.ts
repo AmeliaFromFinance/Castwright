@@ -31,7 +31,8 @@ describe('defaults', () => {
     const starterDefault = project.alerts.types.find((t) => t.kind === 'follow')!.variations[0]!;
     const { id: _a, title: _b, message: _c, ...rest } = v;
     const { id: _d, title: _e, message: _f, ...expected } = starterDefault;
-    expect(rest).toEqual(expected);
+    // The fixture was written before alert cards existed; a missing card loads as none.
+    expect(rest).toEqual({ ...expected, card: null });
     expect(v.id).toMatch(/^[a-z0-9]{12}$/);
     expect(JSON.parse(JSON.stringify(v))).toEqual(v);
   });

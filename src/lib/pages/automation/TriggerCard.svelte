@@ -242,7 +242,7 @@
     </div>
   {:else if t.type === 'manual'}
     <div class="manual">
-      <Button size="sm" onclick={() => attempt(() => api.runAction(action.id))}><Play size={13} />Run now</Button>
+      <Button size="sm" onclick={() => attempt(() => api.runAction(action.id))}><Play size={13} />Test</Button>
       <div class="f grow">
         <label for="{uid}-url">Stream Deck or web request (POST)</label>
         <div class="url">
@@ -269,6 +269,7 @@
     flex-direction: column;
     gap: 8px;
     padding: 8px 12px 12px;
+    container-type: inline-size;
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     background: var(--bg-1);
@@ -301,6 +302,19 @@
   }
   .span2 {
     grid-column: span 2;
+  }
+  @container (max-width: 520px) {
+    .grid3 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @container (max-width: 360px) {
+    .grid3 {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .span2 {
+      grid-column: auto;
+    }
   }
   .f {
     display: flex;

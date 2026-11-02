@@ -103,18 +103,19 @@ impl Core {
             let twitch = twitch.clone();
             let automation = automation.clone();
             let hub_sync = hub.clone();
-            tokio::spawn(async move {
+            crate::util::spawn(async move {
                 let mut tick = tokio::time::interval(Duration::from_secs(5));
                 loop {
                     tick.tick().await;
                     let st = twitch.status();
-                    let (login, name) = st
+                    let (login, name, id) = st
                         .broadcaster
                         .as_ref()
-                        .map(|b| (b.login.clone(), b.display_name.clone()))
+                        .map(|b| (b.login.clone(), b.display_name.clone(), b.id.clone()))
                         .unwrap_or_default();
                     hub_sync.set_var("twitch.login", login.into(), false);
                     hub_sync.set_var("twitch.display_name", name.into(), false);
+                    hub_sync.set_var("twitch.user_id", id.into(), false);
                     automation.set_ignored_users(st.bot.map(|b| vec![b.id]).unwrap_or_default());
                     automation.set_live(st.stream.live);
                 }
@@ -141,7 +142,7 @@ impl Core {
 
         {
             let hub2 = hub.clone();
-            tokio::spawn(project.clone().autosave_loop(move |e| {
+            crate::util::spawn(project.clone().autosave_loop(move |e| {
                 hub2.log(
                     LogLevel::Error,
                     "project",
@@ -152,7 +153,7 @@ impl Core {
         {
             let hub2 = hub.clone();
             let project2 = project.clone();
-            tokio::spawn(async move {
+            crate::util::spawn(async move {
                 let mut tick = tokio::time::interval(Duration::from_secs(1));
                 loop {
                     tick.tick().await;

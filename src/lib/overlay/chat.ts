@@ -59,3 +59,45 @@ export function roles(e: Event): Role[] {
   if (r.subscriber) out.push('subscriber');
   return out;
 }
+
+export interface BadgeImage {
+  url: string;
+  width: number;
+}
+
+export type ShownBadge = { kind: 'image'; setId: string; title: string; images: BadgeImage[] } | { kind: 'role'; role: Role };
+
+const ROLE_OF: Record<string, Role> = {
+  broadcaster: 'broadcaster',
+  moderator: 'moderator',
+  vip: 'vip',
+  subscriber: 'subscriber',
+  founder: 'subscriber'
+};
+
+/**
+ * Twitch badges to draw: real images when Castwright knows them, the built-in
+ * role icons otherwise.
+ */
+export function twitchBadges(e: Event): ShownBadge[] {
+  const raw = Array.isArray(e.data?.badge_images) ? (e.data.badge_images as unknown[]) : [];
+  const images = raw.flatMap((v) => {
+    const b = (v ?? {}) as Record<string, unknown>;
+    const s = (k: string) => (typeof b[k] === 'string' ? (b[k] as string) : '');
+    if (!s('set_id') || !s('url_1x').startsWith('https://')) return [];
+    const urls = [s('url_1x'), s('url_2x') || s('url_1x'), s('url_4x') || s('url_1x')];
+    return [{ setId: s('set_id'), title: s('title'), images: urls.map((url, i) => ({ url, width: 18 * 2 ** i })) }];
+  });
+  if (!images.length) return roles(e).map((role) => ({ kind: 'role', role }));
+  const names = Array.isArray(e.data?.badges) ? (e.data.badges as unknown[]).filter((n): n is string => typeof n === 'string') : [];
+  const out: ShownBadge[] = [];
+  const used = new Set<string>();
+  for (const name of names.length ? names : images.map((i) => i.setId)) {
+    if (used.has(name)) continue;
+    used.add(name);
+    const img = images.find((i) => i.setId === name);
+    if (img) out.push({ kind: 'image', ...img });
+    else if (ROLE_OF[name] && !out.some((b) => b.kind === 'role' && b.role === ROLE_OF[name])) out.push({ kind: 'role', role: ROLE_OF[name]! });
+  }
+  return out;
+}

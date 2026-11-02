@@ -31,8 +31,9 @@ const anim = (preset: Animation['preset'], duration_ms = 450, easing: Animation[
   delay_ms: 0,
   easing
 });
-const noBox: BoxStyle = { background: 'transparent', border_color: 'transparent', border_width: 0, radius: 0, padding: 0, shadow: '', backdrop_blur: 0 };
-const panel: BoxStyle = {
+// Boxes in the shape older projects saved, so the overlay is checked against them.
+const noBox = { background: 'transparent', border_color: 'transparent', border_width: 0, radius: 0, padding: 0, shadow: '', backdrop_blur: 0 } as BoxStyle;
+const panel = {
   background: 'rgba(12,15,22,0.78)',
   border_color: 'rgba(255,255,255,0.08)',
   border_width: 1,
@@ -40,7 +41,7 @@ const panel: BoxStyle = {
   padding: 16,
   shadow: '0 12px 40px rgba(0,0,0,0.35)',
   backdrop_blur: 10
-};
+} as BoxStyle;
 
 function layer(id: string, kind: Layer['kind'], box: Partial<Layer>): Layer {
   return {
@@ -122,7 +123,8 @@ export function overlay(): Overlay {
       }),
       layer('chat', {
         type: 'chat', max_messages: 8, fade_after_s: 0, show_badges: true, hide_commands: true, hide_users: ['nightbot'],
-        style: text({ font_size: 20, font_weight: 500 }), bubble: noBox, newest_on_top: false
+        style: text({ font_size: 20, font_weight: 500 }), bubble: noBox, newest_on_top: false,
+        seventv_emotes: true, bttv_emotes: true, ffz_emotes: true, seventv_paints: true, seventv_badges: true
       }, { x: 896, y: 236, w: 336, h: 360, box_style: panel }),
       layer('alerts', { type: 'alerts' }, { x: 420, y: 236, w: 460, h: 300 }),
       layer('widget', {

@@ -25,7 +25,7 @@ Castwright checks variations **from the top down** and plays the **first one tha
 | **Title** and **Message** | Text with live values. Click a chip like `name` or `months` to insert it. See [templates](/reference/templates/). |
 | **Media and sound** | An image or video, its layout, a sound and its volume. |
 | **Read the viewer message aloud** | Text to speech for the message, using the voices built into your system. |
-| **Look** | Title and message fonts, sizes and colours, plus accent and background colours. |
+| **Look** | Title and message fonts, sizes and colours. Pick a style (Comic, Neon, Pixel and more) to give the alert its own card, then change its shape, fill, pattern, border, stripe, shadow and tilt. **Back to classic card** undoes it. |
 | **Animation** | How the alert comes in and goes out. |
 | **Also run an action** | Starts an [automation](/guide/automation/) action when the alert plays, for example to switch scene on a raid. |
 

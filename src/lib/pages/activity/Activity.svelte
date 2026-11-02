@@ -13,9 +13,13 @@
   import Switch from '$lib/ui/Switch.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import ChatPanel from '$lib/widgets/ChatPanel.svelte';
+  import StreamInfo from '$lib/widgets/StreamInfo.svelte';
+  import ResizeHandle from '$lib/ui/ResizeHandle.svelte';
   import { Search, Download, RotateCcw, X, Copy, History } from '@lucide/svelte';
 
   type Tab = 'events' | 'chat' | 'log';
+  let infoOpen = $state(false);
+  let detailWidth = $state(340);
   let tab = $state<Tab>('events');
 
   const groups: Array<{ id: string; label: string; kinds: EventKind[] }> = [
@@ -136,6 +140,10 @@
 <div class="activity">
   <header class="toolbar">
     <h1>Activity</h1>
+    <button type="button" class="stream-info" onclick={() => (infoOpen = true)} disabled={!app.twitch?.broadcaster} title="Edit title, category and tags">
+      <span class="truncate">{app.twitch?.stream.title || 'Set a stream title'}</span>
+      <span class="faint truncate">{app.twitch?.stream.category || 'No category'}</span>
+    </button>
     <Segmented
       label="View"
       bind:value={tab}
@@ -227,7 +235,8 @@
 
       {#if selected}
         {@const e = selected}
-        <aside class="detail" aria-label="Event details">
+        <ResizeHandle bind:size={detailWidth} id="activity.detail" min={260} max={720} initial={340} panel="after" label="Resize event details" />
+        <aside class="detail" aria-label="Event details" style="width: {detailWidth}px">
           <div class="row dhead">
             <span class="kind" style="--tone:{kindTone(e.kind)}">{KIND_LABELS[e.kind]}</span>
             <div class="grow"></div>
@@ -293,6 +302,8 @@
   {/if}
 </div>
 
+<StreamInfo bind:open={infoOpen} />
+
 <style>
   .activity {
     flex: 1;
@@ -313,6 +324,29 @@
     font-size: 15px;
     font-weight: 650;
     margin-right: 8px;
+  }
+  .stream-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    max-width: 320px;
+    min-width: 0;
+    padding: 4px 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    font-size: 12.5px;
+    line-height: 1.3;
+    text-align: left;
+  }
+  .stream-info:hover:not(:disabled) {
+    border-color: var(--border-strong);
+    background: var(--bg-2);
+  }
+  .stream-info:disabled {
+    opacity: 0.6;
+  }
+  .stream-info span {
+    max-width: 100%;
   }
   .search {
     position: relative;
@@ -472,9 +506,7 @@
     color: var(--text);
   }
   .detail {
-    width: 340px;
     flex: none;
-    border-left: 1px solid var(--border);
     padding: 16px;
     overflow-y: auto;
     display: flex;

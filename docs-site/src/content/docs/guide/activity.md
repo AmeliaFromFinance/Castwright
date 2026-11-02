@@ -3,7 +3,9 @@ title: Activity
 description: Event history, chat and the app log.
 ---
 
-**Activity** keeps a record of what happened on your stream.
+**Activity** keeps a record of what happened on your stream, shows chat, and holds your stream title.
+
+Click the title at the top to change your **title**, **category** and **tags** on Twitch.
 
 ![Activity](../../../assets/screens/activity.png)
 
@@ -21,7 +23,7 @@ To delete the history, use **Settings → Backups and data → Clear history**.
 
 ## Chat
 
-A full-size chat view. You can send messages as yourself or as your bot.
+A full-size chat view with Twitch and 7TV badges, 7TV name paints and 7TV, BetterTTV and FrankerFaceZ emotes. The options button turns each of those on or off. You can send messages as yourself or as your bot.
 
 ## Log
 

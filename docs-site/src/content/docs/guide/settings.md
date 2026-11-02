@@ -61,7 +61,7 @@ Share a theme with **Export** (copies JSON) and **Import** (paste JSON or pick a
 Also here:
 
 - **Window background** (Windows only): Mica, Acrylic or Solid. Auto uses Mica on Windows 11.
-- **Interface size**: 90% to 175%.
+- **Interface size**: 50% to 250%. <kbd>Ctrl</kbd> + <kbd>+</kbd> and <kbd>Ctrl</kbd> + <kbd>-</kbd> change it from anywhere, <kbd>Ctrl</kbd> + <kbd>0</kbd> resets it. On large screens (like 2560 × 1440) Castwright starts at 125%.
 - **Reduce motion**: turns off animations in the app. Overlays keep theirs.
 
 ## Backups and data
@@ -73,4 +73,4 @@ Also here:
 
 ## About
 
-Version, where settings are stored and links to this guide.
+Version, where settings are stored and links to this guide. **Check for updates** asks GitHub for a newer release. Castwright also checks once a day and shows a link in the status bar when one is out.

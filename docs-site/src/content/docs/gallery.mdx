@@ -5,36 +5,44 @@ tableOfContents: false
 ---
 
 import Gallery from '../../components/Gallery.astro';
-import studio from '../../assets/screens/studio.png';
-import studioLight from '../../assets/screens/studio-light.png';
-import studioHc from '../../assets/screens/studio-high-contrast.png';
 import overlays from '../../assets/screens/overlays.png';
 import editor from '../../assets/screens/overlay-editor.png';
+import styles from '../../assets/screens/styles.png';
 import editorAlert from '../../assets/screens/overlay-editor-alert.png';
 import widget from '../../assets/screens/custom-widget.png';
 import alerts from '../../assets/screens/alerts.png';
+import alertStyles from '../../assets/screens/alert-styles.png';
 import automation from '../../assets/screens/automation.png';
+import automationList from '../../assets/screens/automation-list.png';
+import chat from '../../assets/screens/chat.png';
 import activity from '../../assets/screens/activity.png';
+import palette from '../../assets/screens/palette.png';
 import settings from '../../assets/screens/settings.png';
 import themeEditor from '../../assets/screens/theme-editor.png';
 import firstRun from '../../assets/screens/first-run.png';
+import light from '../../assets/screens/light-theme.png';
+import hc from '../../assets/screens/high-contrast.png';
 
 Click any screenshot to enlarge it. Use the arrow keys to move between them.
 
 <Gallery
   items={[
-    { src: studio, title: 'Studio', caption: 'Scenes, sources, audio, event feed and chat while live' },
     { src: overlays, title: 'Overlays', caption: 'Live previews of every overlay, one click to add to OBS' },
     { src: editor, title: 'Overlay editor', caption: 'Drag, resize and style layers on a live canvas' },
+    { src: styles, title: 'Comic chat cards', caption: 'Style presets for boxes, chat cards and event rows' },
     { src: editorAlert, title: 'Testing an alert', caption: 'Play sample alerts right in the editor' },
     { src: widget, title: 'Custom widgets', caption: 'HTML, CSS and JS with settings generated from Fields' },
     { src: alerts, title: 'Alerts', caption: 'Variations with conditions, live preview and queue' },
-    { src: automation, title: 'Automation', caption: 'Commands, triggers, nested If steps, run log and variables' },
+    { src: alertStyles, title: 'Alert styles', caption: 'Give each alert its own card' },
+    { src: automation, title: 'Automation flow', caption: 'Triggers, steps and If branches as a flow' },
+    { src: automationList, title: 'Automation list view', caption: 'The same action as a compact list' },
+    { src: chat, title: 'Chat', caption: 'Twitch and 7TV badges, 7TV paints and third-party emotes' },
     { src: activity, title: 'Activity', caption: 'Event history with filters, details and replay' },
+    { src: palette, title: 'Command palette', caption: 'Ctrl K to find anything' },
     { src: settings, title: 'Settings', caption: 'OBS, Twitch, overlay server, themes and backups' },
     { src: themeEditor, title: 'Theme editor', caption: 'Build a theme with a live readability check' },
     { src: firstRun, title: 'First-time setup', caption: 'Sign in to Twitch with a short code' },
-    { src: studioLight, title: 'Light theme' },
-    { src: studioHc, title: 'High contrast theme' }
+    { src: light, title: 'Light theme' },
+    { src: hc, title: 'High contrast theme' }
   ]}
 />

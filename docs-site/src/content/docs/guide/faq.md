@@ -9,7 +9,7 @@ Yes. Castwright is open source under the MIT licence. No account, subscription o
 
 ## Does it replace OBS?
 
-No. OBS still captures and encodes your video. Castwright controls OBS and adds overlays, alerts, chat and automation, so you rarely need to touch OBS while live.
+No. OBS still captures and streams your video. Castwright makes the overlays, alerts, chat and automation that go on top, and can add them to your OBS scenes for you.
 
 ## Does it work with YouTube or Kick?
 
@@ -21,7 +21,7 @@ Everything is stored on your computer. Castwright only talks to Twitch (for even
 
 ## Can I use overlays without OBS?
 
-Yes. Overlay links work in anything with a browser source, such as Streamlabs Desktop, vMix or XSplit. Studio controls are OBS only.
+Yes. Overlay links work in anything with a browser source, such as Streamlabs Desktop, vMix or XSplit. Add to OBS and the OBS automation steps need OBS.
 
 ## Can I use StreamElements custom widgets?
 

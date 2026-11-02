@@ -78,7 +78,7 @@ pub struct AppearanceSettings {
     #[ts(type = "Array<Record<string, unknown>>")]
     pub custom_themes: Vec<serde_json::Value>,
     pub window_effect: WindowEffect,
-    /// 90 to 175 (percent).
+    /// 50 to 250 (percent).
     pub ui_scale: u16,
     pub reduce_motion: bool,
 }

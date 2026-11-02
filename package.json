@@ -1,7 +1,7 @@
 {
   "name": "castwright",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Local-first Twitch broadcaster suite and overlay creator.",
   "license": "MIT",
@@ -16,6 +16,7 @@
     "tauri": "tauri",
     "bindings": "cd src-tauri && cargo test --lib export_bindings -- --quiet",
     "fixtures": "cd src-tauri && cargo test --lib export_ui_fixtures -- --include-ignored --quiet",
+    "docs:selectors": "node scripts/selectors-doc.mjs",
     "screenshots": "playwright test --config e2e/screenshots.config.ts"
   },
   "dependencies": {

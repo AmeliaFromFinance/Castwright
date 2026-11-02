@@ -6,7 +6,7 @@
   import { render } from '$lib/logic/template';
   import { getStageCtx } from '../context';
   import { ALERTABLE_KINDS, eventContext } from '../labels';
-  import { DEFAULT_TEXT } from '../styles';
+  import { alternator, DEFAULT_TEXT, itemVars } from '../styles';
   import StyledText from '../StyledText.svelte';
 
   let { kind }: { kind: Extract<LayerKind, { type: 'event_list' }> } = $props();
@@ -19,16 +19,18 @@
   const format = $derived(kind.item_format?.trim() ? kind.item_format : '{{name}} · {{label}}');
   const items = $derived.by(() => {
     const max = Math.max(1, kind.max_items || 5);
-    const out: { id: string; text: string }[] = [];
+    const out: { id: string; text: string; vars: string }[] = [];
     const recent: readonly Event[] = ctx.recent;
     for (let i = recent.length - 1; i >= 0 && out.length < max; i--) {
       const e = recent[i];
       if (!e || !kinds.has(e.kind)) continue;
       const text = render(format, eventContext(e)).trim();
-      if (text) out.push({ id: e.id, text });
+      const color = typeof e.data?.color === 'string' ? e.data.color : '';
+      if (text) out.push({ id: e.id, text, vars: itemVars(kind.item_card, kind.item_box, color, flipOf(e.id)) });
     }
     return out;
   });
+  const flipOf = alternator();
   const style = $derived({ ...DEFAULT_TEXT, ...(kind.style ?? {}) });
   const live = $derived(ctx.mode === 'live');
 
@@ -76,17 +78,24 @@
   });
 </script>
 
+{#snippet tickerItem(it: { text: string; vars: string })}
+  <span class="cw-ticker-item cw-event-row" style="color:{style.color};{it.vars}"><StyledText text={it.text} {style} /></span><span
+    class="cw-ticker-sep"
+    style:color={style.color}
+  ></span>
+{/snippet}
+
 {#if kind.direction === 'ticker'}
   <div class="cw-ticker" bind:this={viewport} style:justify-content={style.align === 'center' && copyWidth === 0 ? 'center' : undefined}>
     <div class="cw-ticker-strip" bind:this={strip}>
       {#each Array.from({ length: items.length ? copies : 0 }, (_, i) => i) as c (c)}
         {#if c === 0}
           <div class="cw-ticker-copy" bind:this={firstCopy}>
-            {#each items as it (it.id)}<span class="cw-ticker-item" style:color={style.color}><StyledText text={it.text} {style} /></span>{/each}
+            {#each items as it (it.id)}{@render tickerItem(it)}{/each}
           </div>
         {:else}
           <div class="cw-ticker-copy" aria-hidden="true">
-            {#each items as it (it.id)}<span class="cw-ticker-item" style:color={style.color}><StyledText text={it.text} {style} /></span>{/each}
+            {#each items as it (it.id)}{@render tickerItem(it)}{/each}
           </div>
         {/if}
       {/each}
@@ -96,7 +105,8 @@
   <div class="cw-list">
     {#each items as it (it.id)}
       <div
-        class="cw-list-item"
+        class="cw-list-item cw-event-row"
+        style={it.vars || undefined}
         data-event-id={it.id}
         animate:flip={{ duration: live ? 300 : 0 }}
         in:fly={{ x: -24, duration: live ? 360 : 0, opacity: 0 }}
@@ -150,9 +160,9 @@
     display: inline-flex;
     align-items: center;
   }
-  .cw-ticker-item::after {
-    content: '';
-    display: inline-block;
+  .cw-ticker-sep {
+    flex: 0 0 auto;
+    align-self: center;
     width: 6px;
     height: 6px;
     border-radius: 50%;

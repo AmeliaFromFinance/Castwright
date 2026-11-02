@@ -72,6 +72,7 @@ export function sampleAlert(
     message_style: v.message_style,
     accent: v.accent,
     background: v.background,
+    card: v.card ?? null,
     tts: v.tts
   };
 }

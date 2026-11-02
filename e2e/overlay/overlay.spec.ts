@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
 import { alert, chat, event, overlay } from './fixture';
 import { startServer, type MiniSocket, type TestServer } from './test-server';
+import { fixture, stubProviders, type ProviderData } from '../providers';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '../..');
@@ -83,13 +84,14 @@ test.afterAll(async () => {
   await server?.close();
 });
 
-async function open(page: Page): Promise<MiniSocket> {
+async function open(page: Page, providers: ProviderData = {}): Promise<MiniSocket> {
   errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(`console: ${m.text()}`);
   });
   await page.route('https://fonts.googleapis.com/**', (r) => r.fulfill({ status: 200, contentType: 'text/css', body: '/* fonts stubbed */' }));
+  await stubProviders(page, providers);
   await page.route('https://static-cdn.jtvnw.net/**', (r) => r.fulfill({ status: 200, contentType: 'image/png', body: PNG }));
   await page.setViewportSize({ width: 1280, height: 720 });
   const socket = server.nextSocket();
@@ -255,4 +257,89 @@ test('keeps the picture through a reconnect and applies the new hello', async ({
   sock.send({ type: 'overlay', overlay: o });
   await expect(layer(page, 'deaths-2')).toContainText('Deaths: 0');
   expect(errors.filter((e) => !/WebSocket/.test(e))).toEqual([]);
+});
+
+test('shows 7TV, BetterTTV and Twitch emotes, 7TV paints and badges', async ({ page }) => {
+  const EMERALD = '01JHXJFACX42RV996VE9933TB8';
+  const GINGER = '01GHA42XER0001KT343YQ6DM2E';
+  let events: { ws: import('@playwright/test').WebSocketRoute; subscribed: unknown[] } | null = null;
+  const sock = await (await open(page, {
+    seventvGlobal: fixture('7tv-global'),
+    seventvUser: fixture('7tv-user'),
+    bttvGlobal: fixture('bttv-global'),
+    cosmetics: fixture('7tv-cosmetics'),
+    styles: { '71092938': { paint: EMERALD, badge: '01JJJ74CRHZBRMCM8F4Y2WBN6R' }, '9001': { paint: GINGER } },
+    onEvents: (ws, subscribed) => (events = { ws, subscribed })
+  }));
+  const badge = (set_id: string) => ({ set_id, id: '1', title: set_id, url_1x: `https://static-cdn.jtvnw.net/badges/v1/${set_id}/1`, url_2x: `https://static-cdn.jtvnw.net/badges/v1/${set_id}/2`, url_4x: `https://static-cdn.jtvnw.net/badges/v1/${set_id}/3` });
+  const a = chat('GAMBA notL nice peepoHappy', {
+    user: { id: '71092938', login: 'xqc', display_name: 'xQc' },
+    data: { color: '#1E90FF', badges: ['moderator', 'founder'], badge_images: [badge('moderator')] },
+    roles: { broadcaster: false, moderator: true, vip: false, subscriber: true }
+  });
+  const b = chat('that was close monkaS, Kappa RainTime', {
+    user: { id: '9001', login: 'nova', display_name: 'Nova' },
+    data: { color: '#FF7F50' },
+    message_parts: [
+      { type: 'text', text: 'that was close monkaS, ' },
+      { type: 'emote', text: 'Kappa', id: '25' },
+      { type: 'text', text: ' RainTime' }
+    ]
+  });
+  sock.send(hello({ chat: [a, b], vars: { 'twitch.user_id': '71092938' } }));
+
+  const lineA = layer(page, 'chat').locator(`[data-msg-id="${a.id}"]`);
+  const lineB = layer(page, 'chat').locator(`[data-msg-id="${b.id}"]`);
+  // Text shows straight away; emotes replace words once the lists arrive.
+  await expect(lineA).toContainText('nice');
+  const gamba = lineA.locator('img.cw-emote-7tv[alt="GAMBA"]');
+  await expect(gamba).toBeVisible();
+  await expect(gamba).toHaveAttribute('srcset', /cdn\.7tv\.app\/emote\/\w+\/1x\.webp 39w, .*4x\.webp 156w$/);
+  const stack = lineA.locator('.cw-emote-stack');
+  await expect(stack.locator('img')).toHaveCount(2);
+  await expect(stack.locator('img.cw-emote-zw')).toHaveAttribute('alt', 'notL');
+  const [g, z] = await Promise.all([gamba.boundingBox(), stack.locator('.cw-emote-zw').boundingBox()]);
+  expect(Math.abs(g!.x + g!.width / 2 - (z!.x + z!.width / 2))).toBeLessThan(1.5);
+  await expect(lineA.locator('img.cw-emote-7tv[alt="peepoHappy"]')).toBeVisible();
+  await expect(lineB.locator('img.cw-emote-bttv[alt="monkaS"]')).toBeVisible();
+  await expect(lineB).toContainText('that was close , ');
+  await expect(lineB.locator('.cw-emote-stack img.cw-emote-twitch')).toHaveAttribute('alt', 'Kappa');
+  await expect(lineB.locator('.cw-emote-stack img.cw-emote-zw')).toHaveAttribute('alt', 'RainTime');
+
+  // Badges: real Twitch image, role icon fallback, then the 7TV badge.
+  await expect(lineA.locator('.cw-chat-badge')).toHaveCount(3);
+  await expect(lineA.locator('img.cw-badge-twitch')).toHaveAttribute('src', /badges\/v1\/moderator\/1/);
+  await expect(lineA.locator('svg.cw-badge-role')).toHaveAttribute('aria-label', 'Subscriber');
+  await expect(lineA.locator('img.cw-badge-7tv')).toHaveAttribute('title', 'Minecraft Event Winner');
+
+  // Paints arrive after the message.
+  const nameA = lineA.locator('.cw-chat-name.cw-paint');
+  await expect(nameA).toHaveCount(1);
+  const styleA = await nameA.evaluate((el) => {
+    const s = getComputedStyle(el);
+    return { image: s.backgroundImage, filter: s.filter, clip: s.webkitBackgroundClip || s.backgroundClip, fill: s.webkitTextFillColor };
+  });
+  expect(styleA.image).toContain('cdn.7tv.app/paint/01JHXJFACX42RV996VE9933TB8');
+  expect(styleA.filter).toContain('drop-shadow');
+  expect(styleA.clip).toBe('text');
+  expect(styleA.fill).toBe('rgba(0, 0, 0, 0)');
+  const imageB = await lineB.locator('.cw-chat-name.cw-paint').evaluate((el) => getComputedStyle(el).backgroundImage);
+  expect(imageB).toContain('repeating-linear-gradient(66deg');
+
+  // Live 7TV set update: a new emote works without a reload.
+  await expect.poll(() => events?.subscribed.length ?? 0).toBeGreaterThanOrEqual(1);
+  expect(events!.subscribed[0]).toEqual({ op: 35, d: { type: 'emote_set.update', condition: { object_id: '01FE9DRF000009TR6M9N941CYW' } } });
+  events!.ws.send(
+    JSON.stringify({
+      op: 0,
+      d: { type: 'emote_set.update', body: { id: '01FE9DRF000009TR6M9N941CYW', pushed: [{ key: 'emotes', index: 9, value: { id: '01NEWEMOTE', name: 'catJAM', flags: 0, data: { animated: true } } }] } }
+    })
+  );
+  const c = chat('catJAM vibing', { user: { id: '5', login: 'm0ss', display_name: 'm0ss' } });
+  sock.send({ type: 'event', event: c });
+  await expect(layer(page, 'chat').locator(`[data-msg-id="${c.id}"] img.cw-emote-7tv[alt="catJAM"]`)).toHaveAttribute('src', 'https://cdn.7tv.app/emote/01NEWEMOTE/2x.webp');
+
+  await page.waitForTimeout(300);
+  await layer(page, 'chat').screenshot({ path: join(screens, 'chat-emotes.png') });
+  expect(errors).toEqual([]);
 });

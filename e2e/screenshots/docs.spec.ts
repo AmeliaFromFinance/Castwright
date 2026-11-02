@@ -1,9 +1,34 @@
 import { test, type Page } from '@playwright/test';
+import { fixture, stubProviders } from '../providers';
 import { fileURLToPath } from 'node:url';
 
 const out = (name: string) => fileURLToPath(new URL(`../../docs-site/src/assets/screens/${name}.png`, import.meta.url));
 
+/** Emote lists and 7TV styles come from saved data; the images themselves are real. */
+async function providers(page: Page) {
+  await stubProviders(page, {
+    seventvGlobal: fixture('7tv-global'),
+    seventvUser: fixture('7tv-user'),
+    bttvGlobal: fixture('bttv-global'),
+    bttvUser: fixture('bttv-user'),
+    ffzGlobal: fixture('ffz-global'),
+    ffzRoom: fixture('ffz-room'),
+    styles: {
+      '1000': { paint: '01JHXJFACX42RV996VE9933TB8', badge: '01JJJ74CRHZBRMCM8F4Y2WBN6R' },
+      '1002': { paint: '01GHA42XER0001KT343YQ6DM2E' },
+      '1005': { paint: '01HQE7KJWG0000D7GK7EKRAPN3', badge: '01GAF8RWW8000E8VNG1S1RMTBA' },
+      '1003': { badge: '01GAF8RWW8000E8VNG1S1RMTBA' }
+    },
+    cosmetics: fixture('7tv-cosmetics')
+  });
+  if (process.env.HTTPS_PROXY) {
+    await page.unroute(/^https:\/\/cdn\.(7tv\.app|betterttv\.net|frankerfacez\.com)\//);
+    await page.unroute('https://static-cdn.jtvnw.net/badges/**');
+  }
+}
+
 async function open(page: Page, query = 'demo=static') {
+  await providers(page);
   await page.goto(`/?${query}`);
   await page.locator('.splash').waitFor({ state: 'detached' });
   await page.waitForTimeout(600);
@@ -20,18 +45,15 @@ async function shot(page: Page, name: string) {
   await page.screenshot({ path: out(name) });
 }
 
-test('studio', async ({ page }) => {
-  await open(page);
-  await shot(page, 'studio');
-});
 
-test('studio light', async ({ page }) => {
+test('light theme', async ({ page }) => {
   await open(page);
   await page.keyboard.press('Control+Comma');
   await page.getByRole('button', { name: 'Appearance' }).click();
   await page.getByRole('radio', { name: /Castwright Light/ }).click();
-  await nav(page, 'Studio');
-  await shot(page, 'studio-light');
+  await nav(page, 'Overlays');
+  await page.locator('[data-overlay-card]').first().getByRole('button', { name: 'Edit', exact: true }).click();
+  await shot(page, 'light-theme');
 });
 
 test('activity', async ({ page }) => {
@@ -72,8 +94,8 @@ test('high contrast', async ({ page }) => {
   await page.keyboard.press('Control+Comma');
   await page.getByRole('button', { name: 'Appearance' }).click();
   await page.getByRole('radio', { name: /^High contrast\b(?! light)/ }).click();
-  await nav(page, 'Studio');
-  await shot(page, 'studio-high-contrast');
+  await nav(page, 'Alerts');
+  await shot(page, 'high-contrast');
 });
 
 test('overlays', async ({ page }) => {
@@ -134,6 +156,55 @@ test('alerts', async ({ page }) => {
 test('automation', async ({ page }) => {
   await open(page);
   await nav(page, 'Automation');
-  await page.getByText('!so', { exact: true }).first().click();
+  await page.getByText('Big raid welcome', { exact: true }).first().click();
+  await page.waitForTimeout(600);
   await shot(page, 'automation');
+});
+
+test('automation list view', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Automation');
+  await page.getByText('Count deaths', { exact: true }).first().click();
+  await page.getByRole('radio', { name: 'List' }).click();
+  await shot(page, 'automation-list');
+});
+
+test('chat with 7TV', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Activity');
+  await page.getByRole('radio', { name: 'Chat' }).click();
+  await page.waitForTimeout(2500);
+  await shot(page, 'chat');
+});
+
+test('comic chat cards', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Overlays');
+  await page.locator('[data-overlay-card]').first().getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.locator('[data-layer-row]').filter({ hasText: 'Chat' }).locator('.pick').click();
+  await page.getByRole('button', { name: /^Cards/ }).click();
+  await page.getByRole('list', { name: 'Styles' }).first().getByRole('button', { name: /^Comic style/ }).click();
+  await page.waitForTimeout(2500);
+  await shot(page, 'styles');
+});
+
+test('alert styles', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Alerts');
+  await page.getByRole('button', { name: /^Follow/ }).click();
+  const card = page.locator('[data-variation]').first();
+  const styles = card.getByRole('button', { name: 'Styles', exact: true });
+  if (!(await styles.isVisible())) await card.locator('button.expand').click();
+  await styles.click();
+  await card.getByRole('button', { name: /^Neon style/ }).click();
+  await page.getByText('Styles', { exact: true }).first().scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1200);
+  await shot(page, 'alert-styles');
+});
+
+test('command palette', async ({ page }) => {
+  await open(page);
+  await page.keyboard.press('Control+k');
+  await page.keyboard.type('test');
+  await shot(page, 'palette');
 });

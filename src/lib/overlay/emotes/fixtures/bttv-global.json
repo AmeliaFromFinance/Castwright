@@ -1,0 +1,68 @@
+[
+ {
+  "id": "54fa8f1401e468494b85b537",
+  "code": ":tf:",
+  "imageType": "png",
+  "animated": false,
+  "userId": "5561169bd6b9d206222a8c19",
+  "modifier": false
+ },
+ {
+  "id": "54fab45f633595ca4c713abc",
+  "code": "M&Mjc",
+  "imageType": "png",
+  "animated": false,
+  "userId": "5561169bd6b9d206222a8c19",
+  "modifier": false,
+  "width": 36,
+  "height": 30
+ },
+ {
+  "id": "55028cd2135896936880fdd7",
+  "code": "D:",
+  "imageType": "png",
+  "animated": false,
+  "userId": "5561169bd6b9d206222a8c19",
+  "modifier": false
+ },
+ {
+  "id": "566c9fde65dbbdab32ec053e",
+  "code": "FeelsGoodMan",
+  "imageType": "png",
+  "animated": false,
+  "userId": "5561169bd6b9d206222a8c19",
+  "modifier": false
+ },
+ {
+  "id": "566ca38765dbbdab32ec0560",
+  "code": "SourPls",
+  "imageType": "gif",
+  "animated": true,
+  "userId": "5561169bd6b9d206222a8c19",
+  "modifier": false
+ },
+ {
+  "id": "56e9f494fff3cc5c35e5287e",
+  "code": "monkaS",
+  "imageType": "png",
+  "animated": false,
+  "userId": "55bfba180baa41467919aabf",
+  "modifier": false
+ },
+ {
+  "id": "5e76d399d6581c3724c0f0b8",
+  "code": "cvMask",
+  "imageType": "png",
+  "animated": false,
+  "userId": "54ee2465b822020506c52a52",
+  "modifier": false
+ },
+ {
+  "id": "64e3b31920cb0d25d950a9f9",
+  "code": "w!",
+  "imageType": "png",
+  "animated": false,
+  "userId": "5561169bd6b9d206222a8c19",
+  "modifier": true
+ }
+]

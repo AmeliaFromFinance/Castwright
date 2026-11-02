@@ -7,6 +7,32 @@ An **action** is a list of steps that runs when one of its triggers fires. Use a
 
 ![Automation](../../../assets/screens/automation.png)
 
+## The page
+
+- **Left**: your actions, in folding sections (Chat commands, Stream events, Timers, Buttons and Stream Deck, plus your own groups). Search opens the sections that match.
+- **Middle**: the selected action as a **flow**: its triggers at the top, then each step in order. An **If** step splits into **Then** and **Otherwise** lanes side by side.
+- **Right**: the run log and every variable. Fold either one, or drag the divider between them.
+
+Drag the dividers to resize any column. **Flow / List** at the top switches to a compact list of steps if you prefer it.
+
+## Working in the flow
+
+- Click a step to edit it in the panel that opens beside the flow.
+- Hover between two steps and click **+** to insert one there, or use the bar at the bottom of the flow.
+- Drag a step to move it, including into or out of an If lane.
+- **Test** runs the action now. Each step shows a tick or the error it hit.
+- Zoom with the buttons in the corner, or <kbd>Ctrl</kbd> + scroll over the flow.
+
+| Keys | Does |
+| --- | --- |
+| Arrow keys | Move between steps |
+| <kbd>Enter</kbd> / <kbd>Esc</kbd> | Open or close the step panel |
+| <kbd>Delete</kbd> | Remove the step |
+| <kbd>Ctrl</kbd> + <kbd>D</kbd> | Duplicate it |
+| <kbd>Ctrl</kbd> + <kbd>X</kbd> / <kbd>C</kbd> / <kbd>V</kbd> | Cut, copy, paste after the selected step |
+| <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> | Move it up or down |
+| <kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> | Undo and redo |
+
 ## Start an action
 
 Click **New action** and pick a template (chat command, timer message, raid welcome, deaths counter) or start blank. Every change saves on its own.
@@ -15,7 +41,7 @@ Click **New action** and pick a template (chat command, timer message, raid welc
 | --- | --- |
 | **Group** | Sorts actions in the list, for example "Chat commands". |
 | **Cooldown** | Shortest time between two runs. 0 means no limit. |
-| **Enabled** | Off stops all triggers. **Run now** still works. |
+| **Enabled** | Off stops all triggers. **Test** still works. |
 
 ## Triggers
 
@@ -28,13 +54,13 @@ An action can have several triggers. Any of them starts it.
 | **Timer** | Every few minutes. Can be limited to while you're live and to when chat has been active. Runs at most every 10 seconds. |
 | **Stream goes live** / **Stream ends** | Your stream starts or stops. |
 | **Scene changes** | OBS switches to a scene (or any scene). |
-| **Button or Stream Deck** | Only runs when you click **Run now** or call its [run link](/guide/stream-deck/). |
+| **Button or Stream Deck** | Only runs when you click **Test** or call its [run link](/guide/stream-deck/). |
 
-Messages from your bot and from Castwright itself never trigger actions, so actions can't set each other off in a loop. Test events from the Alerts page don't run actions either; use **Run now** to try one.
+Messages from your bot and from Castwright itself never trigger actions, so actions can't set each other off in a loop. Test events from the Alerts page don't run actions either; use **Test** to try one.
 
 ## Steps
 
-Steps run from top to bottom. Use **Add step** and pick from:
+Steps run from top to bottom. Add one from the flow and pick from:
 
 | Group | Steps |
 | --- | --- |

@@ -25,7 +25,6 @@ export default defineConfig({
         {
           label: 'Guide',
           items: [
-            { label: 'Studio', slug: 'guide/studio' },
             { label: 'Overlays', slug: 'guide/overlays' },
             { label: 'Overlay editor', slug: 'guide/overlay-editor' },
             { label: 'Alerts', slug: 'guide/alerts' },

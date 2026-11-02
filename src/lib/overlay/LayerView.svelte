@@ -3,7 +3,7 @@
   import type { Layer } from '$lib/bindings/Layer';
   import { animSpec, hasAnimation, play, type Phase } from './anim';
   import { getStageCtx } from './context';
-  import { boxInset, boxStyleCss, cssValue, scopeClass, scopeCss } from './styles';
+  import { boxInset, fillColorOf, layerFrameCss, scopeClass, scopeCss } from './styles';
   import AlertsLayer from './layers/AlertsLayer.svelte';
   import ChatLayer from './layers/ChatLayer.svelte';
   import CounterLayer from './layers/CounterLayer.svelte';
@@ -38,15 +38,16 @@
   const kind = $derived(layer.kind);
   const scope = $derived(scopeClass(layer.id));
   const inset = $derived(boxInset(layer.box_style));
-  const innerW = $derived(Math.max(0, layer.w - inset * 2));
-  const innerH = $derived(Math.max(0, layer.h - inset * 2));
+  const innerW = $derived(Math.max(0, layer.w - inset.x * 2));
+  const innerH = $derived(Math.max(0, layer.h - inset.y * 2));
   const opacity = $derived(Math.min(1, Math.max(0, Number.isFinite(layer.opacity) ? layer.opacity : 1)) * (ghost && !shown ? 0.35 : 1));
   const outerCss = $derived(
     `left:${layer.x}px;top:${layer.y}px;width:${Math.max(0, layer.w)}px;height:${Math.max(0, layer.h)}px;` +
       `opacity:${opacity};` +
       (layer.rotation ? `transform:rotate(${layer.rotation}deg);` : '')
   );
-  const boxCss = $derived(boxStyleCss(layer.box_style));
+  // Box and card styles go in a <style> next to the layer so they can draw pseudo-elements.
+  const frame = $derived(layerFrameCss(layer, scope));
   const idleKey = $derived(JSON.stringify(layer.idle));
   const scoped = $derived(scopeCss(layer.css ?? '', scope));
 
@@ -148,9 +149,10 @@
     data-layer-type={kind.type}
     style={outerCss}
   >
+    {#if frame}{@html `<style data-cw-frame="${scope}">${frame}</style>`}{/if}
     <div class="cw-anim" bind:this={animEl}>
       <div class="cw-idle" bind:this={idleEl}>
-        <div class="cw-box {scope}" style={boxCss}>
+        <div class="cw-box {scope}">
           {#if kind.type === 'text'}
             <TextLayer {kind} />
           {:else if kind.type === 'shape'}
@@ -162,7 +164,7 @@
           {:else if kind.type === 'alerts'}
             <AlertsLayer layerId={layer.id} width={innerW} height={innerH} />
           {:else if kind.type === 'chat'}
-            <ChatLayer {kind} layerBackground={cssValue(layer.box_style?.background)} />
+            <ChatLayer {kind} layerBackground={fillColorOf(layer.box_style)} />
           {:else if kind.type === 'goal'}
             <GoalLayer {kind} />
           {:else if kind.type === 'counter'}

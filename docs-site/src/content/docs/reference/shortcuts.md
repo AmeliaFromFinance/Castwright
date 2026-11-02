@@ -9,25 +9,28 @@ On macOS, use <kbd>Cmd</kbd> where this page says <kbd>Ctrl</kbd>.
 
 ## Anywhere in the app
 
-| Keys | Goes to |
-| --- | --- |
-| <kbd>Ctrl</kbd> + <kbd>1</kbd> | Studio |
-| <kbd>Ctrl</kbd> + <kbd>2</kbd> | Overlays |
-| <kbd>Ctrl</kbd> + <kbd>3</kbd> | Alerts |
-| <kbd>Ctrl</kbd> + <kbd>4</kbd> | Automation |
-| <kbd>Ctrl</kbd> + <kbd>5</kbd> | Activity |
-| <kbd>Ctrl</kbd> + <kbd>6</kbd> | Settings |
-| <kbd>Ctrl</kbd> + <kbd>,</kbd> | Settings |
-
-These don't fire while <kbd>Alt</kbd> or <kbd>Shift</kbd> is held.
-
-## Studio
-
 | Keys | Does |
 | --- | --- |
-| <kbd>1</kbd> to <kbd>9</kbd> | Switches to that scene in the Scenes list (the number shows next to each scene). In OBS Studio Mode it sets the preview scene instead. |
+| <kbd>Ctrl</kbd> + <kbd>K</kbd> | Search and run commands: open an overlay, test an alert, run an action, jump to a setting |
+| <kbd>Ctrl</kbd> + <kbd>1</kbd> | Overlays |
+| <kbd>Ctrl</kbd> + <kbd>2</kbd> | Alerts |
+| <kbd>Ctrl</kbd> + <kbd>3</kbd> | Automation |
+| <kbd>Ctrl</kbd> + <kbd>4</kbd> | Activity |
+| <kbd>Ctrl</kbd> + <kbd>5</kbd> or <kbd>Ctrl</kbd> + <kbd>,</kbd> | Settings |
+| <kbd>Ctrl</kbd> + <kbd>+</kbd> / <kbd>Ctrl</kbd> + <kbd>-</kbd> | Zoom in and out (saved as the interface size) |
+| <kbd>Ctrl</kbd> + <kbd>0</kbd> | Reset zoom to 100% |
+| <kbd>Ctrl</kbd> + <kbd>/</kbd> | Show the shortcut list |
 
-Number keys are ignored while you're typing in a text box, while a dialog is open, or with <kbd>Ctrl</kbd>, <kbd>Cmd</kbd> or <kbd>Alt</kbd> held.
+## Panels
+
+| Action | Does |
+| --- | --- |
+| Drag a divider | Resizes the panels next to it |
+| Double-click a divider | Resets its size |
+| Focus a divider, then arrow keys | Resizes in steps (<kbd>Shift</kbd> for bigger steps) |
+| Click a section title | Folds or unfolds it |
+
+Panel sizes and folded sections are remembered on each computer.
 
 ## Forms and dialogs
 

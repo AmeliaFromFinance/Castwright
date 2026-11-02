@@ -2,6 +2,7 @@ import type { AppearanceSettings } from '$lib/bindings/AppearanceSettings';
 import type { WindowEffect } from '$lib/bindings/WindowEffect';
 import { parseHex } from './color';
 import { cssVariables, resolveTheme, type Theme } from './themes';
+import { applyZoom } from '$lib/state/zoom';
 
 export function prefersDark(): boolean {
   return typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)').matches : true;
@@ -22,8 +23,7 @@ export function applyTheme(appearance: AppearanceSettings, effect: WindowEffect 
   root.style.colorScheme = theme.spec.base;
   root.dataset.base = theme.spec.base;
   root.dataset.reduceMotion = String(appearance.reduce_motion);
-  const scale = Math.min(175, Math.max(90, appearance.ui_scale || 100));
-  root.style.setProperty('zoom', scale === 100 ? '' : String(scale / 100));
+  applyZoom(appearance.ui_scale);
   root.dataset.effect = translucent ? 'translucent' : 'solid';
   return theme;
 }

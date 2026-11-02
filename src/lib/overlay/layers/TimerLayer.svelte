@@ -30,7 +30,7 @@
   const text = $derived(value ? `${kind.prefix ?? ''}${value}` : '');
 </script>
 
-<div class="cw-single" style:justify-content={kind.style?.align === 'center' ? 'center' : kind.style?.align === 'right' ? 'flex-end' : 'flex-start'}>
+<div class="cw-single cw-timer" style:justify-content={kind.style?.align === 'center' ? 'center' : kind.style?.align === 'right' ? 'flex-end' : 'flex-start'}>
   {#if text}<StyledText {text} style={kind.style} />{/if}
 </div>
 

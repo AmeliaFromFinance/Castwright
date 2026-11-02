@@ -1,5 +1,7 @@
 <script lang="ts">
   import { app } from '$lib/state/app.svelte';
+  import { updates } from '$lib/state/updates.svelte';
+  import { openExternal } from '$lib/util/os';
   import { count, duration } from '$lib/format';
 
   const obs = $derived(app.obs);
@@ -24,12 +26,19 @@
           ? 'Connecting to Twitch…'
           : 'Twitch disconnected'
   );
+  function openSettings(section: string) {
+    app.page = 'settings';
+    setTimeout(() => document.getElementById(section)?.scrollIntoView({ block: 'start' }), 60);
+  }
+
   const tone = (s: string) => (s === 'connected' ? 'ok' : s === 'connecting' ? 'warn' : s === 'error' ? 'bad' : 'off');
 </script>
 
 <footer class="status" aria-label="Status">
-  <span class="item"><i class="dot {tone(obs.state)}"></i>{obsLabel}</span>
-  <span class="item"><i class="dot {tw?.broadcaster ? tone(tw.eventsub) : 'off'}"></i>{twLabel}</span>
+  <button type="button" class="item link" title="OBS settings" onclick={() => openSettings('obs')}><i class="dot {tone(obs.state)}"></i>{obsLabel}</button>
+  <button type="button" class="item link" title="Twitch settings" onclick={() => openSettings('twitch')}
+    ><i class="dot {tw?.broadcaster ? tone(tw.eventsub) : 'off'}"></i>{twLabel}</button
+  >
   {#if live}
     <span class="item"><i class="dot live"></i>Live <span class="mono">{duration(obs.stream.duration_ms)}</span></span>
   {/if}
@@ -43,10 +52,15 @@
   {/if}
   <span class="grow"></span>
   {#if app.server}
-    <span class="item" title={app.server.error ?? ''}>
+    <button type="button" class="item link" title={app.server.error ?? 'Overlay server settings'} onclick={() => openSettings('server')}>
       <i class="dot {app.server.running ? 'ok' : 'bad'}"></i>Overlay server
       <span class="mono">{app.server.running ? app.server.base_url.replace(/^https?:\/\//, '') : 'stopped'}</span>
-    </span>
+    </button>
+  {/if}
+  {#if updates.available}
+    <button type="button" class="item link update" onclick={() => openExternal(updates.available!.url)}>
+      Version {updates.available.version} is out
+    </button>
   {/if}
   {#if app.demo}<span class="item demo">Demo mode</span>{/if}
   <span class="item faint">v{app.info?.version ?? ''}</span>
@@ -70,6 +84,21 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
+  }
+  .link {
+    font-size: inherit;
+    color: inherit;
+    border-radius: 4px;
+    padding: 1px 4px;
+    margin: 0 -4px;
+  }
+  .link:hover {
+    background: var(--bg-2);
+    color: var(--text);
+  }
+  .update {
+    color: var(--accent-text);
+    font-weight: 600;
   }
   .item .mono {
     color: var(--text);

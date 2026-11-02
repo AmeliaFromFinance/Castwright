@@ -9,6 +9,7 @@
   import { attempt } from '$lib/state/toast.svelte';
   import Button from '$lib/ui/Button.svelte';
   import Dialog from '$lib/ui/Dialog.svelte';
+  import ResizeHandle from '$lib/ui/ResizeHandle.svelte';
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import { BellRing, FlaskConical, Pause, Play, Plus, Settings2, SkipForward } from '@lucide/svelte';
   import { defaultSettings, defaultVariation, duplicateVariation, newAlertType, nextVariationName } from './alerts';
@@ -20,6 +21,8 @@
   import VariationCard from './VariationCard.svelte';
 
   let settingsOpen = $state(false);
+  let leftW = $state(236);
+  let rightW = $state(380);
   let confirmDelete = $state<Variation | null>(null);
 
   $effect(() => {
@@ -110,8 +113,9 @@
   </header>
 
   {#if ed.config}
-    <div class="body">
+    <div class="body" style="grid-template-columns:{leftW}px auto minmax(0, 1fr) auto {rightW}px">
       <KindList />
+      <ResizeHandle bind:size={leftW} id="alerts.types" min={170} max={420} initial={236} panel="before" label="Resize alert types list" />
 
       <section class="center" aria-label="{KIND_LABELS[ed.kind]} variations">
         <div class="center-head">
@@ -154,6 +158,7 @@
         {/if}
       </section>
 
+      <ResizeHandle bind:size={rightW} id="alerts.side" min={280} max={760} initial={380} panel="after" label="Resize preview panel" />
       <aside class="side" aria-label="Preview and queue">
         <AlertPreview kind={ed.kind} {type} {variation} settings={ed.config.settings} />
         <AlertQueue />
@@ -212,7 +217,6 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 236px minmax(0, 1fr) 380px;
   }
   .center {
     min-width: 0;
@@ -250,12 +254,6 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    border-left: 1px solid var(--border);
     background: color-mix(in srgb, var(--bg-1) 60%, transparent);
-  }
-  @media (max-width: 1280px) {
-    .body {
-      grid-template-columns: 210px minmax(0, 1fr) 320px;
-    }
   }
 </style>

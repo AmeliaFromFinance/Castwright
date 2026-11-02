@@ -29,7 +29,13 @@
   import Prop from '../ui/Prop.svelte';
   import Section from '../ui/Section.svelte';
   import AnimationEditor from './AnimationEditor.svelte';
-  import BoxStyleEditor from './BoxStyleEditor.svelte';
+  import BoxStyleEditor from '$lib/editors/BoxStyleEditor.svelte';
+  import StylePresets from '$lib/editors/StylePresets.svelte';
+  import { presetBox, type BoxPreset } from '$lib/overlay/presets';
+  import { ruleFor, selectorsFor, variablesFor } from '$lib/overlay/selectors';
+  import Collapse from '$lib/ui/Collapse.svelte';
+  import CardsEditor from './CardsEditor.svelte';
+  import CssHelp from './CssHelp.svelte';
   import ContentEditor from './ContentEditor.svelte';
 
   interface Props {
@@ -43,7 +49,8 @@
 
   let { store, vars, wide, onpreview, ontestalert, ontogglewide }: Props = $props();
 
-  const open = $state({ layout: true, content: true, style: false, visibility: false, animation: false, advanced: false });
+  const open = $state({ layout: true, content: true, cards: false, style: false, visibility: false, animation: false, advanced: false });
+  let cssEditor = $state<CodeEditor>();
 
   const layer = $derived(store.selected);
   const varNames = $derived(Object.keys(vars).sort());
@@ -62,6 +69,21 @@
 
   const setKind = (fn: (k: LayerKind) => void, key: string) => change((l) => fn(l.kind), `kind:${key}`);
   const setBox = (fn: (b: BoxStyle) => void, key: string) => change((l) => fn(l.box_style), `box:${key}`);
+  const applyBox = (p: BoxPreset) => change((l) => (l.box_style = presetBox(p, 'layer')), `box:preset:${p.id}`);
+
+  const completions = $derived(
+    layer
+      ? [
+          ...selectorsFor(layer.kind.type).map((s) => ({ label: s.selector, detail: s.description, type: 'class' })),
+          ...variablesFor(layer.kind.type).map((v) => ({ label: v.name, detail: v.description, type: 'variable' }))
+        ]
+      : []
+  );
+
+  function insertRule(selector: string) {
+    const rule = ruleFor(selector);
+    cssEditor?.insert(rule, rule.indexOf('\n  ') + 3);
+  }
   const setAnim = (phase: 'enter' | 'exit' | 'idle') => (fn: (a: Animation) => void, key: string) =>
     change((l) => fn(l[phase]), `${phase}:${key}`);
 
@@ -144,8 +166,19 @@
         {/key}
       </Section>
 
-      <Section title="Style" bind:open={open.style}>
-        <BoxStyleEditor box={layer.box_style} {uid} set={setBox} />
+      {#if layer.kind.type === 'chat' || layer.kind.type === 'event_list'}
+        <Section title="Cards" bind:open={open.cards} note={layer.kind.type === 'chat' ? 'Each message' : 'Each event'}>
+          {#key layer.id}
+            <CardsEditor kind={layer.kind} {uid} set={setKind} />
+          {/key}
+        </Section>
+      {/if}
+
+      <Section title="Style" bind:open={open.style} note="Layer box">
+        <Collapse id="insp.box.styles" title="Styles" open={false}>
+          <div class="gallery"><StylePresets target="layer" onpick={applyBox} /></div>
+        </Collapse>
+        <BoxStyleEditor box={layer.box_style} {uid} set={setBox} group="layer" />
       </Section>
 
       <Section title="Visibility" bind:open={open.visibility} note={conditionsNote}>
@@ -176,13 +209,14 @@
       </Section>
 
       <Section title="Advanced" bind:open={open.advanced} note={layer.css.trim() ? 'Custom CSS' : undefined}>
-        <Prop label="Custom CSS" stacked hint="Only applies to this layer. Target parts with classes like .cw-box.">
+        <Prop label="Custom CSS" stacked hint="Only applies to this layer. :scope is the layer box.">
           <div class="css">
             {#key layer.id}
-              <CodeEditor lang="css" label="Custom CSS" value={layer.css} onchange={(v) => change((l) => (l.css = v), 'css')} />
+              <CodeEditor bind:this={cssEditor} lang="css" label="Custom CSS" value={layer.css} {completions} onchange={(v) => change((l) => (l.css = v), 'css')} />
             {/key}
           </div>
         </Prop>
+        <CssHelp kind={layer.kind.type} layerId={layer.id} oninsert={insertRule} />
         <Prop label="Layer id">
           <code class="mono id selectable">{layer.id}</code>
         </Prop>
@@ -251,7 +285,6 @@
     flex-direction: column;
     min-height: 0;
     min-width: 0;
-    border-left: 1px solid var(--border);
     background: var(--bg-1);
   }
   .head {
@@ -343,6 +376,9 @@
   }
   .css {
     height: 180px;
+  }
+  .gallery {
+    padding: 2px 0 10px;
   }
   .id {
     font-size: 11.5px;

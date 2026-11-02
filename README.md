@@ -16,15 +16,16 @@
 </p>
 
 <p align="center">
-  <img src="docs-site/src/assets/screens/studio.png" alt="The Studio screen" width="860" />
+  <img src="docs-site/src/assets/screens/styles.png" alt="The overlay editor with comic-style chat cards" width="860" />
 </p>
 
 ## What it does
 
-- **Studio**: scenes, sources, audio, recording and going live, all controlling OBS.
 - **Overlay editor**: drag-and-drop text, images, video, goals, timers, chat, event lists and alerts. Add them to OBS in one click.
+- **Styles**: comic, neon, pixel, sticker and more, with full control of shapes, fills, borders, shadows and tilt, plus custom CSS.
+- **Chat**: Twitch and 7TV badges, 7TV name paints, and 7TV, BetterTTV and FrankerFaceZ emotes.
 - **Alerts**: follows, subs, gifts, cheers, raids, redemptions and more, with variations, conditions, sounds and animations.
-- **Automation**: chat commands, timers and reactions to events. Send chat, switch scenes, toggle sources, run scripts and call web hooks.
+- **Automation**: chat commands, timers and reactions to events, shown as a flow. Send chat, switch scenes, toggle sources, run scripts and call web hooks.
 - **Custom widgets**: HTML, CSS and JS layers that run many StreamElements custom widgets.
 - **Themes**: dark, light, high contrast and your own, with a built-in contrast checker.
 

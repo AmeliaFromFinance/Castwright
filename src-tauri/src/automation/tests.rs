@@ -600,3 +600,21 @@ fn starter_actions_are_valid() {
         assert!(!a.steps.is_empty(), "{} has no steps", a.name);
     }
 }
+
+#[test]
+fn run_now_from_a_plain_thread_does_not_panic() {
+    // Tauri runs sync commands on the main thread, outside any Tokio runtime.
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let r = rt.block_on(async {
+        rig(vec![command(
+            "deaths",
+            Permission::Everyone,
+            vec![say("x")],
+        )])
+    });
+    let id = r.project.read(|p| p.actions[0].id.clone());
+    let auto = r.auto.clone();
+    std::thread::spawn(move || auto.run_manual(&id).unwrap())
+        .join()
+        .expect("run_manual panicked outside a runtime");
+}

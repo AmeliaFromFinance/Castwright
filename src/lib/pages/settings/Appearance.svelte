@@ -27,6 +27,9 @@
   let importError = $state<string | null>(null);
   let confirmDelete = $state(false);
   let scale = $state(app.settings!.appearance.ui_scale);
+  $effect(() => {
+    scale = appearance.ui_scale;
+  });
 
   const os = $derived(app.info?.os ?? '');
   const effects = $derived.by(() => {
@@ -184,12 +187,12 @@
         <Segmented label="Window background" value={appearance.window_effect} options={effects} onchange={(v) => updateWindowEffect(v)} />
       </Row>
     {/if}
-    <Row label="Interface size" hint="Makes all text and controls bigger or smaller.">
+    <Row label="Interface size" hint="Makes all text and controls bigger or smaller. Ctrl + and Ctrl - change it anywhere, Ctrl 0 resets it.">
       <div class="scale">
         <Slider
           label="Interface size"
-          min={90}
-          max={175}
+          min={50}
+          max={250}
           step={5}
           bind:value={scale}
           format={(v) => `${v}%`}

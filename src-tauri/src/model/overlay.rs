@@ -107,18 +107,156 @@ impl Default for TextStyle {
     }
 }
 
-/// Box styling every layer can use.
+/// Outline of a box.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum BoxShape {
+    /// Square corners.
+    Rect,
+    /// Uses `radius` (or `corners`). Square when the radius is 0.
+    #[default]
+    Rounded,
+    Pill,
+    /// Rounded with a speech tail.
+    Bubble,
+    /// Parallelogram, leaning by `slant` degrees.
+    Slanted,
+    /// Corners cut off by `cut` px.
+    Cut,
+    /// Stepped 8-bit corners, `pixel` px per step.
+    Pixel,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum BoxSide {
+    #[default]
+    None,
+    Top,
+    Right,
+    Bottom,
+    Left,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum FillKind {
+    #[default]
+    Solid,
+    Gradient,
+    None,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum BoxPattern {
+    #[default]
+    None,
+    Halftone,
+    Stripes,
+    Grid,
+    Noise,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum BorderStyle {
+    #[default]
+    Solid,
+    Dashed,
+    Dotted,
+    Double,
+    /// Thick ink outline.
+    Comic,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum ShadowKind {
+    None,
+    Soft,
+    /// Solid offset shadow without blur.
+    Hard,
+    Glow,
+    Layered,
+    /// The CSS in `shadow`. Older projects use this.
+    #[default]
+    Custom,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default)]
+#[ts(export)]
+pub struct GradientStop {
+    pub color: String,
+    /// 0 to 100.
+    pub at: f64,
+}
+
+impl Default for GradientStop {
+    fn default() -> Self {
+        GradientStop {
+            color: "#000000".into(),
+            at: 0.0,
+        }
+    }
+}
+
+/// Box styling every layer can use, also used for chat and event cards and alert cards.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(default)]
 #[ts(export)]
 pub struct BoxStyle {
+    /// Fill colour when `fill` is solid.
     pub background: String,
     pub border_color: String,
     pub border_width: f64,
     pub radius: f64,
+    /// Vertical padding, and horizontal too unless `padding_x` is set.
     pub padding: f64,
+    /// CSS box-shadow, used when `shadow_kind` is custom.
     pub shadow: String,
     pub backdrop_blur: f64,
+    pub shape: BoxShape,
+    /// Top left, top right, bottom right, bottom left. Overrides `radius`.
+    pub corners: Option<[f64; 4]>,
+    pub tail_side: BoxSide,
+    /// Along the side, 0 to 100.
+    pub tail_pos: f64,
+    pub tail_size: f64,
+    pub slant: f64,
+    pub cut: f64,
+    pub pixel: f64,
+    pub fill: FillKind,
+    pub gradient: Vec<GradientStop>,
+    pub gradient_angle: f64,
+    /// 0 to 1.
+    pub fill_opacity: f64,
+    pub pattern: BoxPattern,
+    pub pattern_color: String,
+    /// 0 to 1.
+    pub pattern_opacity: f64,
+    pub pattern_size: f64,
+    pub border_style: BorderStyle,
+    pub stripe: BoxSide,
+    pub stripe_width: f64,
+    pub stripe_color: String,
+    /// Use the chatter's name colour for the stripe where there is one.
+    pub stripe_name_color: bool,
+    pub shadow_kind: ShadowKind,
+    pub shadow_x: f64,
+    pub shadow_y: f64,
+    pub shadow_blur: f64,
+    pub shadow_color: String,
+    /// Tilt in degrees.
+    pub lean: f64,
+    pub padding_x: Option<f64>,
 }
 
 impl Default for BoxStyle {
@@ -131,6 +269,90 @@ impl Default for BoxStyle {
             padding: 0.0,
             shadow: String::new(),
             backdrop_blur: 0.0,
+            shape: BoxShape::Rounded,
+            corners: None,
+            tail_side: BoxSide::Bottom,
+            tail_pos: 20.0,
+            tail_size: 16.0,
+            slant: 12.0,
+            cut: 14.0,
+            pixel: 6.0,
+            fill: FillKind::Solid,
+            gradient: vec![
+                GradientStop {
+                    color: "#5b8def".into(),
+                    at: 0.0,
+                },
+                GradientStop {
+                    color: "#c9b3ff".into(),
+                    at: 100.0,
+                },
+            ],
+            gradient_angle: 135.0,
+            fill_opacity: 1.0,
+            pattern: BoxPattern::None,
+            pattern_color: "#000000".into(),
+            pattern_opacity: 0.18,
+            pattern_size: 8.0,
+            border_style: BorderStyle::Solid,
+            stripe: BoxSide::None,
+            stripe_width: 4.0,
+            stripe_color: "#9db8ff".into(),
+            stripe_name_color: false,
+            shadow_kind: ShadowKind::Custom,
+            shadow_x: 0.0,
+            shadow_y: 8.0,
+            shadow_blur: 24.0,
+            shadow_color: "rgba(0,0,0,0.35)".into(),
+            lean: 0.0,
+            padding_x: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum CardAround {
+    /// The whole line: badges, name and message.
+    #[default]
+    Message,
+    /// Only the message text.
+    Words,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum CardWidth {
+    #[default]
+    Full,
+    Fit,
+}
+
+/// How the card around each chat message or event row behaves.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default)]
+#[ts(export)]
+pub struct ItemCard {
+    /// Lean every other card the other way.
+    pub alternate: bool,
+    /// Wash of the chatter's name colour over the fill, 0 to 1.
+    pub tint: f64,
+    pub around: CardAround,
+    pub width: CardWidth,
+    /// Space between cards in px.
+    pub gap: f64,
+}
+
+impl Default for ItemCard {
+    fn default() -> Self {
+        ItemCard {
+            alternate: false,
+            tint: 0.0,
+            around: CardAround::Message,
+            width: CardWidth::Full,
+            gap: 6.0,
         }
     }
 }
@@ -221,6 +443,7 @@ pub enum LayerKind {
         /// Seconds before a message fades out (0 = never).
         #[serde(default)]
         fade_after_s: u32,
+        /// Twitch badges.
         #[serde(default = "yes")]
         show_badges: bool,
         #[serde(default = "yes")]
@@ -229,10 +452,23 @@ pub enum LayerKind {
         hide_users: Vec<String>,
         #[serde(default)]
         style: TextStyle,
+        /// The card around each message.
         #[serde(default)]
         bubble: BoxStyle,
         #[serde(default)]
         newest_on_top: bool,
+        #[serde(default = "yes")]
+        seventv_emotes: bool,
+        #[serde(default = "yes")]
+        bttv_emotes: bool,
+        #[serde(default = "yes")]
+        ffz_emotes: bool,
+        #[serde(default = "yes")]
+        seventv_paints: bool,
+        #[serde(default = "yes")]
+        seventv_badges: bool,
+        #[serde(default)]
+        item_card: ItemCard,
     },
     Goal {
         #[serde(default)]
@@ -286,6 +522,11 @@ pub enum LayerKind {
         item_format: String,
         #[serde(default)]
         style: TextStyle,
+        /// The card around each row.
+        #[serde(default)]
+        item_box: BoxStyle,
+        #[serde(default)]
+        item_card: ItemCard,
     },
     /// HTML/CSS/JS widget with a StreamElements-compatible API.
     Custom {
@@ -431,6 +672,7 @@ impl Overlay {
             padding: 16.0,
             shadow: "0 12px 40px rgba(0,0,0,0.35)".into(),
             backdrop_blur: 10.0,
+            ..BoxStyle::default()
         };
         let small = TextStyle {
             font_size: 22.0,
@@ -471,6 +713,12 @@ impl Overlay {
                         style: small.clone(),
                         bubble: BoxStyle::default(),
                         newest_on_top: false,
+                        seventv_emotes: true,
+                        bttv_emotes: true,
+                        ffz_emotes: true,
+                        seventv_paints: true,
+                        seventv_badges: true,
+                        item_card: ItemCard::default(),
                     },
                     x: 1392.0,
                     y: 200.0,
@@ -495,6 +743,8 @@ impl Overlay {
                         direction: ListDirection::Ticker,
                         item_format: "{{name}} · {{label}}".into(),
                         style: small,
+                        item_box: BoxStyle::default(),
+                        item_card: ItemCard::default(),
                     },
                     x: 560.0,
                     y: 984.0,
@@ -542,14 +792,134 @@ mod tests {
             LayerKind::Chat {
                 max_messages,
                 show_badges,
+                seventv_emotes,
+                bttv_emotes,
+                ffz_emotes,
+                seventv_paints,
+                seventv_badges,
                 ..
             } => {
                 assert_eq!(*max_messages, 12);
                 assert!(*show_badges);
+                assert!(*seventv_emotes && *bttv_emotes && *ffz_emotes);
+                assert!(*seventv_paints && *seventv_badges);
             }
             other => panic!("unexpected {other:?}"),
         }
         assert!(o.layers[0].visible);
         assert_eq!(o.layers[0].opacity, 1.0);
+    }
+
+    fn same_json(a: &serde_json::Value, b: &serde_json::Value) -> bool {
+        use serde_json::Value::*;
+        match (a, b) {
+            (Number(x), Number(y)) => (x.as_f64().unwrap() - y.as_f64().unwrap()).abs() < 1e-9,
+            (Array(x), Array(y)) => {
+                x.len() == y.len() && x.iter().zip(y).all(|(p, q)| same_json(p, q))
+            }
+            (Object(x), Object(y)) => x
+                .iter()
+                .all(|(k, v)| y.get(k).is_some_and(|w| same_json(v, w))),
+            _ => a == b,
+        }
+    }
+
+    /// Every key in `partial` must survive a round trip through `T`, so typos and bad values fail.
+    fn assert_strict<T: serde::de::DeserializeOwned + Serialize>(
+        partial: &serde_json::Value,
+        what: &str,
+    ) {
+        let parsed: T =
+            serde_json::from_value(partial.clone()).unwrap_or_else(|e| panic!("{what}: {e}"));
+        let back = serde_json::to_value(&parsed).unwrap();
+        for (k, v) in partial.as_object().unwrap() {
+            let got = back
+                .get(k)
+                .unwrap_or_else(|| panic!("{what}: unknown field {k}"));
+            let same = same_json(v, got);
+            assert!(same, "{what}: {k} became {got}");
+        }
+    }
+
+    #[test]
+    fn box_presets_are_valid() {
+        let raw: serde_json::Value =
+            serde_json::from_str(include_str!("../../../src/lib/overlay/box-presets.json"))
+                .unwrap();
+        let list = raw.as_array().unwrap();
+        assert!(list.len() >= 11);
+        for p in list {
+            let id = p["id"].as_str().unwrap();
+            let base = p["box"].as_object().unwrap().clone();
+            assert_strict::<BoxStyle>(&p["box"], id);
+            for extra in ["item", "alert"] {
+                if let Some(e) = p.get(extra).and_then(|v| v.as_object()) {
+                    let mut merged = base.clone();
+                    merged.extend(e.clone());
+                    assert_strict::<BoxStyle>(&merged.into(), &format!("{id}.{extra}"));
+                }
+            }
+            if let Some(c) = p.get("card") {
+                assert_strict::<ItemCard>(c, &format!("{id}.card"));
+            }
+            for t in ["text", "title", "message"] {
+                if let Some(v) = p.get(t) {
+                    assert_strict::<TextStyle>(v, &format!("{id}.{t}"));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn boxes_from_before_frames_keep_their_look() {
+        let json = r##"{"background":"#000","border_color":"#fff","border_width":2,"radius":12,"padding":16,"shadow":"0 0 4px #000","backdrop_blur":8}"##;
+        let b: BoxStyle = serde_json::from_str(json).unwrap();
+        assert_eq!(b.shape, BoxShape::Rounded);
+        assert_eq!(b.shadow_kind, ShadowKind::Custom);
+        assert_eq!(b.shadow, "0 0 4px #000");
+        assert_eq!(b.fill, FillKind::Solid);
+        assert_eq!(b.fill_opacity, 1.0);
+        assert_eq!(b.padding_x, None);
+        assert_eq!(b.corners, None);
+        assert_eq!(b.lean, 0.0);
+        assert_eq!(b.pattern, BoxPattern::None);
+        assert_eq!(b.stripe, BoxSide::None);
+    }
+
+    #[test]
+    fn saved_project_without_frame_fields_loads() {
+        let p: crate::model::project::Project = serde_json::from_str(include_str!(
+            "../../../src/lib/api/fixtures/starter-project.json"
+        ))
+        .unwrap();
+        let o = &p.overlays[0];
+        for l in &o.layers {
+            assert_eq!(l.box_style.shape, BoxShape::Rounded);
+            assert_eq!(l.box_style.shadow_kind, ShadowKind::Custom);
+            match &l.kind {
+                LayerKind::Chat {
+                    bubble, item_card, ..
+                } => {
+                    assert_eq!(*bubble, BoxStyle::default());
+                    assert_eq!(*item_card, ItemCard::default());
+                }
+                LayerKind::EventList {
+                    item_box,
+                    item_card,
+                    ..
+                } => {
+                    assert_eq!(*item_box, BoxStyle::default());
+                    assert_eq!(*item_card, ItemCard::default());
+                }
+                _ => {}
+            }
+        }
+        assert!(
+            p.alerts
+                .types
+                .iter()
+                .flat_map(|t| &t.variations)
+                .all(|v| v.card.is_none())
+        );
     }
 }

@@ -2,6 +2,7 @@
 
 mod actions;
 pub mod auth;
+mod badges;
 mod eventsub;
 mod helix;
 pub mod normalize;
@@ -21,10 +22,10 @@ use crate::model::runtime::{
 };
 use crate::store::secrets::{Secrets, keys};
 use crate::store::settings::SettingsStore;
+use crate::util::spawn;
 use auth::{Poll, StoredToken};
 use helix::HelixError;
 use std::collections::{HashSet, VecDeque};
-use std::future::Future;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::Notify;
@@ -65,6 +66,7 @@ pub(crate) struct Timing {
     pub validate_every: Duration,
     /// Longest wait for a Helix rate limit to reset before giving up.
     pub max_rate_wait: Duration,
+    pub badge_refresh: Duration,
 }
 
 impl Default for Timing {
@@ -78,6 +80,7 @@ impl Default for Timing {
             stream_tick: Duration::from_secs(30),
             validate_every: Duration::from_secs(3600),
             max_rate_wait: Duration::from_secs(60),
+            badge_refresh: Duration::from_secs(3 * 3600),
         }
     }
 }
@@ -115,6 +118,7 @@ struct State {
     logins: [Option<JoinHandle<()>>; 2],
     eventsub: Option<JoinHandle<()>>,
     stream: Option<JoinHandle<()>>,
+    badges: Option<JoinHandle<()>>,
     validate: Option<JoinHandle<()>>,
     /// Live state from the last stream.online/offline event and when it came.
     /// Helix lags behind EventSub, so a poll right after is not trusted.
@@ -139,25 +143,12 @@ pub struct TwitchService {
     refresh_locks: [tokio::sync::Mutex<()>; 2],
     stream_poke: Notify,
     seen: Mutex<Seen>,
+    badges: Mutex<badges::BadgeCache>,
     /// Ids of chat messages Castwright posted, so their echo never triggers commands.
     sent: Mutex<std::collections::VecDeque<String>>,
     /// Messages being posted right now (sender id, text), since Twitch may echo
     /// them back before the post call returns their id.
     sending: Mutex<std::collections::VecDeque<(String, String, std::time::Instant)>>,
-}
-
-/// Spawns on the current Tokio runtime, or on Tauri's when called from outside one.
-fn spawn<F>(f: F) -> JoinHandle<()>
-where
-    F: Future<Output = ()> + Send + 'static,
-{
-    match tokio::runtime::Handle::try_current() {
-        Ok(h) => h.spawn(f),
-        Err(_) => {
-            let tauri::async_runtime::RuntimeHandle::Tokio(h) = tauri::async_runtime::handle();
-            h.spawn(f)
-        }
-    }
 }
 
 impl TwitchService {
@@ -211,6 +202,7 @@ impl TwitchService {
             refresh_locks: Default::default(),
             stream_poke: Notify::new(),
             seen: Mutex::new(Seen::default()),
+            badges: Mutex::default(),
             sent: Mutex::new(std::collections::VecDeque::new()),
             sending: Mutex::new(std::collections::VecDeque::new()),
         })
@@ -239,6 +231,7 @@ impl TwitchService {
             let handles = [
                 st.eventsub.take(),
                 st.stream.take(),
+                st.badges.take(),
                 st.validate.take(),
                 st.logins[0].take(),
                 st.logins[1].take(),
@@ -482,6 +475,7 @@ impl TwitchService {
             if role == AccountRole::Broadcaster {
                 handles.extend(st.eventsub.take());
                 handles.extend(st.stream.take());
+                handles.extend(st.badges.take());
                 st.stream_hint = None;
             }
             if st.tokens.iter().all(Option::is_none) {
@@ -507,6 +501,7 @@ impl TwitchService {
             }
         });
         if role == AccountRole::Broadcaster {
+            *self.badges.lock().unwrap() = Default::default();
             self.publish_stream_vars(&StreamInfo::default());
         }
         if let Some(e) = error {
@@ -611,18 +606,22 @@ impl TwitchService {
     }
 
     fn start_broadcaster_tasks(self: &Arc<Self>) {
-        let (es, stream) = {
-            let me = self.clone();
-            let me2 = self.clone();
+        let (es, stream, badges) = {
+            let (me, me2, me3) = (self.clone(), self.clone(), self.clone());
             (
                 spawn(async move { me.eventsub_loop().await }),
                 spawn(async move { me2.stream_loop().await }),
+                spawn(async move { me3.badge_loop().await }),
             )
         };
         let old = {
             let mut st = self.state.lock().unwrap();
             st.stream_hint = None;
-            [st.eventsub.replace(es), st.stream.replace(stream)]
+            [
+                st.eventsub.replace(es),
+                st.stream.replace(stream),
+                st.badges.replace(badges),
+            ]
         };
         for h in old.into_iter().flatten() {
             h.abort();

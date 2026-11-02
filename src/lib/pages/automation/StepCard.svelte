@@ -28,9 +28,11 @@
     ops: StepOps;
     tokens: Token[];
     issues: Issue[];
+    /** Shown on its own next to the flow: branches are edited in the flow instead. */
+    inspector?: boolean;
   }
 
-  let { step, path, index, count, action, ops, tokens, issues }: Props = $props();
+  let { step, path, index, count, action, ops, tokens, issues, inspector = false }: Props = $props();
 
   const uid = `step-${Math.random().toString(36).slice(2, 8)}`;
   const key = $derived(stepKey(path, index));
@@ -352,6 +354,9 @@
           onchange={(g) => set('conditions', g)}
         />
       </div>
+      {#if inspector}
+        <p class="hint">The steps for Then and Otherwise are in the flow.</p>
+      {:else}
       <div class="branch">
         <span class="branch-label">Then</span>
         <StepList steps={step.then} path={child(path, index, 'then')} {action} {ops} {tokens} {issues} addLabel="Add step to Then" emptyText="Nothing yet." />
@@ -360,6 +365,7 @@
         <span class="branch-label">Otherwise</span>
         <StepList steps={step.else} path={child(path, index, 'else')} {action} {ops} {tokens} {issues} addLabel="Add step to Otherwise" emptyText="Nothing; carry on." />
       </div>
+      {/if}
     {:else if step.type === 'run_action'}
       <div class="grid2">
         <div class="f">
@@ -416,6 +422,7 @@
     flex-direction: column;
     gap: 8px;
     padding: 10px 12px 12px;
+    container-type: inline-size;
   }
   .grid2,
   .grid3 {
@@ -432,6 +439,17 @@
   .grid2 > :global(.tpl),
   .grid3 > :global(.tpl) {
     align-self: start;
+  }
+  @container (max-width: 520px) {
+    .grid3 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @container (max-width: 360px) {
+    .grid2,
+    .grid3 {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
   .url-row {
     display: grid;

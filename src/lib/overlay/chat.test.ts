@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { messageParts, roles, visibleChat, type ChatFilter } from './chat';
+import { messageParts, roles, twitchBadges, visibleChat, type ChatFilter } from './chat';
 import { ev } from './test/fixtures';
 
 const f: ChatFilter = { maxMessages: 10, hideCommands: true, hideUsers: [], fadeAfterS: 0, now: 0 };
@@ -44,5 +44,32 @@ describe('chat helpers', () => {
       'vip',
       'subscriber'
     ]);
+  });
+});
+
+describe('twitchBadges', () => {
+  const img = (set_id: string, id = '1') => ({ set_id, id, title: set_id.toUpperCase(), url_1x: `https://b/${set_id}/1`, url_2x: `https://b/${set_id}/2`, url_4x: `https://b/${set_id}/3` });
+  const roles = { broadcaster: false, moderator: true, vip: false, subscriber: true };
+
+  it('uses images in badge order with sizes', () => {
+    const e = ev('chat', { roles, data: { badges: ['moderator', 'subscriber'], badge_images: [img('moderator'), img('subscriber', '12')] } });
+    const out = twitchBadges(e);
+    expect(out.map((b) => (b.kind === 'image' ? b.setId : b.role))).toEqual(['moderator', 'subscriber']);
+    expect(out[0]).toEqual({ kind: 'image', setId: 'moderator', title: 'MODERATOR', images: [{ url: 'https://b/moderator/1', width: 18 }, { url: 'https://b/moderator/2', width: 36 }, { url: 'https://b/moderator/3', width: 72 }] });
+  });
+  it('falls back to role icons for unknown images', () => {
+    const e = ev('chat', { roles, data: { badges: ['moderator', 'founder', 'sub-gifter'], badge_images: [img('sub-gifter')] } });
+    expect(twitchBadges(e).map((b) => (b.kind === 'image' ? b.setId : `role:${b.role}`))).toEqual(['role:moderator', 'role:subscriber', 'sub-gifter']);
+  });
+  it('uses role icons when no images are known', () => {
+    const e = ev('chat', { roles, data: { badges: ['moderator', 'subscriber'] } });
+    expect(twitchBadges(e)).toEqual([
+      { kind: 'role', role: 'moderator' },
+      { kind: 'role', role: 'subscriber' }
+    ]);
+  });
+  it('ignores non-https urls', () => {
+    const e = ev('chat', { roles: { ...roles, moderator: false, subscriber: false }, data: { badges: ['x'], badge_images: [{ ...img('x'), url_1x: 'javascript:1' }] } });
+    expect(twitchBadges(e)).toEqual([]);
   });
 });

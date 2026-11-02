@@ -184,7 +184,7 @@ impl ObsService {
             self.wake.notify_one();
             return;
         }
-        *sup = Some(tokio::spawn(supervise(
+        *sup = Some(crate::util::spawn(supervise(
             Arc::downgrade(self),
             self.wake.clone(),
         )));
@@ -333,9 +333,9 @@ impl ObsService {
             let mut slot = lock(&self.session);
             self.set_connected(sid, snap, dirty.clone());
             let tasks = vec![
-                tokio::spawn(event_loop(self.me.clone(), sid, client.clone(), events)),
-                tokio::spawn(stats_loop(self.me.clone(), sid, client.clone())),
-                tokio::spawn(emit_loop(self.me.clone(), sid, dirty)),
+                crate::util::spawn(event_loop(self.me.clone(), sid, client.clone(), events)),
+                crate::util::spawn(stats_loop(self.me.clone(), sid, client.clone())),
+                crate::util::spawn(emit_loop(self.me.clone(), sid, dirty)),
             ];
             *slot = Some(Session { sid, client, tasks });
         }

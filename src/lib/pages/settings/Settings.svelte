@@ -3,6 +3,7 @@
   import { app } from '$lib/state/app.svelte';
   import { api } from '$lib/api';
   import { isTauri } from '$lib/api/backend';
+  import { updates } from '$lib/state/updates.svelte';
   import { attempt, attemptOk, toasts } from '$lib/state/toast.svelte';
   import type { SnapshotInfo } from '$lib/bindings/SnapshotInfo';
   import { ago, bytes } from '$lib/format';
@@ -152,6 +153,19 @@
       projectName = p.name;
       await loadSnapshots();
     }
+  }
+
+  let checking = $state(false);
+  async function checkUpdates() {
+    if (!isTauri()) {
+      toasts.show('Available in the desktop app');
+      return;
+    }
+    checking = true;
+    await updates.check(app.info?.version ?? '', true);
+    checking = false;
+    if (updates.available) toasts.show(`Version ${updates.available.version} is out. Use the link in the status bar to get it.`);
+    else toasts.success(`You have the latest version (${app.info?.version}).`);
   }
 
   const maskedToken = $derived(app.server ? app.server.token.slice(0, 4) + '•'.repeat(12) : '');
@@ -312,7 +326,8 @@
             </p>
           {/if}
           <div class="row gap">
-            <Button size="sm" onclick={() => openExternal(SITE)}>Guide <ExternalLink size={12} /></Button>
+            <Button size="sm" busy={checking} onclick={checkUpdates}>Check for updates</Button>
+            <Button size="sm" variant="ghost" onclick={() => openExternal(SITE)}>Guide <ExternalLink size={12} /></Button>
             <Button size="sm" variant="ghost" onclick={() => openExternal(REPO)}>Source code <ExternalLink size={12} /></Button>
             <Button size="sm" variant="ghost" onclick={() => openExternal(`${REPO}/issues`)}>Report a problem <ExternalLink size={12} /></Button>
           </div>

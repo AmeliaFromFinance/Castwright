@@ -6,15 +6,18 @@ export interface Toast {
   id: number;
   kind: ToastKind;
   message: string;
+  key?: string;
 }
 
 class Toasts {
   items = $state<Toast[]>([]);
   private next = 1;
 
-  show(message: string, kind: ToastKind = 'info', ms = 4000) {
+  /** A toast with the same `key` replaces the previous one. */
+  show(message: string, kind: ToastKind = 'info', ms = 4000, key?: string) {
     const id = this.next++;
-    this.items.push({ id, kind, message });
+    if (key) this.items = this.items.filter((t) => t.key !== key);
+    this.items.push({ id, kind, message, key });
     if (this.items.length > 4) this.items.shift();
     setTimeout(() => this.dismiss(id), kind === 'error' ? Math.max(ms, 7000) : ms);
   }

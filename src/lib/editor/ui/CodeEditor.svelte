@@ -16,10 +16,18 @@
     label: string;
     placeholder?: string;
     invalid?: boolean;
+    /** Extra autocomplete words, e.g. selectors. */
+    completions?: readonly Completion[];
     onchange?: (v: string) => void;
   }
 
-  let { value, lang, label, invalid = false, onchange }: Props = $props();
+  export interface Completion {
+    label: string;
+    detail?: string;
+    type?: string;
+  }
+
+  let { value, lang, label, invalid = false, completions = [], onchange }: Props = $props();
 
   let host = $state<HTMLDivElement>();
   let view: EditorView | null = null;
@@ -69,6 +77,34 @@
     { tag: t.invalid, color: 'var(--danger)' }
   ]);
 
+  // Structural types, so the autocomplete package is only used through basicSetup.
+  interface Ctx {
+    explicit: boolean;
+    matchBefore(re: RegExp): { from: number; to: number; text: string } | null;
+  }
+  const source = (ctx: Ctx) => {
+    if (!completions.length) return null;
+    const m = ctx.matchBefore(/(?:--|[.:])[\w-]*/);
+    if (!m || (m.from === m.to && !ctx.explicit)) return null;
+    return { from: m.from, options: completions.map((c) => ({ ...c })), validFor: /^(?:--|[.:])?[\w-]*$/ };
+  };
+
+  /** Inserts text at the cursor on its own line; `cursor` is where the caret ends up inside it. */
+  export function insert(text: string, cursor = text.length): void {
+    const v = view;
+    if (!v) return;
+    const { from, to } = v.state.selection.main;
+    const line = v.state.doc.lineAt(from);
+    const before = line.text.slice(0, from - line.from);
+    const prefix = before.trim() ? '\n' : '';
+    v.dispatch({
+      changes: { from, to, insert: prefix + text },
+      selection: { anchor: from + prefix.length + cursor },
+      scrollIntoView: true
+    });
+    v.focus();
+  }
+
   onMount(() => {
     if (!host) return;
     view = new EditorView({
@@ -81,6 +117,7 @@
           theme,
           syntaxHighlighting(highlight),
           EditorView.lineWrapping,
+          EditorState.languageData.of(() => [{ autocomplete: source }]),
           EditorView.contentAttributes.of({ 'aria-label': label }),
           EditorView.updateListener.of((u) => {
             if (u.docChanged && !applying) onchange?.(u.state.doc.toString());

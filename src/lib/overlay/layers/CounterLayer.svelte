@@ -11,7 +11,7 @@
   );
 </script>
 
-<div class="cw-single" style:justify-content={kind.style?.align === 'center' ? 'center' : kind.style?.align === 'right' ? 'flex-end' : 'flex-start'}>
+<div class="cw-single cw-counter" style:justify-content={kind.style?.align === 'center' ? 'center' : kind.style?.align === 'right' ? 'flex-end' : 'flex-start'}>
   <StyledText {text} style={kind.style} />
 </div>
 

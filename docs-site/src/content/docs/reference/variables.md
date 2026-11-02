@@ -119,6 +119,7 @@ Session-only. Checked every 5 seconds.
 | --- | --- |
 | `twitch.login` | Your channel login, empty when signed out |
 | `twitch.display_name` | Your channel display name |
+| `twitch.user_id` | Your channel id, empty when signed out |
 
 ## Changing variables
 

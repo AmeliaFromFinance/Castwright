@@ -1,43 +1,18 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { createServer as netServer } from 'node:net';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createServer, type ViteDevServer } from 'vite';
+import { stubProviders } from '../providers';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const root = resolve(here, '../..');
 const screens = join(here, '__screens__');
 
-let server: ViteDevServer;
-let base = '';
 
-function freePort(): Promise<number> {
-  return new Promise((ok, fail) => {
-    const s = netServer();
-    s.once('error', fail);
-    s.listen(0, '127.0.0.1', () => {
-      const port = (s.address() as { port: number }).port;
-      s.close(() => ok(port));
-    });
-  });
-}
+// The app runs on the shared server from playwright.config.ts.
+const base = 'http://localhost:4317';
 
-test.beforeAll(async () => {
-  const port = await freePort();
-  server = await createServer({
-    root,
-    configFile: join(root, 'vite.config.ts'),
-    logLevel: 'error',
-    server: { port, strictPort: true, host: '127.0.0.1', hmr: false }
-  });
-  await server.listen();
-  base = `http://127.0.0.1:${port}`;
+test.beforeAll(() => {
   mkdirSync(screens, { recursive: true });
-});
-
-test.afterAll(async () => {
-  await server?.close();
 });
 
 async function open(page: Page, section: 'Alerts' | 'Automation'): Promise<string[]> {
@@ -48,6 +23,7 @@ async function open(page: Page, section: 'Alerts' | 'Automation'): Promise<strin
   });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  await stubProviders(page);
   await page.goto(`${base}/?demo=static`);
   await page.getByRole('navigation', { name: 'Main sections' }).getByRole('button', { name: section }).click();
   await expect(page.getByRole('heading', { level: 1, name: section })).toBeVisible();
@@ -93,7 +69,7 @@ test('alerts: variations, preview, order and queue', async ({ page }) => {
   await expect(preview).toContainText('Thanks quietfox for 12 months!');
 
   // Edits survive leaving the page.
-  await page.getByRole('navigation', { name: 'Main sections' }).getByRole('button', { name: 'Studio' }).click();
+  await page.getByRole('navigation', { name: 'Main sections' }).getByRole('button', { name: 'Activity' }).click();
   await page.getByRole('navigation', { name: 'Main sections' }).getByRole('button', { name: 'Alerts' }).click();
   await page.getByRole('button', { name: /^Subscription/ }).click();
   await expect(cards.locator('.name')).toHaveText(['Tier 3', 'Long timers', 'Default']);
@@ -129,6 +105,7 @@ test('alerts: variations, preview, order and queue', async ({ page }) => {
 test('automation: chat command with nested steps, run and log', async ({ page }) => {
   const errors = await open(page, 'Automation');
 
+  await page.getByRole('radio', { name: 'List' }).click();
   await page.getByRole('button', { name: 'New action' }).click();
   await page.getByRole('menuitem', { name: /Blank action/ }).click();
   const name = page.getByLabel('Action name');
@@ -186,7 +163,7 @@ test('automation: chat command with nested steps, run and log', async ({ page })
   await expect(page.locator('code.preview')).toHaveText('!hug <arg1>');
 
   await expect(page.getByText('Saved', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Run now' }).first().click();
+  await page.getByRole('button', { name: 'Test', exact: true }).click();
   const log = page.getByRole('region', { name: 'Run log' });
   await expect(log.getByRole('button', { name: 'Hug' })).toBeVisible();
   await expect(log).toContainText('manual');
@@ -216,7 +193,7 @@ test('automation: chat command with nested steps, run and log', async ({ page })
   await expect(value).toHaveValue('42');
 
   await page.mouse.move(0, 0);
-  await page.locator('.center').evaluate((el) => el.scrollTo(0, 0));
+  await page.locator('.listview').evaluate((el) => el.scrollTo(0, 0));
   await page.waitForTimeout(400);
   await page.screenshot({ path: join(screens, 'automation.png') });
   expect(errors).toEqual([]);

@@ -9,6 +9,7 @@
   import { app } from '$lib/state/app.svelte';
   import { attempt, toasts } from '$lib/state/toast.svelte';
   import Button from '$lib/ui/Button.svelte';
+  import ResizeHandle from '$lib/ui/ResizeHandle.svelte';
   import IconButton from '$lib/ui/IconButton.svelte';
   import { appAssetUrl } from '$lib/widgets/assets.svelte';
   import {
@@ -50,6 +51,11 @@
   let stage = $state<OverlayStage>();
   let canvas = $state<Canvas>();
   let wide = $state(false);
+  let leftW = $state(248);
+  let rightW = $state(336);
+  // Code editing in a custom widget wants more room.
+  let winW = $state(1440);
+  const rightShown = $derived(wide ? Math.max(rightW, Math.min(620, winW * 0.46)) : rightW);
   let varsOpen = $state(false);
   let leaving = $state(false);
   let alertTimer: ReturnType<typeof setTimeout> | null = null;
@@ -182,7 +188,7 @@
   const zoomPct = $derived(`${Math.round(store.zoom * 100)}%`);
 </script>
 
-<svelte:window {onkeydown} />
+<svelte:window {onkeydown} bind:innerWidth={winW} />
 
 <div class="editor" class:wide>
   <header class="ed-toolbar">
@@ -262,9 +268,11 @@
     </div>
   </header>
 
-  <div class="body">
+  <div class="body" style="grid-template-columns:{leftW}px auto minmax(0, 1fr) auto {rightShown}px">
     <LayerPanel {store} />
+    <ResizeHandle bind:size={leftW} id="editor.layers" min={180} max={480} initial={248} panel="before" label="Resize layers panel" />
     <Canvas bind:this={canvas} bind:stage {store} {vars} {recent} {chat} {assetUrl} onedit={editContent} />
+    <ResizeHandle bind:size={rightW} id="editor.properties" min={280} max={760} initial={336} panel="after" label="Resize properties panel" />
     <Inspector {store} {vars} {wide} onpreview={preview} ontestalert={() => playAlert(kinds[0] ?? 'follow')} ontogglewide={() => (wide = !wide)} />
   </div>
 </div>
@@ -382,10 +390,6 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 248px minmax(0, 1fr) 336px;
-  }
-  .wide .body {
-    grid-template-columns: 248px minmax(0, 1fr) min(620px, 46vw);
   }
   @keyframes spin {
     to {
@@ -395,9 +399,6 @@
   @media (max-width: 1180px) {
     .dims {
       display: none;
-    }
-    .body {
-      grid-template-columns: 220px minmax(0, 1fr) 316px;
     }
   }
 </style>

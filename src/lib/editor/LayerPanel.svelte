@@ -181,7 +181,6 @@
     flex-direction: column;
     min-height: 0;
     min-width: 0;
-    border-right: 1px solid var(--border);
     background: var(--bg-1);
   }
   .add {

@@ -3,6 +3,7 @@
   import { app } from '$lib/state/app.svelte';
   import { attempt } from '$lib/state/toast.svelte';
   import Button from '$lib/ui/Button.svelte';
+  import Collapse from '$lib/ui/Collapse.svelte';
   import IconButton from '$lib/ui/IconButton.svelte';
   import Switch from '$lib/ui/Switch.svelte';
   import { Pin, Plus, Search, X } from '@lucide/svelte';
@@ -12,6 +13,8 @@
   const LIVE = /^(stream|obs|twitch)\./;
   // The backend doesn't report which variables are kept, so guess for edits.
   const guessPersist = (k: string) => !LIVE.test(k) && !/^(session|last)\./.test(k);
+
+  let { open = $bindable(true) }: { open?: boolean } = $props();
 
   let search = $state('');
   let adding = $state(false);
@@ -58,13 +61,11 @@
   }
 </script>
 
-<section class="vars" aria-label="Variables">
-  <header>
-    <h3 class="eyebrow">Variables</h3>
-    <span class="faint count">{Object.keys(app.vars).length}</span>
-    <div class="grow"></div>
-    <Button size="sm" variant="ghost" pressed={adding} onclick={() => (adding = !adding)}><Plus size={13} />Add</Button>
-  </header>
+<section class="vars pane" aria-label="Variables">
+  <Collapse id="automation.vars" title="Variables" meta={Object.keys(app.vars).length} bind:open>
+    {#snippet actions()}
+      <Button size="sm" variant="ghost" pressed={adding} onclick={() => (adding = !adding)}><Plus size={13} />Add</Button>
+    {/snippet}
 
   {#if adding}
     <form
@@ -130,6 +131,7 @@
       <li class="none faint">{search ? 'No variables match.' : 'No variables yet.'}</li>
     {/each}
   </ul>
+  </Collapse>
 </section>
 
 <style>
@@ -137,18 +139,6 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    border-top: 1px solid var(--border);
-  }
-  header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    height: 38px;
-    flex: none;
-    padding: 0 8px 0 14px;
-  }
-  .count {
-    font-size: 11px;
   }
   .add {
     display: flex;

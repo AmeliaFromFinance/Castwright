@@ -44,14 +44,27 @@ const CHAT_LINES = [
   'that stinger transition is so clean',
   'what overlay app is this?',
   'hello from the raid!!',
-  'gg on that round',
+  'gg on that round EZ Clap',
   'first time here, love the vibe',
-  'the alerts are so smooth',
-  'LUL that was close',
+  'peepoHappy the alerts are so smooth',
+  'that was close monkaS',
   'can you show the settings again?',
   'how long have you been streaming today?',
-  'hype hype hype'
+  'hype hype hype FeelsDankMan RainTime'
 ];
+
+const BADGE_IMAGES: Record<string, string> = {
+  moderator: '3267646d-33f0-4b17-b3df-f923a41db1d0',
+  vip: 'b817aba4-fad8-49e2-b88a-7cc744dfa6ec',
+  subscriber: '5d9f2208-5dd8-11e7-8513-2ff4adfae661'
+};
+
+function badgeImages(names: string[]) {
+  return names.map((set_id) => {
+    const base = `https://static-cdn.jtvnw.net/badges/v1/${BADGE_IMAGES[set_id]}`;
+    return { set_id, id: set_id === 'subscriber' ? '0' : '1', title: set_id === 'vip' ? 'VIP' : set_id[0]!.toUpperCase() + set_id.slice(1), url_1x: `${base}/1`, url_2x: `${base}/2`, url_4x: `${base}/3` };
+  });
+}
 
 function demoEvent(kind: EventKind, i: number, ago: number): Event {
   const base = clone((samples as unknown as Event[]).find((e) => e.kind === kind)!);
@@ -66,6 +79,7 @@ function demoEvent(kind: EventKind, i: number, ago: number): Event {
 function chatEvent(i: number, ago = 0, text?: string): Event {
   const [name, color] = VIEWERS[i % VIEWERS.length]!;
   const message = text ?? CHAT_LINES[i % CHAT_LINES.length]!;
+  const badges = [i % 5 === 1 && 'moderator', i % 7 === 3 && 'vip', i % 2 === 0 && 'subscriber'].filter((b): b is string => !!b);
   return {
     id: uid(),
     kind: 'chat',
@@ -81,7 +95,7 @@ function chatEvent(i: number, ago = 0, text?: string): Event {
     is_gift: false,
     is_anonymous: false,
     recipient: null,
-    data: { color, badges: i % 2 === 0 ? ['subscriber'] : [] },
+    data: { color, badges, badge_images: badgeImages(badges) },
     test: false
   };
 }
@@ -255,7 +269,10 @@ export function createDemoBackend(): Backend {
     'stream.category': twitch.stream.category,
     'stream.started_at': twitch.stream.started_at,
     'stream.uptime_text': '1h 23m',
-    'obs.scene': obs.program_scene
+    'obs.scene': obs.program_scene,
+    'twitch.login': twitch.broadcaster?.login ?? '',
+    'twitch.display_name': twitch.broadcaster?.display_name ?? '',
+    'twitch.user_id': twitch.broadcaster?.id ?? ''
   };
   const assets: AssetInfo[] = [
     { name: 'fanfare.ogg', path: 'assets/fanfare.ogg', bytes: 182_331, kind: 'audio' },
@@ -331,6 +348,7 @@ export function createDemoBackend(): Backend {
       message_style: v.message_style,
       accent: v.accent,
       background: v.background,
+      card: v.card ?? null,
       tts: v.tts
     };
   };

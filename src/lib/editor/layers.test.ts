@@ -19,7 +19,48 @@ const ANIM_PRESETS = ['none', 'fade', 'slide_up', 'slide_down', 'slide_left', 's
 const EASINGS = ['linear', 'ease_in', 'ease_out', 'ease_in_out', 'spring', 'back'];
 const LAYER_KEYS = ['id', 'name', 'kind', 'x', 'y', 'w', 'h', 'rotation', 'opacity', 'visible', 'locked', 'visible_when', 'box_style', 'enter', 'exit', 'idle', 'css'].sort();
 const TEXT_KEYS = ['font_family', 'font_size', 'font_weight', 'color', 'align', 'line_height', 'letter_spacing', 'uppercase', 'italic', 'shadow', 'stroke_width', 'stroke_color'].sort();
-const BOX_KEYS = ['background', 'border_color', 'border_width', 'radius', 'padding', 'shadow', 'backdrop_blur'].sort();
+// As in BoxStyle::default() in src-tauri/src/model/overlay.rs.
+const RUST_DEFAULT_BOX = {
+  background: 'transparent',
+  border_color: 'transparent',
+  border_width: 0,
+  radius: 0,
+  padding: 0,
+  shadow: '',
+  backdrop_blur: 0,
+  shape: 'rounded',
+  corners: null,
+  tail_side: 'bottom',
+  tail_pos: 20,
+  tail_size: 16,
+  slant: 12,
+  cut: 14,
+  pixel: 6,
+  fill: 'solid',
+  gradient: [
+    { color: '#5b8def', at: 0 },
+    { color: '#c9b3ff', at: 100 }
+  ],
+  gradient_angle: 135,
+  fill_opacity: 1,
+  pattern: 'none',
+  pattern_color: '#000000',
+  pattern_opacity: 0.18,
+  pattern_size: 8,
+  border_style: 'solid',
+  stripe: 'none',
+  stripe_width: 4,
+  stripe_color: '#9db8ff',
+  stripe_name_color: false,
+  shadow_kind: 'custom',
+  shadow_x: 0,
+  shadow_y: 8,
+  shadow_blur: 24,
+  shadow_color: 'rgba(0,0,0,0.35)',
+  lean: 0,
+  padding_x: null
+};
+const BOX_KEYS = Object.keys(RUST_DEFAULT_BOX).sort();
 
 // Field names per kind, as in src-tauri/src/model/overlay.rs.
 const KIND_KEYS: Record<LayerType, string[]> = {
@@ -28,11 +69,26 @@ const KIND_KEYS: Record<LayerType, string[]> = {
   image: ['src', 'fit'],
   video: ['src', 'fit', 'looped', 'muted', 'volume'],
   alerts: [],
-  chat: ['max_messages', 'fade_after_s', 'show_badges', 'hide_commands', 'hide_users', 'style', 'bubble', 'newest_on_top'],
+  chat: [
+    'max_messages',
+    'fade_after_s',
+    'show_badges',
+    'hide_commands',
+    'hide_users',
+    'style',
+    'bubble',
+    'newest_on_top',
+    'seventv_emotes',
+    'bttv_emotes',
+    'ffz_emotes',
+    'seventv_paints',
+    'seventv_badges',
+    'item_card'
+  ],
   goal: ['title', 'current_var', 'target', 'bar_color', 'track_color', 'style', 'show_numbers'],
   counter: ['var', 'format', 'style'],
   timer: ['mode', 'duration_s', 'anchor_var', 'style', 'prefix'],
-  event_list: ['kinds', 'max_items', 'direction', 'item_format', 'style'],
+  event_list: ['kinds', 'max_items', 'direction', 'item_format', 'style', 'item_box', 'item_card'],
   custom: ['html', 'css', 'js', 'fields', 'values']
 };
 
@@ -89,7 +145,7 @@ describe('defaults match the backend', () => {
       visible: true,
       locked: false,
       visible_when: { mode: 'all', conditions: [] },
-      box_style: { background: 'transparent', border_color: 'transparent', border_width: 0, radius: 0, padding: 0, shadow: '', backdrop_blur: 0 },
+      box_style: RUST_DEFAULT_BOX,
       enter: { preset: 'none', duration_ms: 0, delay_ms: 0, easing: 'ease_in_out' },
       exit: { preset: 'none', duration_ms: 0, delay_ms: 0, easing: 'ease_in_out' },
       idle: { preset: 'none', duration_ms: 0, delay_ms: 0, easing: 'ease_in_out' },
@@ -103,7 +159,8 @@ describe('defaults match the backend', () => {
     expect(kindDefaults('chat')).toMatchObject({ max_messages: 12, show_badges: true, hide_commands: true, newest_on_top: false, fade_after_s: 0 });
     expect(kindDefaults('goal')).toMatchObject({ target: 10, show_numbers: true });
     expect(kindDefaults('timer')).toMatchObject({ mode: 'countdown', duration_s: 0 });
-    expect(kindDefaults('event_list')).toMatchObject({ max_items: 5, direction: 'vertical', kinds: [] });
+    expect(kindDefaults('event_list')).toMatchObject({ max_items: 5, direction: 'vertical', kinds: [], item_box: RUST_DEFAULT_BOX });
+    expect(kindDefaults('chat').item_card).toEqual({ alternate: false, tint: 0, around: 'message', width: 'full', gap: 6 });
     expect(kindDefaults('alerts')).toEqual({ type: 'alerts' });
     expect(kindDefaults('custom')).toEqual({ type: 'custom', html: '', css: '', js: '', fields: {}, values: {} });
   });

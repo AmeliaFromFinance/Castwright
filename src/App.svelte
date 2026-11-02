@@ -3,9 +3,11 @@
   import { app, type Page } from '$lib/state/app.svelte';
   import { isTauri } from '$lib/api/backend';
   import { flushAll } from '$lib/state/flush';
+  import { stepZoom } from '$lib/state/zoom';
+  import { toasts } from '$lib/state/toast.svelte';
+  import { updateAppearance } from '$lib/pages/settings/theme-settings.svelte';
   import Toasts from '$lib/ui/Toasts.svelte';
   import StatusBar from '$lib/shell/StatusBar.svelte';
-  import Studio from '$lib/pages/studio/Studio.svelte';
   // Editors are loaded when first opened so start-up stays quick.
   const loadOverlays = () => import('$lib/pages/overlays/Overlays.svelte');
   const loadAlerts = () => import('$lib/pages/alerts/Alerts.svelte');
@@ -13,10 +15,12 @@
   import Activity from '$lib/pages/activity/Activity.svelte';
   import SettingsPage from '$lib/pages/settings/Settings.svelte';
   import FirstRun from '$lib/pages/firstrun/FirstRun.svelte';
-  import { MonitorPlay, Layers, BellRing, Zap, History, Settings } from '@lucide/svelte';
+  import { Layers, BellRing, Zap, History, Settings, Search } from '@lucide/svelte';
+  import CommandPalette from '$lib/shell/CommandPalette.svelte';
+  import ShortcutsDialog from '$lib/shell/ShortcutsDialog.svelte';
+  import { loadPref, savePref } from '$lib/state/persist';
 
-  const pages: Array<{ id: Page; label: string; icon: typeof MonitorPlay }> = [
-    { id: 'studio', label: 'Studio', icon: MonitorPlay },
+  const pages: Array<{ id: Page; label: string; icon: typeof Layers }> = [
     { id: 'overlays', label: 'Overlays', icon: Layers },
     { id: 'alerts', label: 'Alerts', icon: BellRing },
     { id: 'automation', label: 'Automation', icon: Zap },
@@ -24,6 +28,14 @@
   ];
 
   const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent);
+
+  let paletteOpen = $state(false);
+  let shortcutsOpen = $state(false);
+
+  // Reopen on the page used last time.
+  const lastPage = loadPref<Page>('page', 'overlays');
+  if (['overlays', 'alerts', 'automation', 'activity', 'settings'].includes(lastPage)) app.page = lastPage;
+  $effect(() => savePref('page', app.page));
 
   onMount(() => {
     app.init();
@@ -37,7 +49,32 @@
       );
     }
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      // Zoom: Ctrl + / Ctrl - / Ctrl 0, saved as the interface size.
+      const zoomKey = e.key === '=' || e.key === '+' ? 1 : e.key === '-' || e.key === '_' ? -1 : e.key === '0' ? 0 : null;
+      if (zoomKey !== null && app.settings) {
+        e.preventDefault();
+        const cur = app.settings.appearance.ui_scale;
+        const next = zoomKey === 0 ? 100 : stepZoom(cur, zoomKey);
+        if (next !== cur) {
+          updateAppearance({ ui_scale: next });
+          toasts.show(`Zoom ${next}%`, 'info', 1500, 'zoom');
+        }
+        return;
+      }
+      if (e.key === 'k' || e.key === 'K') {
+        e.preventDefault();
+        shortcutsOpen = false;
+        paletteOpen = !paletteOpen;
+        return;
+      }
+      if (e.key === '/') {
+        e.preventDefault();
+        paletteOpen = false;
+        shortcutsOpen = !shortcutsOpen;
+        return;
+      }
+      if (e.shiftKey) return;
       const all: Page[] = [...pages.map((p) => p.id), 'settings'];
       const i = Number(e.key) - 1;
       if (i >= 0 && i < all.length) {
@@ -55,6 +92,15 @@
     };
   });
 </script>
+
+{#snippet loadFailed()}
+  <div class="center">
+    <div class="fatal">
+      <h1>This page couldn't load</h1>
+      <button type="button" onclick={() => location.reload()}>Reload</button>
+    </div>
+  </div>
+{/snippet}
 
 {#if app.fatal}
   <div class="center">
@@ -91,6 +137,10 @@
           <circle cx="32" cy="28" r="7" fill="currentColor" />
         </svg>
       </div>
+      <button type="button" class="nav search" title="Search and commands ({isMac ? '⌘K' : 'Ctrl+K'})" onclick={() => (paletteOpen = true)}>
+        <Search size={18} strokeWidth={1.8} />
+        <span class="nav-label">Search</span>
+      </button>
       {#each pages as p, i (p.id)}
         <button
           type="button"
@@ -118,10 +168,9 @@
       </button>
     </nav>
     <main class="page">
-      {#if app.page === 'studio'}<Studio />
-      {:else if app.page === 'overlays'}{#await loadOverlays() then m}<m.default />{/await}
-      {:else if app.page === 'alerts'}{#await loadAlerts() then m}<m.default />{/await}
-      {:else if app.page === 'automation'}{#await loadAutomation() then m}<m.default />{/await}
+      {#if app.page === 'overlays'}{#await loadOverlays() then m}<m.default />{:catch}{@render loadFailed()}{/await}
+      {:else if app.page === 'alerts'}{#await loadAlerts() then m}<m.default />{:catch}{@render loadFailed()}{/await}
+      {:else if app.page === 'automation'}{#await loadAutomation() then m}<m.default />{:catch}{@render loadFailed()}{/await}
       {:else if app.page === 'activity'}<Activity />
       {:else}<SettingsPage />{/if}
     </main>
@@ -129,10 +178,14 @@
   </div>
 {/if}
 <Toasts />
+{#if app.ready}
+  <CommandPalette bind:open={paletteOpen} onshortcuts={() => (shortcutsOpen = true)} />
+  <ShortcutsDialog bind:open={shortcutsOpen} />
+{/if}
 
 <style>
   .center {
-    height: 100vh;
+    height: calc(100vh / var(--css-zoom, 1));
     display: grid;
     place-items: center;
   }
@@ -162,7 +215,7 @@
     display: grid;
     grid-template-columns: var(--rail-w) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) auto;
-    height: 100vh;
+    height: calc(100vh / var(--css-zoom, 1));
   }
   .shell.mac {
     grid-template-rows: 28px minmax(0, 1fr) auto;
@@ -172,7 +225,7 @@
     height: 28px;
   }
   .first-run {
-    height: 100vh;
+    height: calc(100vh / var(--css-zoom, 1));
     display: flex;
     flex-direction: column;
   }
@@ -209,6 +262,18 @@
     color: var(--text-muted);
     cursor: pointer;
     transition: background 0.12s var(--ease), color 0.12s var(--ease);
+  }
+  .nav.search {
+    margin-bottom: 8px;
+  }
+  .nav.search::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 10px;
+    right: 10px;
+    height: 1px;
+    background: var(--border);
   }
   .nav:hover {
     background: var(--bg-3);

@@ -9,7 +9,7 @@ The editor shows your overlay exactly as OBS will, with live chat, events and va
 
 - **Left**: add layers, and the **Layers** list (front first).
 - **Middle**: the canvas.
-- **Right**: settings for the selected layer, or for the overlay when nothing is selected.
+- **Right**: settings for the selected layer, or for the overlay when nothing is selected. Drag the dividers to make either side wider; sections fold with a click on their title.
 
 ## Layer types
 
@@ -20,12 +20,28 @@ The editor shows your overlay exactly as OBS will, with live chat, events and va
 | **Image** | A logo, frame or picture from your project files. |
 | **Video** | A looping video or animation. |
 | **Alerts** | Where alerts play. Design them on the [Alerts](/guide/alerts/) page. |
-| **Chat** | Live chat with badges and emotes. Can hide commands and bots. |
+| **Chat** | Live chat with Twitch and 7TV badges, 7TV name paints and 7TV, BetterTTV and FrankerFaceZ emotes. Can hide commands and bots. |
 | **Goal** | A progress bar towards a target, such as follows or bits this stream. |
 | **Counter** | A number from a [variable](/reference/variables/), like a death counter. |
 | **Timer** | Countdown, stopwatch, clock or stream uptime. |
 | **Events** | Recent follows, subs, cheers and more, as a list or ticker. |
 | **Widget** | Your own HTML, CSS and JavaScript. See [custom widgets](/reference/custom-widgets/). |
+
+## Styles
+
+Pick a ready-made look under **Style** (the layer's box) or **Cards** (each chat message or event row): Clean, Comic, Speech bubble, Sticker, Riot, Neon, Pixel, Glass, Paper, Outline, Terminal and Candy. Every preview is drawn with your real layer.
+
+After picking one, change any part of it:
+
+| Group | What you can change |
+| --- | --- |
+| **Shape** | Square, rounded, pill, speech bubble with a tail, slanted, cut corners or pixel steps. Corner size, padding and lean. |
+| **Fill** | One colour, a gradient or none, opacity and blur behind. |
+| **Pattern** | Halftone dots, stripes, grid or paper grain on top of the fill. |
+| **Border and stripe** | Width, colour and line (solid, dashed, double or thick ink), plus a coloured stripe on one side. |
+| **Shadow** | Soft, hard offset (comic), glow, layered or your own. |
+
+**Cards** also has: lean in turn (every other message tilts the other way, like stickers), a wash of each chatter's name colour, card around the whole message or just the words, and the gap between cards.
 
 ## Moving and sizing
 
@@ -44,7 +60,7 @@ Each layer has these sections on the right:
 | **Style** | Background, border, corners, padding, shadow and backdrop blur. |
 | **Visibility** | **Only show when**: rules that hide the layer unless they match, for example `stream.live is true`. See [conditions](/reference/conditions/). |
 | **Animation** | How the layer enters, leaves and moves while shown. Click the play button next to each to preview it. |
-| **Advanced** | Custom CSS for the layer, and its ID for automation. |
+| **Advanced** | Custom CSS for the layer, and its ID for automation. The list under the CSS box shows which classes this layer has; click one to insert a rule. See [Custom CSS](/reference/styling/). |
 
 Hide a layer with the eye in the Layers list. The **Show/hide overlay layer** automation step can show it at certain moments, like after a raid.
 

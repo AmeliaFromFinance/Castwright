@@ -402,6 +402,9 @@ impl TwitchService {
                     return;
                 }
                 let mut e = *e;
+                if e.kind == EventKind::Chat {
+                    self.attach_badges(&mut e.data, &event);
+                }
                 if e.kind == EventKind::Chat
                     && (self.was_sent_by_app(&e.id)
                         || e.user.as_ref().is_some_and(|u| {

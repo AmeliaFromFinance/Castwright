@@ -48,7 +48,7 @@
   {:else}
     <div class="off">
       <p>OBS isn't connected.</p>
-      <p class="muted">Connect on the Studio page, or copy the overlay link and add a Browser Source in OBS yourself.</p>
+      <p class="muted">Connect it in Settings, or copy the overlay link and add a Browser Source in OBS yourself.</p>
     </div>
   {/if}
   {#snippet footer()}
@@ -57,8 +57,8 @@
         variant="ghost"
         onclick={() => {
           open = false;
-          app.page = 'studio';
-        }}>Go to Studio</Button
+          app.page = 'settings';
+        }}>OBS settings</Button
       >
     {/if}
     <Button onclick={() => (open = false)}>Cancel</Button>

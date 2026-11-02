@@ -205,6 +205,8 @@ fn helix(m: &mut Mock, rec: &Rec, token: &str) -> Response {
             )
         }
         ("GET", "/streams") => reply(200, m.streams.clone()),
+        ("GET", "/chat/badges/global") => reply(200, fixture("badges_global")),
+        ("GET", "/chat/badges") => reply(200, fixture("badges_channel")),
         ("GET", "/channels") => reply(
             200,
             json!({"data": [{"broadcaster_id": "1337", "game_id": "509658",
@@ -296,6 +298,7 @@ fn fast() -> Timing {
         stream_tick: Duration::from_secs(3600),
         validate_every: Duration::from_secs(3600),
         max_rate_wait: Duration::from_secs(3),
+        badge_refresh: Duration::from_secs(3600),
     }
 }
 
@@ -934,4 +937,46 @@ async fn revocation_is_reported() {
     })
     .await;
     s.svc.shutdown();
+}
+
+#[tokio::test]
+async fn chat_messages_carry_badge_images() {
+    let mock = MockServer::start().await;
+    let (ws_url, mut conns) = ws_server().await;
+    let s = setup(&mock, &format!("{ws_url}/ws"), broadcaster);
+    let mut events = s.hub.subscribe_events();
+    s.svc.start();
+    let svc = s.svc.clone();
+    wait_for("badges", || !svc.badges.lock().unwrap().is_empty()).await;
+    let channel = mock.requests("GET", "/helix/chat/badges");
+    assert_eq!(channel[0].query["broadcaster_id"], "1337");
+    assert_eq!(channel[0].auth, "Bearer access-b");
+
+    let mut ws = next_ws(&mut conns).await;
+    send(&mut ws, welcome("session-1", 10)).await;
+    send(&mut ws, fixture("chat_message")).await;
+    let e = next_event(&mut events).await;
+    assert_eq!(e.kind, EventKind::Chat);
+    assert_eq!(
+        e.data["badges"],
+        json!(["moderator", "subscriber", "sub-gifter"]),
+        "badge names stay as they were"
+    );
+    let images = e.data["badge_images"].as_array().unwrap();
+    let sets: Vec<_> = images
+        .iter()
+        .map(|b| b["set_id"].as_str().unwrap())
+        .collect();
+    assert_eq!(sets, ["moderator", "subscriber"]);
+    assert_eq!(images[0]["title"], "Moderator");
+    assert_eq!(images[1]["id"], "12");
+    assert!(
+        images[1]["url_1x"]
+            .as_str()
+            .unwrap()
+            .ends_with("channel-sub-12/1")
+    );
+
+    s.svc.logout(AccountRole::Broadcaster).await.unwrap();
+    assert!(s.svc.badges.lock().unwrap().is_empty());
 }

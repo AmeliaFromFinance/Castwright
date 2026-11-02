@@ -43,7 +43,7 @@
   <!-- svelte-ignore a11y_media_has_caption -->
   <video
     bind:this={el}
-    class="cw-media"
+    class="cw-media cw-video"
     {src}
     autoplay
     playsinline
