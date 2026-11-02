@@ -11,21 +11,21 @@
   import IconButton from '$lib/ui/IconButton.svelte';
   import Switch from '$lib/ui/Switch.svelte';
   import ConditionEditor from '$lib/widgets/ConditionEditor.svelte';
-  import { Clock, Command, Copy, Hand, Play, Radio, RadioTower, Clapperboard, X, Zap } from '@lucide/svelte';
+  import { Clock, Command, Copy, Hand, Play, Radio, RadioTower, Clapperboard, Zap } from '@lucide/svelte';
   import { fieldsFor } from '../alerts/alerts';
   import { TRIGGER_LABELS, triggerKinds } from './defaults';
   import { commandPreview, every } from './describe';
+  import { graphSteps } from './graph';
   import { MIN_TIMER_S, commandName, type Issue } from './validate';
 
   interface Props {
     t: Trigger;
     action: Action;
     issues: Issue[];
-    onremove: () => void;
     onpatch: (patch: Partial<Trigger>) => void;
   }
 
-  let { t, action, issues, onremove, onpatch }: Props = $props();
+  let { t, action, issues, onpatch }: Props = $props();
 
   const uid = `trg-${Math.random().toString(36).slice(2, 8)}`;
   const kinds = triggerKinds(Object.keys(KIND_LABELS) as EventKind[]);
@@ -61,8 +61,6 @@
   <header>
     <span class="icon"><Icon size={14} /></span>
     <span class="type">{TRIGGER_LABELS[t.type]}</span>
-    <div class="grow"></div>
-    <IconButton size="sm" label="Remove trigger" tone="danger" onclick={onremove}><X /></IconButton>
   </header>
 
   {#if t.type === 'command'}
@@ -131,7 +129,7 @@
       </div>
       <div class="f span2">
         <span class="label">In chat</span>
-        <code class="preview mono">{commandPreview(t.name, action.steps)}</code>
+        <code class="preview mono">{commandPreview(t.name, graphSteps(action.graph))}</code>
       </div>
     </div>
     <p class="hint">Moderators and the streamer skip the per-viewer cooldown.</p>

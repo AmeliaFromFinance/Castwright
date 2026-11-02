@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { Component } from 'svelte';
-  import IconButton from '$lib/ui/IconButton.svelte';
-  import { Check, Copy, Minus, Trash2, X } from '@lucide/svelte';
+  import type { EdgeSide } from '$lib/bindings/EdgeSide';
+  import { Check, Minus, X } from '@lucide/svelte';
+  import { SIDES } from './graph';
   import type { NodeStatus } from './runstatus';
   import type { Issue } from './validate';
 
@@ -13,21 +14,18 @@
     summary: string;
     /** Placeholder when there is no summary. */
     unset?: string;
-    number?: string;
+    trigger?: boolean;
     rows?: Array<[string, string]>;
     chips?: string[];
     issues?: Issue[];
     status?: NodeStatus;
     running?: boolean;
     selected?: boolean;
-    dragging?: boolean;
-    draggable?: boolean;
-    onselect: () => void;
-    onduplicate?: () => void;
-    ondelete: () => void;
-    deleteLabel?: string;
-    ondragstart?: (e: DragEvent) => void;
-    ondragend?: () => void;
+    /** No trigger leads here. */
+    loose?: boolean;
+    /** Handle a line being drawn would connect to. */
+    hot?: EdgeSide | null;
+    onactivate: () => void;
   }
 
   let {
@@ -37,21 +35,16 @@
     title,
     summary,
     unset = 'Not set up yet',
-    number,
+    trigger = false,
     rows = [],
     chips = [],
     issues = [],
     status,
     running = false,
     selected = false,
-    dragging = false,
-    draggable = false,
-    onselect,
-    onduplicate,
-    ondelete,
-    deleteLabel = 'Delete step',
-    ondragstart,
-    ondragend
+    loose = false,
+    hot = null,
+    onactivate
   }: Props = $props();
 
   const error = $derived(issues.find((i) => !i.warn));
@@ -65,29 +58,30 @@
 
 <div
   class="node tone-{tone}"
+  class:trigger
   class:selected
+  class:loose
   class:invalid={!!error}
   class:failed={status?.state === 'failed'}
   class:ok={status?.state === 'ok'}
   class:skipped={status?.state === 'skipped'}
   class:running
-  class:dragging
 >
   <button
     type="button"
     class="card"
     data-node={id}
     aria-pressed={selected}
-    aria-label="{number ? `${number}. ` : ''}{title}{summary ? `: ${summary}` : ''}{stateText ? ` (${stateText})` : ''}"
-    {draggable}
-    onclick={onselect}
-    {ondragstart}
-    {ondragend}
+    aria-label="{trigger ? 'Trigger' : 'Step'} {title}{summary ? `: ${summary}` : ''}{stateText ? ` (${stateText})` : ''}"
+    onclick={(e) => {
+      // Pointer clicks are handled by the canvas; this is Enter and Space.
+      if (e.detail === 0) onactivate();
+    }}
   >
     <span class="top">
       <span class="ic"><Icon size={14} /></span>
       <span class="title truncate">{title}</span>
-      {#if number}<span class="num mono">{number}</span>{/if}
+      {#if trigger}<span class="start">Start</span>{/if}
       {#if running}
         <span class="state run" aria-hidden="true"></span>
       {:else if status?.state === 'ok'}
@@ -124,10 +118,9 @@
       {/if}
     </span>
   </button>
-  <div class="tools">
-    {#if onduplicate}<IconButton size="sm" label="Duplicate" onclick={onduplicate}><Copy /></IconButton>{/if}
-    <IconButton size="sm" label={deleteLabel} tone="danger" onclick={ondelete}><Trash2 /></IconButton>
-  </div>
+  {#each SIDES as side (side)}
+    <span class="handle h-{side}" class:hot={hot === side} data-handle={side} title="Drag to connect" aria-hidden="true"></span>
+  {/each}
 </div>
 
 <style>
@@ -135,11 +128,6 @@
     --tone: #4f8cff;
     position: relative;
     width: var(--node-w);
-    max-width: 100%;
-    margin: 0 auto;
-  }
-  .tone-trigger {
-    --tone: #3fb96b;
   }
   .tone-chat {
     --tone: #4f8cff;
@@ -162,6 +150,9 @@
   .tone-advanced {
     --tone: #8792a6;
   }
+  .node.trigger {
+    --tone: var(--accent);
+  }
   .card {
     position: relative;
     display: flex;
@@ -171,25 +162,37 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     background: var(--bg-1);
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 4px 14px rgb(0 0 0 / 0.08);
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.12),
+      0 4px 14px rgb(0 0 0 / 0.08);
     overflow: hidden;
-    cursor: pointer;
+    cursor: grab;
     transition:
       border-color 0.12s var(--ease),
       box-shadow 0.12s var(--ease),
       opacity 0.12s;
   }
-  .card:hover {
+  .card:active {
+    cursor: grabbing;
+  }
+  .node:hover .card {
     border-color: var(--border-strong);
   }
   .card:focus-visible {
     outline-offset: 3px;
   }
-  .selected .card {
+  .trigger .card {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  }
+  .selected .card,
+  .node.selected:hover .card {
     border-color: var(--accent);
     box-shadow:
       0 0 0 1px var(--accent),
-      0 6px 20px rgb(0 0 0 / 0.16);
+      0 8px 24px rgb(0 0 0 / 0.2);
+  }
+  .loose .card {
+    border-style: dashed;
   }
   .invalid .card {
     border-color: color-mix(in srgb, var(--danger) 60%, var(--border));
@@ -199,16 +202,13 @@
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 60%, transparent);
   }
   .ok .card {
-    border-color: color-mix(in srgb, var(--ok) 55%, var(--border));
+    border-color: color-mix(in srgb, var(--ok) 60%, var(--border));
   }
   .skipped .card {
     opacity: 0.55;
   }
   .running .card {
     animation: pulse 1s var(--ease) infinite alternate;
-  }
-  .dragging .card {
-    opacity: 0.4;
   }
   @keyframes pulse {
     from {
@@ -227,6 +227,9 @@
     border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
     background: color-mix(in srgb, var(--tone) 8%, var(--bg-1));
   }
+  .trigger .top {
+    background: color-mix(in srgb, var(--accent) 16%, var(--bg-1));
+  }
   .ic {
     display: grid;
     place-items: center;
@@ -237,14 +240,25 @@
     background: color-mix(in srgb, var(--tone) 22%, transparent);
     color: color-mix(in srgb, var(--tone) 75%, var(--text));
   }
+  .trigger .ic {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
   .title {
     flex: 1;
     font-weight: 620;
     font-size: 12.5px;
   }
-  .num {
-    font-size: 11px;
-    color: var(--text-faint);
+  .start {
+    flex: none;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--accent-text);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
   }
   .state {
     display: grid;
@@ -331,32 +345,59 @@
     line-height: 1.35;
   }
   .msg.bad {
-    background: none;
     color: var(--danger);
   }
   .msg.warn {
     color: var(--warn);
   }
-  .tools {
+
+  /* Connection handles, one per side. The hit area is larger than the dot. */
+  .handle {
     position: absolute;
-    top: 5px;
-    right: -38px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 2px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--bg-1);
-    box-shadow: var(--shadow-pop);
+    z-index: 2;
+    width: 22px;
+    height: 22px;
+    margin: -11px 0 0 -11px;
+    border-radius: 50%;
+    cursor: crosshair;
     opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.12s;
+    transition: opacity 0.1s;
   }
-  .node:hover .tools,
-  .node:focus-within .tools,
-  .selected .tools {
+  .handle::after {
+    content: '';
+    position: absolute;
+    inset: 5px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    background: var(--bg-1);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--bg-0) 70%, transparent);
+    transition: transform 0.1s var(--ease);
+  }
+  .handle:hover::after,
+  .handle.hot::after {
+    transform: scale(1.35);
+    background: var(--accent);
+  }
+  .h-top {
+    left: 50%;
+    top: 0;
+  }
+  .h-right {
+    left: 100%;
+    top: 50%;
+  }
+  .h-bottom {
+    left: 50%;
+    top: 100%;
+  }
+  .h-left {
+    left: 0;
+    top: 50%;
+  }
+  .node:hover .handle,
+  .selected .handle,
+  .handle.hot,
+  :global(.world.connecting) .handle {
     opacity: 1;
-    pointer-events: auto;
   }
 </style>

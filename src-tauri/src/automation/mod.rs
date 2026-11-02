@@ -1,4 +1,4 @@
-//! Runs actions: a list of steps started by triggers (events, chat commands,
+//! Runs actions: graphs of steps started by triggers (events, chat commands,
 //! timers, OBS scene changes, buttons).
 
 pub mod script;
@@ -6,7 +6,9 @@ pub mod script;
 use crate::alerts::AlertEngine;
 use crate::error::{AppResult, user_err};
 use crate::hub::{Hub, Signal, ui};
-use crate::model::automation::{Action, HttpMethod, Permission, Step, Toggle, Trigger};
+use crate::model::automation::{
+    Action, EdgeBranch, Graph, HttpMethod, NodeKind, Permission, Step, Toggle, Trigger,
+};
 use crate::model::condition::stringify;
 use crate::model::event::{Event, EventKind, UserRoles};
 use crate::model::runtime::{LogLevel, OverlayMsg};
@@ -14,7 +16,7 @@ use crate::services::{ObsActions, TwitchActions};
 use crate::store::project::ProjectStore;
 use crate::template::render;
 use futures_util::future::BoxFuture;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -31,8 +33,10 @@ const MAX_DEPTH: u32 = 6;
 const BURST_LIMIT: usize = 20;
 const BURST_WINDOW: Duration = Duration::from_secs(10);
 const HTTP_MAX_BYTES: usize = 64 * 1024;
+/// Loop breaker inside one run: at most this many nodes run.
+pub const MAX_NODE_RUNS: u32 = 500;
 
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct ActionRun {
     pub action_id: String,
@@ -42,6 +46,28 @@ pub struct ActionRun {
     pub errors: Vec<String>,
     #[ts(type = "number")]
     pub duration_ms: u64,
+    /// What happened at each node, in the order they first ran. Nodes the run could
+    /// have reached but didn't are `skipped`.
+    #[serde(default)]
+    pub nodes: Vec<NodeResult>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum NodeState {
+    Ok,
+    Error,
+    Skipped,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct NodeResult {
+    pub node_id: String,
+    pub state: NodeState,
+    #[serde(default)]
+    pub errors: Vec<String>,
 }
 
 enum Flow {
@@ -56,6 +82,35 @@ struct RunCtx {
     reply_to: Option<String>,
     errors: Vec<String>,
     depth: u32,
+    /// Nodes left before the run is stopped as a loop.
+    budget: u32,
+    nodes: Vec<NodeResult>,
+}
+
+impl RunCtx {
+    /// Results are kept for the action that was started, not for ones it runs.
+    fn record(&mut self, id: &str, error: Option<String>) {
+        if self.depth > 0 {
+            return;
+        }
+        match self.nodes.iter_mut().find(|n| n.node_id == id) {
+            Some(n) => {
+                if let Some(e) = error {
+                    n.state = NodeState::Error;
+                    n.errors.push(e);
+                }
+            }
+            None => self.nodes.push(NodeResult {
+                node_id: id.to_string(),
+                state: if error.is_some() {
+                    NodeState::Error
+                } else {
+                    NodeState::Ok
+                },
+                errors: error.into_iter().collect(),
+            }),
+        }
+    }
 }
 
 pub struct Automation {
@@ -155,7 +210,7 @@ impl Automation {
                                 continue;
                             }
                             let ctx = p.play.event.as_context();
-                            me.spawn_run(&id, "alert", ctx_from(&ctx), None);
+                            me.spawn_run(&id, None, "alert", ctx_from(&ctx), None);
                         }
                     }
                     Err(broadcast::error::RecvError::Lagged(_)) => {}
@@ -210,50 +265,56 @@ impl Automation {
         }
         let ctx = event.as_context();
         for action in self.actions() {
-            let hit = action.triggers.iter().find_map(|trigger| match trigger {
-                Trigger::Event { kind, conditions }
-                    if *kind == event.kind
-                        && !(event.kind == EventKind::Chat && self.is_own_chat(event))
-                        && conditions.evaluate(&ctx) =>
-                {
-                    Some((event.kind.as_str().to_string(), Map::new(), None))
-                }
-                Trigger::StreamOnline if event.kind == EventKind::StreamOnline => {
-                    Some(("stream online".to_string(), Map::new(), None))
-                }
-                Trigger::StreamOffline if event.kind == EventKind::StreamOffline => {
-                    Some(("stream offline".to_string(), Map::new(), None))
-                }
-                Trigger::Command {
-                    name,
-                    aliases,
-                    permission,
-                    user_cooldown_s,
-                } if event.kind == EventKind::Chat => {
-                    let args = self.match_command(event, name, aliases, *permission)?;
-                    // Don't use up the viewer's cooldown when the action can't run anyway.
-                    if !action.enabled || !self.cooldown_ready(&action) {
-                        return None;
-                    }
-                    self.user_cooldown_ok(&action.id, event, *user_cooldown_s)
-                        .then(|| {
-                            (
-                                format!("!{}", name.trim_start_matches('!')),
-                                args,
-                                Some(event.id.clone()),
-                            )
-                        })
-                }
-                _ => None,
-            });
-            if let Some((label, extra, reply_to)) = hit {
+            let hit =
+                action
+                    .triggers
+                    .iter()
+                    .enumerate()
+                    .find_map(|(index, trigger)| match trigger {
+                        Trigger::Event { kind, conditions }
+                            if *kind == event.kind
+                                && !(event.kind == EventKind::Chat && self.is_own_chat(event))
+                                && conditions.evaluate(&ctx) =>
+                        {
+                            Some((index, event.kind.as_str().to_string(), Map::new(), None))
+                        }
+                        Trigger::StreamOnline if event.kind == EventKind::StreamOnline => {
+                            Some((index, "stream online".to_string(), Map::new(), None))
+                        }
+                        Trigger::StreamOffline if event.kind == EventKind::StreamOffline => {
+                            Some((index, "stream offline".to_string(), Map::new(), None))
+                        }
+                        Trigger::Command {
+                            name,
+                            aliases,
+                            permission,
+                            user_cooldown_s,
+                        } if event.kind == EventKind::Chat => {
+                            let args = self.match_command(event, name, aliases, *permission)?;
+                            // Don't use up the viewer's cooldown when the action can't run anyway.
+                            if !action.enabled || !self.cooldown_ready(&action) {
+                                return None;
+                            }
+                            self.user_cooldown_ok(&action.id, event, *user_cooldown_s)
+                                .then(|| {
+                                    (
+                                        index,
+                                        format!("!{}", name.trim_start_matches('!')),
+                                        args,
+                                        Some(event.id.clone()),
+                                    )
+                                })
+                        }
+                        _ => None,
+                    });
+            if let Some((index, label, extra, reply_to)) = hit {
                 if event.test {
                     self.skip_for_test(&action.id);
                     continue;
                 }
                 let mut c = ctx_from(&ctx);
                 c.extend(extra);
-                self.spawn_run(&action.id, &label, c, reply_to);
+                self.spawn_run(&action.id, Some(index), &label, c, reply_to);
             }
         }
     }
@@ -263,13 +324,13 @@ impl Automation {
             return;
         };
         for action in self.actions() {
-            let hit = action.triggers.iter().any(|t| {
+            let hit = action.triggers.iter().position(|t| {
                 matches!(t, Trigger::SceneChanged { scene: want } if want.is_empty() || want.eq_ignore_ascii_case(scene))
             });
-            if hit {
+            if let Some(index) = hit {
                 let mut c = Map::new();
                 c.insert("scene".into(), Value::String(scene.clone()));
-                self.spawn_run(&action.id, "scene change", c, None);
+                self.spawn_run(&action.id, Some(index), "scene change", c, None);
             }
         }
     }
@@ -306,13 +367,13 @@ impl Automation {
                         continue;
                     }
                     *entry = (now, lines);
-                    due.push(action.id.clone());
+                    due.push((action.id.clone(), i));
                 }
             }
             timers.retain(|k, _| seen.contains(k));
         }
-        for id in due {
-            self.spawn_run(&id, "timer", Map::new(), None);
+        for (id, index) in due {
+            self.spawn_run(&id, Some(index), "timer", Map::new(), None);
         }
     }
 
@@ -412,23 +473,26 @@ impl Automation {
         {
             return user_err("That action no longer exists.");
         }
-        self.spawn_run_inner(action_id, "manual", Map::new(), None, true);
+        self.spawn_run_inner(action_id, None, "manual", Map::new(), None, true);
         Ok(())
     }
 
+    /// `start` is the index of the trigger that fired; `None` runs it as by hand.
     fn spawn_run(
         self: &Arc<Self>,
         action_id: &str,
+        start: Option<usize>,
         trigger: &str,
         args: Map<String, Value>,
         reply_to: Option<String>,
     ) {
-        self.spawn_run_inner(action_id, trigger, args, reply_to, false);
+        self.spawn_run_inner(action_id, start, trigger, args, reply_to, false);
     }
 
     fn spawn_run_inner(
         self: &Arc<Self>,
         action_id: &str,
+        start: Option<usize>,
         trigger: &str,
         args: Map<String, Value>,
         reply_to: Option<String>,
@@ -457,7 +521,9 @@ impl Automation {
         let me = self.clone();
         let trigger = trigger.to_string();
         crate::util::spawn(async move {
-            let run = me.execute(&action, &trigger, args, reply_to).await;
+            let run = me
+                .execute_from(&action, start, &trigger, args, reply_to)
+                .await;
             me.hub.emit_ui(ui::ACTION_RUN, &run);
         });
     }
@@ -494,7 +560,7 @@ impl Automation {
         true
     }
 
-    /// Run all steps of `action` and report what happened.
+    /// Run `action` as by hand and report what happened.
     pub async fn execute(
         self: &Arc<Self>,
         action: &Action,
@@ -502,7 +568,21 @@ impl Automation {
         args: Map<String, Value>,
         reply_to: Option<String>,
     ) -> ActionRun {
+        self.execute_from(action, None, trigger, args, reply_to)
+            .await
+    }
+
+    /// Run `action` from trigger `start` (`None`: as by hand) and report what happened.
+    pub async fn execute_from(
+        self: &Arc<Self>,
+        action: &Action,
+        start: Option<usize>,
+        trigger: &str,
+        args: Map<String, Value>,
+        reply_to: Option<String>,
+    ) -> ActionRun {
         let started = Instant::now();
+        let action = action.normalized();
         let mut ctx = self.hub.vars.snapshot();
         ctx.extend(args);
         let mut run = RunCtx {
@@ -510,8 +590,26 @@ impl Automation {
             reply_to,
             errors: Vec::new(),
             depth: 0,
+            budget: MAX_NODE_RUNS,
+            nodes: Vec::new(),
         };
-        self.run_steps(&action.steps, &mut run).await;
+        let g = &action.graph;
+        let plan = g.start_plan(start);
+        for id in &plan.fired {
+            run.record(id, None);
+        }
+        self.run_graph(g, plan.first.clone(), &mut run).await;
+        // Nodes this run could have reached but didn't.
+        let reach = g.reachable(plan.fired.iter().chain(&plan.first).map(String::as_str));
+        for n in &g.nodes {
+            if reach.contains(n.id.as_str()) && !run.nodes.iter().any(|r| r.node_id == n.id) {
+                run.nodes.push(NodeResult {
+                    node_id: n.id.clone(),
+                    state: NodeState::Skipped,
+                    errors: Vec::new(),
+                });
+            }
+        }
         for e in &run.errors {
             self.hub.log(
                 LogLevel::Error,
@@ -526,21 +624,60 @@ impl Automation {
             ok: run.errors.is_empty(),
             errors: run.errors,
             duration_ms: started.elapsed().as_millis() as u64,
+            nodes: run.nodes,
         }
     }
 
-    fn run_steps<'a>(
+    /// Run nodes depth first: everything after one line finishes before the next line
+    /// is followed. Lines are taken top to bottom, then left to right.
+    fn run_graph<'a>(
         self: &'a Arc<Self>,
-        steps: &'a [Step],
+        g: &'a Graph,
+        first: Vec<String>,
         run: &'a mut RunCtx,
     ) -> BoxFuture<'a, Flow> {
         Box::pin(async move {
-            for step in steps {
-                match self.run_step(step, run).await {
-                    Ok(Flow::Continue) => {}
-                    Ok(Flow::Stop) => return Flow::Stop,
-                    Err(e) => run.errors.push(format!("{}: {e}", step_label(step))),
+            let mut stack: Vec<String> = first.into_iter().rev().collect();
+            while let Some(id) = stack.pop() {
+                let Some(node) = g.node(&id) else { continue };
+                if run.budget == 0 {
+                    run.errors.push(format!(
+                        "Stopped after {MAX_NODE_RUNS} steps. The flow probably loops back on itself."
+                    ));
+                    return Flow::Stop;
                 }
+                run.budget -= 1;
+                let mut branch = None;
+                match &node.kind {
+                    NodeKind::Trigger { .. } => run.record(&id, None),
+                    NodeKind::Step {
+                        step: Step::If { conditions, .. },
+                    } => {
+                        branch = Some(conditions.evaluate(&Value::Object(run.ctx.clone())));
+                        run.record(&id, None);
+                    }
+                    NodeKind::Step { step } => match self.run_step(step, run).await {
+                        Ok(Flow::Continue) => run.record(&id, None),
+                        Ok(Flow::Stop) => {
+                            run.record(&id, None);
+                            return Flow::Stop;
+                        }
+                        Err(e) => {
+                            run.errors.push(format!("{}: {e}", step_label(step)));
+                            run.record(&id, Some(e.to_string()));
+                        }
+                    },
+                }
+                let next = g
+                    .outgoing(&id)
+                    .into_iter()
+                    .filter(|e| match (branch, e.branch) {
+                        (_, EdgeBranch::Next) | (None, _) => true,
+                        (Some(yes), EdgeBranch::Then) => yes,
+                        (Some(yes), EdgeBranch::Otherwise) => !yes,
+                    });
+                let next: Vec<String> = next.map(|e| e.to.clone()).collect();
+                stack.extend(next.into_iter().rev());
             }
             Flow::Continue
         })
@@ -726,20 +863,8 @@ impl Automation {
                     self.twitch()?.send_chat(&m, true, None).await?;
                 }
             }
-            Step::If {
-                conditions,
-                then,
-                otherwise,
-            } => {
-                let branch = if conditions.evaluate(&ctx) {
-                    then
-                } else {
-                    otherwise
-                };
-                if let Flow::Stop = self.run_steps(branch, run).await {
-                    return Ok(Flow::Stop);
-                }
-            }
+            // Branches are lines in the graph; run_graph follows them.
+            Step::If { .. } => {}
             Step::RunAction { action_id } => {
                 if run.depth >= MAX_DEPTH {
                     return user_err("Actions call each other too deeply.");
@@ -750,8 +875,10 @@ impl Automation {
                 else {
                     return user_err("The action to run no longer exists.");
                 };
+                let other = other.normalized();
+                let first = other.graph.start_plan(None).first;
                 run.depth += 1;
-                let flow = self.run_steps(&other.steps, run).await;
+                let flow = self.run_graph(&other.graph, first, run).await;
                 run.depth -= 1;
                 if let Flow::Stop = flow {
                     return Ok(Flow::Stop);

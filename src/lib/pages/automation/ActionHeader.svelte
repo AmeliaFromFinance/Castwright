@@ -2,7 +2,7 @@
   import type { Action } from '$lib/bindings/Action';
   import IconButton from '$lib/ui/IconButton.svelte';
   import Switch from '$lib/ui/Switch.svelte';
-  import { Copy, Trash2 } from '@lucide/svelte';
+  import { Copy, Trash2, TriangleAlert } from '@lucide/svelte';
   import { actionsEditor as ed } from './store.svelte';
 
   interface Props {
@@ -14,6 +14,7 @@
   let { action, onduplicate, ondelete }: Props = $props();
 
   const nameIssue = $derived((ed.issues[action.id] ?? []).find((i) => i.key === 'name'));
+  const warnings = $derived((ed.issues[action.id] ?? []).filter((i) => i.warn));
   const groups = $derived([...new Set((ed.actions ?? []).map((a) => a.group).filter((g) => g.trim()))].sort());
   const patch = (p: Partial<Action>) => ed.patchAction(action.id, p);
 </script>
@@ -61,6 +62,12 @@
     />
   </div>
   <div class="tools">
+    {#if warnings.length}
+      <span class="warns" role="status" title={[...new Set(warnings.map((w) => w.message))].join('\n')}>
+        <TriangleAlert size={13} />{warnings.length} warning{warnings.length === 1 ? '' : 's'}
+      </span>
+      <span class="sep" aria-hidden="true"></span>
+    {/if}
     <Switch label="Enabled" showLabel checked={action.enabled} onchange={(v) => patch({ enabled: v })} />
     <span class="sep" aria-hidden="true"></span>
     <IconButton label="Duplicate action" onclick={onduplicate}><Copy /></IconButton>
@@ -117,5 +124,18 @@
   .error {
     font-size: 12px;
     color: var(--danger);
+  }
+  .warns {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 550;
+    white-space: nowrap;
+    color: var(--warn);
+    background: color-mix(in srgb, var(--warn) 12%, transparent);
   }
 </style>

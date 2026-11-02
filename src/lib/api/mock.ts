@@ -21,6 +21,7 @@ import type { QueueState } from '$lib/bindings/QueueState';
 import type { Settings } from '$lib/bindings/Settings';
 import type { TwitchStatus } from '$lib/bindings/TwitchStatus';
 import { evaluateGroup } from '$lib/logic/condition';
+import { planRun } from '$lib/pages/automation/graph';
 import { render } from '$lib/logic/template';
 
 type Listener = (payload: unknown) => void;
@@ -465,8 +466,27 @@ export function createDemoBackend(): Backend {
     run_action: ({ id }) => {
       const a = project.actions.find((x) => x.id === id);
       if (!a) throw { code: 'user', message: 'That action no longer exists.' };
-      emit('cw://action-run', { action_id: a.id, name: a.name, trigger: 'manual', ok: true, errors: [], duration_ms: 12 });
-      log('info', 'automation', `Ran "${a.name}"`);
+      // Walk the graph like the engine; variable and log steps really happen.
+      const started = now();
+      const run = planRun(a.graph, null, (s) => evaluateGroup(s.conditions, vars), {
+        onStep: (s) => {
+          if (s.type === 'add_to_variable') setVars({ [s.key]: (Number(vars[s.key]) || 0) + s.amount });
+          else if (s.type === 'set_variable') setVars({ [s.key]: s.value });
+          else if (s.type === 'log') log('info', 'automation', render(s.message, vars));
+        }
+      });
+      setTimeout(() => {
+        emit('cw://action-run', {
+          action_id: a.id,
+          name: a.name,
+          trigger: 'manual',
+          ok: run.errors.length === 0,
+          errors: run.errors,
+          duration_ms: Math.max(4, now() - started) + 8 * run.order.length,
+          nodes: run.nodes
+        });
+        log('info', 'automation', `Ran "${a.name}"`);
+      }, 250);
     },
     get_vars: () => vars,
     set_var: ({ key, value }) => setVars({ [String(key)]: value }),
@@ -524,7 +544,7 @@ export function createDemoBackend(): Backend {
       settings.twitch.client_id = String(clientId);
     },
     app_info: () => ({
-      version: '0.1.0',
+      version: '0.3.0',
       os: 'demo',
       project_dir: '~/Castwright/Projects/Default',
       config_dir: '~/.config/castwright',

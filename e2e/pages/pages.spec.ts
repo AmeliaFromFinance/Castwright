@@ -60,13 +60,13 @@ test('alerts: variations, preview, order and queue', async ({ page }) => {
   await expect(title).toHaveValue('Thanks {{name}} for {{months}} months!');
 
   const preview = page.getByRole('region', { name: 'Preview' });
-  await expect(preview.locator('[data-alert-id]')).toContainText('Thanks quietfox for 12 months!');
+  await expect(preview.locator('[data-alert-id]')).toContainText(/Thanks \S+ for 12 months!/);
   await expect(preview.locator('[data-alert-id]')).toContainText('Tier 1');
 
   // New variations go on top; move it below the Tier 3 one.
   await card.getByRole('button', { name: 'Move down' }).click();
   await expect(cards.locator('.name')).toHaveText(['Tier 3', 'Long timers', 'Default']);
-  await expect(preview).toContainText('Thanks quietfox for 12 months!');
+  await expect(preview).toContainText(/Thanks \S+ for 12 months!/);
 
   // Edits survive leaving the page.
   await page.getByRole('navigation', { name: 'Main sections' }).getByRole('button', { name: 'Activity' }).click();
@@ -94,7 +94,7 @@ test('alerts: variations, preview, order and queue', async ({ page }) => {
 
   const expand = cards.nth(1).locator('.expand');
   if ((await expand.getAttribute('aria-expanded')) !== 'true') await expand.click();
-  await expect(preview.locator('[data-alert-id]')).toContainText('Thanks quietfox for 12 months!');
+  await expect(preview.locator('[data-alert-id]')).toContainText(/Thanks \S+ for 12 months!/);
   await expect(page.getByText('Saved', { exact: true })).toBeVisible();
   await page.mouse.move(0, 0);
   await page.waitForTimeout(500);
@@ -102,10 +102,9 @@ test('alerts: variations, preview, order and queue', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('automation: chat command with nested steps, run and log', async ({ page }) => {
+test('automation: chat command built in the flow, run and log', async ({ page }) => {
   const errors = await open(page, 'Automation');
 
-  await page.getByRole('radio', { name: 'List' }).click();
   await page.getByRole('button', { name: 'New action' }).click();
   await page.getByRole('menuitem', { name: /Blank action/ }).click();
   const name = page.getByLabel('Action name');
@@ -114,53 +113,56 @@ test('automation: chat command with nested steps, run and log', async ({ page })
   await page.getByLabel('Group').fill('Chat commands');
   await page.getByLabel('Group').press('Tab');
 
-  await page.getByRole('button', { name: 'Add trigger' }).click();
-  await page.getByRole('menuitem', { name: /Chat command/ }).click();
-  await expect(page.getByText('Type the command name, e.g. so for !so.')).toBeVisible();
+  const canvas = page.getByRole('region', { name: 'Flow of Hug' });
+  await expect(canvas.getByText('Start with a trigger')).toBeVisible();
+  const bar = page.getByRole('toolbar', { name: 'Add to the flow' });
+  await bar.getByRole('button', { name: 'Add trigger' }).click();
+  await page.getByRole('dialog', { name: 'Add a trigger' }).getByRole('option', { name: /Chat command/ }).click();
+  await expect(page.getByText('Type the command name, e.g. so for !so.').first()).toBeVisible();
   await expect(page.getByText(/Not saved: fix 1 problem/)).toBeVisible();
-  await page.getByLabel('Command', { exact: true }).fill('!hug');
-  await expect(page.getByLabel('Command', { exact: true })).toHaveValue('hug');
+  const inspector = page.getByRole('complementary', { name: 'Inspector' });
+  await inspector.getByLabel('Command', { exact: true }).fill('!hug');
+  await expect(inspector.getByLabel('Command', { exact: true })).toHaveValue('hug');
   await expect(page.getByText(/Not saved/)).toBeHidden();
 
-  const steps = page.getByRole('region', { name: 'Action editor' });
-  await steps.getByRole('button', { name: 'Add step', exact: true }).click();
-  await page.getByRole('menuitem', { name: /Send chat message/ }).click();
-  const say = page.locator('[data-step="0"]');
+  // With a node selected, the bar adds the next step under it, already connected.
+  await bar.getByRole('button', { name: 'Chat', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Add a step' }).getByRole('option', { name: /Send chat message/ }).click();
+  const say = inspector.locator('[data-step]');
   await say.getByRole('textbox', { name: 'Message', exact: true }).fill('{{name}} gives ');
   await say.getByRole('group', { name: 'Insert into Message' }).getByRole('button', { name: 'arg1' }).click();
   await say.getByRole('textbox', { name: 'Message', exact: true }).press('End');
   await say.getByRole('textbox', { name: 'Message', exact: true }).pressSequentially(' a big hug');
   await expect(say.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('{{name}} gives {{arg1}} a big hug');
+  await expect(canvas.locator('[data-edge]')).toHaveCount(1);
 
-  await steps.getByRole('button', { name: 'Add step', exact: true }).click();
-  await page.getByRole('menuitem', { name: /^If/ }).click();
-  const iff = page.locator('[data-step="1"]');
-  await iff.getByRole('button', { name: 'Add condition' }).first().click();
-  await iff.getByLabel('Field').fill('arg_count');
-  await iff.getByLabel('Field').press('Tab');
-  await iff.getByLabel('Comparison').selectOption('lt');
-  await iff.getByLabel('Value').fill('1');
-  await iff.getByLabel('Value').press('Tab');
-  await iff.getByRole('button', { name: 'Add step to Then' }).click();
-  await page.getByRole('menuitem', { name: /Send chat message/ }).click();
-  const nested = page.locator('[data-step="1.then.0"]');
-  await nested.getByRole('textbox', { name: 'Message', exact: true }).fill('Who should I hug? Try !hug @name');
-  await iff.getByRole('button', { name: 'Add step to Then' }).click();
-  await page.getByRole('menuitem', { name: /^Stop/ }).click();
-  await expect(page.locator('[data-step="1.then.1"]')).toContainText('Stop');
-
-  // The check should come first.
-  await iff.getByRole('button', { name: 'Move step up' }).first().click();
-  await expect(page.locator('[data-step="0"] > header')).toContainText('If');
-  await expect(page.locator('[data-step="0.then.0"]').getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('Who should I hug? Try !hug @name');
-  await expect(page.locator('[data-step="1"] > header')).toContainText('Send chat message');
+  await bar.getByRole('button', { name: 'Logic', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Add a step' }).getByRole('option', { name: /^If/ }).click();
+  await inspector.getByRole('button', { name: 'Add condition' }).first().click();
+  await inspector.getByLabel('Field').fill('arg_count');
+  await inspector.getByLabel('Field').press('Tab');
+  await inspector.getByLabel('Comparison').selectOption('lt');
+  await inspector.getByLabel('Value').fill('1');
+  await inspector.getByLabel('Value').press('Tab');
+  await bar.getByRole('button', { name: 'Chat', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Add a step' }).getByRole('option', { name: /Send chat message/ }).click();
+  await inspector.getByRole('textbox', { name: 'Message', exact: true }).fill('Who should I hug? Try !hug @name');
+  await expect(canvas.locator('[data-edge][data-branch="then"]')).toHaveCount(1);
+  await expect(canvas.getByRole('button', { name: 'Then', exact: true })).toBeVisible();
+  await bar.getByRole('button', { name: 'Logic', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Add a step' }).getByRole('option', { name: /^Stop/ }).click();
+  await expect(canvas.locator('[data-node]', { hasText: 'End this run' })).toBeVisible();
+  await expect(canvas.locator('[data-edge]')).toHaveCount(4);
 
   // Change the trigger.
-  await page.getByLabel('Who can use it').selectOption('subscriber');
-  await page.getByLabel('Also answers to').fill('cuddle, !squeeze');
-  await page.getByLabel('Also answers to').press('Tab');
-  await expect(page.getByLabel('Also answers to')).toHaveValue('cuddle, squeeze');
+  await page.getByRole('button', { name: 'Fit to view (F)' }).click();
+  await canvas.locator('[data-node][aria-label^="Trigger"]').click();
+  await inspector.getByLabel('Who can use it').selectOption('subscriber');
+  await inspector.getByLabel('Also answers to').fill('cuddle, !squeeze');
+  await inspector.getByLabel('Also answers to').press('Tab');
+  await expect(inspector.getByLabel('Also answers to')).toHaveValue('cuddle, squeeze');
   await expect(page.locator('code.preview')).toHaveText('!hug <arg1>');
+  await inspector.getByRole('button', { name: 'Close inspector (Esc)' }).click();
 
   await expect(page.getByText('Saved', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Test', exact: true }).click();
@@ -175,7 +177,7 @@ test('automation: chat command with nested steps, run and log', async ({ page })
   await page.getByRole('navigation', { name: 'Main sections' }).getByRole('button', { name: 'Alerts' }).click();
   await page.getByRole('navigation', { name: 'Main sections' }).getByRole('button', { name: 'Automation' }).click();
   await list.getByRole('button', { name: /^Hug/ }).click();
-  await expect(page.locator('[data-step="0.then.1"]')).toContainText('Stop');
+  await expect(page.getByRole('region', { name: 'Flow of Hug' }).locator('[data-node]', { hasText: 'End this run' })).toBeVisible();
 
   // Variables.
   const vars = page.getByRole('region', { name: 'Variables' });
@@ -193,7 +195,6 @@ test('automation: chat command with nested steps, run and log', async ({ page })
   await expect(value).toHaveValue('42');
 
   await page.mouse.move(0, 0);
-  await page.locator('.listview').evaluate((el) => el.scrollTo(0, 0));
   await page.waitForTimeout(400);
   await page.screenshot({ path: join(screens, 'automation.png') });
   expect(errors).toEqual([]);

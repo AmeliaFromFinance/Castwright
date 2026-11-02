@@ -1,7 +1,7 @@
 {
   "name": "castwright",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Local-first Twitch broadcaster suite and overlay creator.",
   "license": "MIT",

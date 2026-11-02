@@ -1,7 +1,7 @@
 import type { Action } from '$lib/bindings/Action';
 import type { Overlay } from '$lib/bindings/Overlay';
 import { parseNumber } from '$lib/logic/condition';
-import { stepKey, walk } from './tree';
+import { unreachable } from './graph';
 
 /** Same rule as vars::valid_key in Rust. */
 export function isValidVarKey(key: string): boolean {
@@ -20,7 +20,7 @@ export const MIN_TIMER_S = 10;
 export const MAX_DELAY_MS = 10 * 60 * 1000;
 
 export interface Issue {
-  /** "name", "trigger.0", "step.2.then.0" ... */
+  /** "name" or "node.<id>". */
   key: string;
   message: string;
   /** Warnings don't block saving. */
@@ -38,8 +38,10 @@ export function validateAction(a: Action, all: readonly Action[], overlays: read
   const out: Issue[] = [];
   if (!a.name.trim()) out.push({ key: 'name', message: 'Give the action a name.' });
 
-  a.triggers.forEach((t, i) => {
-    const key = `trigger.${i}`;
+  for (const n of a.graph.nodes) {
+    if (n.kind.type !== 'trigger') continue;
+    const t = n.kind.trigger;
+    const key = `node.${n.id}`;
     if (t.type === 'command') {
       const name = commandName(t.name);
       if (!name) out.push({ key, message: 'Type the command name, e.g. so for !so.' });
@@ -62,10 +64,12 @@ export function validateAction(a: Action, all: readonly Action[], overlays: read
       if (!(t.interval_s >= MIN_TIMER_S))
         out.push({ key, message: `Timers can run at most every ${MIN_TIMER_S} seconds, so shorter intervals are raised to ${MIN_TIMER_S} s.` });
     }
-  });
+  }
 
-  for (const { step: s, path, index } of walk(a.steps)) {
-    const key = `step.${stepKey(path, index)}`;
+  for (const n of a.graph.nodes) {
+    if (n.kind.type !== 'step') continue;
+    const s = n.kind.step;
+    const key = `node.${n.id}`;
     const add = (message: string, warn = false) => out.push({ key, message, warn });
     switch (s.type) {
       case 'chat_send':
@@ -128,6 +132,7 @@ export function validateAction(a: Action, all: readonly Action[], overlays: read
         break;
     }
   }
+  for (const id of unreachable(a.graph)) out.push({ key: `node.${id}`, message: 'Not connected. No trigger leads here.', warn: true });
   return out;
 }
 

@@ -14,15 +14,13 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import IconButton from '$lib/ui/IconButton.svelte';
   import ResizeHandle from '$lib/ui/ResizeHandle.svelte';
-  import Segmented from '$lib/ui/Segmented.svelte';
   import { CircleAlert, Play, Plus, Redo2, Undo2, Zap } from '@lucide/svelte';
-  import ActionEditor from './ActionEditor.svelte';
   import ActionHeader from './ActionHeader.svelte';
   import ActionList from './ActionList.svelte';
   import { TEMPLATE_MENU, fromTemplate, type TemplateId } from './defaults';
   import FlowView from './FlowView.svelte';
   import RunLog from './RunLog.svelte';
-  import { actionsEditor as ed, flow, runLog, type View } from './store.svelte';
+  import { actionsEditor as ed, flow, runLog } from './store.svelte';
   import VarsInspector from './VarsInspector.svelte';
 
   let confirmDelete = $state<Action | null>(null);
@@ -36,16 +34,12 @@
   let varsOpen = $state(true);
 
   // Without room for both, the inspector takes the place of the run log while it is open.
-  const hideSide = $derived(flow.view === 'flow' && flow.inspecting && !!flow.selected && width < 1700);
-  const VIEWS: Array<{ value: View; label: string }> = [
-    { value: 'flow', label: 'Flow' },
-    { value: 'list', label: 'List' }
-  ];
+  const hideSide = $derived(!!flow.inspected && width < 1700);
 
   // A new action starts with nothing selected in the flow.
   $effect(() => {
     void ed.selectedId;
-    untrack(() => flow.select(null));
+    untrack(() => flow.clear());
   });
 
   // The test is over once its run shows up in the log.
@@ -56,6 +50,8 @@
 
   async function test(a: Action) {
     flow.testing = { actionId: a.id, after: runLog.runs[0]?.seq ?? 0 };
+    // Run what is on screen, not the last autosave.
+    await ed.saver.flush();
     if (!(await attemptOk(() => api.runAction(a.id)))) flow.testing = null;
   }
 
@@ -112,7 +108,7 @@
 
   const usedBy = $derived(
     confirmDelete
-      ? (ed.actions ?? []).filter((a) => a.id !== confirmDelete!.id && JSON.stringify(a.steps).includes(`"action_id":"${confirmDelete!.id}"`))
+      ? (ed.actions ?? []).filter((a) => a.id !== confirmDelete!.id && JSON.stringify(a.graph).includes(`"action_id":"${confirmDelete!.id}"`))
       : []
   );
 </script>
@@ -136,8 +132,7 @@
       <IconButton label="Undo (Ctrl+Z)" disabled={!ed.canUndo(a.id)} onclick={() => ed.step(a.id, 'undo')}><Undo2 /></IconButton>
       <IconButton label="Redo (Ctrl+Shift+Z)" disabled={!ed.canRedo(a.id)} onclick={() => ed.step(a.id, 'redo')}><Redo2 /></IconButton>
       <span class="sep" aria-hidden="true"></span>
-      <Segmented label="View" options={VIEWS} value={flow.view} onchange={(v) => flow.setView(v)} />
-      <Button busy={flow.testing?.actionId === a.id} title="Run the steps now, ignoring triggers and cooldown" onclick={() => test(a)}>
+      <Button busy={flow.testing?.actionId === a.id} title="Run it now from its Button trigger, or from all its triggers, ignoring cooldown" onclick={() => test(a)}>
         <Play size={14} />Test
       </Button>
       <span class="sep" aria-hidden="true"></span>
@@ -156,11 +151,7 @@
           {@const a = ed.selected}
           {#key a.id}
             <ActionHeader action={a} onduplicate={() => duplicate(a)} ondelete={() => (confirmDelete = a)} />
-            {#if flow.view === 'flow'}
-              <FlowView action={a} />
-            {:else}
-              <div class="listview"><ActionEditor action={a} /></div>
-            {/if}
+            <FlowView action={a} />
           {/key}
         {:else}
           <EmptyState title="No action selected" body="Actions run steps when something happens: a chat command, a raid, a timer, a button.">
@@ -190,7 +181,7 @@
 </div>
 
 <Dialog open={confirmDelete !== null} title="Delete this action?" width={420} onclose={() => (confirmDelete = null)}>
-  <p class="muted">“{confirmDelete?.name}” and its triggers and steps will be removed.</p>
+  <p class="muted">“{confirmDelete?.name}” and all its nodes will be removed.</p>
   {#if usedBy.length}
     <p class="warn">Used by {usedBy.map((a) => `“${a.name}”`).join(', ')}. Those steps will fail until you change them.</p>
   {/if}
@@ -269,12 +260,6 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-  }
-  .listview {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    padding: 16px 20px 28px;
   }
   .side {
     flex: none;

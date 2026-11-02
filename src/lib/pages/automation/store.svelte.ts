@@ -1,13 +1,14 @@
 import { api, on } from '$lib/api';
 import type { Action } from '$lib/bindings/Action';
 import type { ActionRun } from '$lib/bindings/ActionRun';
-import type { Step } from '$lib/bindings/Step';
-import type { Trigger } from '$lib/bindings/Trigger';
+import type { Graph } from '$lib/bindings/Graph';
 import { Autosaver } from '$lib/editors/autosave.svelte';
 import { clone } from '$lib/editors/ids';
 import { app } from '$lib/state/app.svelte';
 import { loadPref, savePref } from '$lib/state/persist';
+import { syncTriggers, type Clip } from './graph';
 import { ActionHistory } from './history';
+import type { View } from './view';
 import { blocking, validateAction, type Issue } from './validate';
 
 /** Working copy of the actions. Lives as long as the app, so edits survive page switches. */
@@ -62,9 +63,9 @@ class ActionsEditor {
     return this.actions?.find((a) => a.id === id);
   }
 
-  /** Keep the action as it is now for undo. Same `key` within a second merges, e.g. typing in one field. */
-  #record(a: Action, key: string | null): void {
-    this.history.record(clone($state.snapshot(a)) as Action, key ? `${a.id}:${key}` : null);
+  /** Keep the action as it is now for undo. Same `key` within `windowMs` merges, e.g. typing in one field. */
+  #record(a: Action, key: string | null, windowMs?: number): void {
+    this.history.record(clone($state.snapshot(a)) as Action, key ? `${a.id}:${key}` : null, Date.now(), windowMs);
     this.#rev++;
   }
 
@@ -76,24 +77,41 @@ class ActionsEditor {
     this.changed();
   }
 
-  patchTrigger(id: string, index: number, patch: Partial<Trigger>): void {
+  /**
+   * Change the graph. `key` merges repeated edits into one undo step (a drag passes
+   * `windowMs: Infinity` and seals when it ends); leave it out for structural changes.
+   */
+  updateGraph(id: string, fn: (g: Graph) => Graph | null, key: string | null = null, windowMs?: number): boolean {
     const a = this.#find(id);
-    const t = a?.triggers[index];
-    if (!a || !t) return;
-    this.#record(a, `t.${index}.${Object.keys(patch).join(',')}`);
-    Object.assign(t, patch);
+    if (!a) return false;
+    const before = $state.snapshot(a.graph) as Graph;
+    const next = fn(clone(before));
+    if (!next || JSON.stringify(next) === JSON.stringify(before)) return false;
+    this.#record(a, key ? `g.${key}` : null, windowMs);
+    a.graph = next;
+    syncTriggers(a);
     this.changed();
+    return true;
   }
 
-  /** `key` merges repeated edits into one undo step; leave it out for structural changes. */
-  updateSteps(id: string, fn: (steps: Step[]) => Step[], key: string | null = null): void {
-    const a = this.#find(id);
-    if (!a) return;
-    const next = fn($state.snapshot(a.steps) as Step[]);
-    if (JSON.stringify(next) === JSON.stringify($state.snapshot(a.steps))) return;
-    this.#record(a, key ? `s.${key}` : null);
-    a.steps = next;
-    this.changed();
+  /** Change some fields of the trigger or step in one node. */
+  patchNode(id: string, nodeId: string, patch: Record<string, unknown>): void {
+    this.updateGraph(
+      id,
+      (g) => {
+        const n = g.nodes.find((x) => x.id === nodeId);
+        if (!n) return null;
+        if (n.kind.type === 'trigger') n.kind.trigger = { ...n.kind.trigger, ...patch } as typeof n.kind.trigger;
+        else n.kind.step = { ...n.kind.step, ...patch } as typeof n.kind.step;
+        return g;
+      },
+      `n.${nodeId}.${Object.keys(patch).join(',')}`
+    );
+  }
+
+  /** End a run of merged edits, e.g. when a drag ends. */
+  seal(id: string): void {
+    this.history.seal(id);
   }
 
   canUndo(id: string): boolean {
@@ -126,33 +144,43 @@ class ActionsEditor {
 
 export const actionsEditor = new ActionsEditor();
 
-export type View = 'flow' | 'list';
-
-/** Flow view state. View and zoom are kept per device. */
+/** Canvas state. Snap is kept per device; the view per action while the app runs. */
 class FlowState {
-  view = $state<View>(loadPref('automation.view', 'flow'));
-  zoom = $state<number>(loadPref('automation.zoom', 1));
-  /** Selected node: "t.0" for a trigger, "s.1.then.0" for a step. */
-  selected = $state<string | null>(null);
+  snap = $state<boolean>(loadPref('automation.snap', true));
+  /** Selected node ids. */
+  selected = $state<string[]>([]);
+  /** Selected line, when no nodes are. */
+  edge = $state<string | null>(null);
   inspecting = $state(false);
-  /** Cut or copied step, pasted after the selected node. */
-  clipboard = $state<Step | null>(null);
+  clipboard = $state<Clip | null>(null);
   /** A test run that hasn't reported back yet. */
   testing = $state<{ actionId: string; after: number } | null>(null);
+  views = new Map<string, View>();
 
-  setView(v: View): void {
-    this.view = v;
-    savePref('automation.view', v);
+  /** The node shown in the inspector. */
+  get inspected(): string | null {
+    return this.inspecting && this.selected.length === 1 ? this.selected[0]! : null;
   }
 
-  setZoom(z: number): void {
-    this.zoom = Math.round(Math.min(2, Math.max(0.3, z)) * 100) / 100;
-    savePref('automation.zoom', this.zoom);
+  setSnap(on: boolean): void {
+    this.snap = on;
+    savePref('automation.snap', on);
   }
 
-  select(key: string | null, inspect = this.inspecting): void {
-    this.selected = key;
-    this.inspecting = !!key && inspect;
+  select(ids: string[], inspect = this.inspecting): void {
+    this.selected = ids;
+    this.edge = null;
+    this.inspecting = ids.length === 1 && inspect;
+  }
+
+  selectEdge(id: string | null): void {
+    this.selected = [];
+    this.inspecting = false;
+    this.edge = id;
+  }
+
+  clear(): void {
+    this.select([], false);
   }
 }
 

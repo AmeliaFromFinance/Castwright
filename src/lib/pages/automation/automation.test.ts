@@ -19,7 +19,7 @@ import {
   type StepType,
   type TriggerType
 } from './defaults';
-import { child, countSteps, duplicateStep, getList, insertStep, moveStep, removeStep, replaceStep, stepKey, walk } from './tree';
+import { fromTree, syncTriggers } from './graph';
 import { blocking, commandName, isValidVarKey, parseVarValue, validateAction, varText } from './validate';
 
 const project = starter as unknown as Project;
@@ -73,7 +73,7 @@ describe('defaults', () => {
 
   it('new actions match the Rust default', () => {
     const a = newAction();
-    expect(a).toMatchObject({ name: 'New action', group: 'General', enabled: true, triggers: [], steps: [], cooldown_s: 0 });
+    expect(a).toMatchObject({ name: 'New action', group: 'General', enabled: true, triggers: [], steps: [], graph: { nodes: [], edges: [] }, cooldown_s: 0 });
     expect(a.id).toMatch(/^[a-z0-9]{12}$/);
     expect(newAction().id).not.toBe(a.id);
   });
@@ -83,7 +83,8 @@ describe('defaults', () => {
       for (const it of g.items) {
         const a = fromTemplate(it.value);
         expect(roundTrip<Action>(a)).toEqual(a);
-        expect(blocking(validateAction(a, [a]))).toEqual([]);
+        expect(validateAction(a, [a])).toEqual([]);
+        expect(a.triggers).toHaveLength(a.graph.nodes.filter((n) => n.kind.type === 'trigger').length);
       }
   });
 
@@ -102,59 +103,18 @@ const iff = (then: Step[], otherwise: Step[] = []): Step => ({
   else: otherwise
 });
 
-describe('step tree', () => {
-  const tree = (): Step[] => [say('a'), iff([say('b'), iff([say('c')])], [say('d')]), say('e')];
-
-  it('gets nested lists', () => {
-    const t = tree();
-    expect(getList(t, [])).toBe(t);
-    expect(getList(t, [{ index: 1, branch: 'else' }])).toEqual([say('d')]);
-    expect(getList(t, child(child([], 1, 'then'), 1, 'then'))).toEqual([say('c')]);
-    expect(getList(t, [{ index: 0, branch: 'then' }])).toBeNull();
-  });
-
-  it('inserts, removes, moves and replaces by path', () => {
-    const t = tree();
-    const deep = child(child([], 1, 'then'), 1, 'then');
-    const inserted = insertStep(t, deep, 0, say('x'));
-    expect(getList(inserted, deep)).toEqual([say('x'), say('c')]);
-    expect(t).toEqual(tree());
-
-    const removed = removeStep(t, [{ index: 1, branch: 'then' }], 0);
-    expect(getList(removed, [{ index: 1, branch: 'then' }])).toHaveLength(1);
-
-    const moved = moveStep(t, [], 2, -2);
-    expect(moved.map((s) => s.type)).toEqual(['chat_send', 'chat_send', 'if']);
-    expect((moved[0] as Extract<Step, { type: 'chat_send' }>).message).toBe('e');
-
-    const replaced = replaceStep(t, [{ index: 1, branch: 'else' }], 0, say('z'));
-    expect(getList(replaced, [{ index: 1, branch: 'else' }])).toEqual([say('z')]);
-    expect(replaceStep(t, [], 9, say('z'))).toEqual(t);
-  });
-
-  it('duplicates deep copies', () => {
-    const t = tree();
-    const d = duplicateStep(t, [], 1);
-    expect(d).toHaveLength(4);
-    expect(d[2]).toEqual(d[1]);
-    expect(d[2]).not.toBe(d[1]);
-  });
-
-  it('ignores bad paths', () => {
-    const t = tree();
-    expect(insertStep(t, [{ index: 0, branch: 'then' }], 0, say('x'))).toEqual(t);
-  });
-
-  it('walks and keys', () => {
-    const t = tree();
-    expect(countSteps(t)).toBe(7);
-    const keys = walk(t).map((w) => stepKey(w.path, w.index));
-    expect(keys).toEqual(['0', '1', '1.then.0', '1.then.1', '1.then.1.then.0', '1.else.0', '2']);
-  });
-});
-
 describe('validation', () => {
-  const base = (patch: Partial<Action>) => newAction({ name: 'Test', ...patch });
+  const base = (patch: Partial<Action> & { steps?: Step[] }) => {
+    const { triggers = [], steps = [], ...rest } = patch;
+    const a = newAction({ name: 'Test', ...rest, graph: fromTree(triggers, steps) });
+    syncTriggers(a);
+    return a;
+  };
+  /** Trigger or step type of the node an issue is about. */
+  const typeOf = (a: Action, key: string) => {
+    const n = a.graph.nodes.find((x) => `node.${x.id}` === key);
+    return n?.kind.type === 'trigger' ? n.kind.trigger.type : n?.kind.step.type;
+  };
 
   it('needs a name', () => {
     expect(validateAction(base({ name: ' ' }), []).map((i) => i.key)).toEqual(['name']);
@@ -162,7 +122,8 @@ describe('validation', () => {
 
   it('checks command triggers', () => {
     const cmd = (name: string, aliases: string[] = []): Trigger => ({ type: 'command', name, aliases, permission: 'everyone', user_cooldown_s: 0 });
-    expect(validateAction(base({ triggers: [cmd('')] }), [])[0]).toMatchObject({ key: 'trigger.0' });
+    const empty = base({ triggers: [cmd('')] });
+    expect(typeOf(empty, validateAction(empty, [])[0]!.key)).toBe('command');
     expect(validateAction(base({ triggers: [cmd('two words')] }), [])).toHaveLength(1);
     expect(validateAction(base({ triggers: [cmd('!so')] }), [])).toEqual([]);
     expect(validateAction(base({ triggers: [cmd('so', ['a b'])] }), [])).toHaveLength(1);
@@ -179,7 +140,7 @@ describe('validation', () => {
     expect(issues[0]!.message).toMatch(/10 seconds/);
   });
 
-  it('checks steps, including nested ones', () => {
+  it('checks every step node', () => {
     const a = base({
       steps: [
         { type: 'set_variable', key: 'bad key!', value: '1', persist: false },
@@ -187,13 +148,25 @@ describe('validation', () => {
         { type: 'http_request', method: 'get', url: 'ftp://x', body: '', save_to: '' }
       ]
     });
-    const keys = validateAction(a, [a]).map((i) => i.key);
-    expect(keys).toEqual(['step.0', 'step.1.then.1', 'step.2']);
+    const types = validateAction(a, [a]).map((i) => typeOf(a, i.key));
+    expect(types).toEqual(['set_variable', 'run_action', 'http_request']);
+  });
+
+  it('warns about nodes no trigger reaches', () => {
+    const a = base({ triggers: [{ type: 'manual' }], steps: [say('a')] });
+    expect(validateAction(a, [a])).toEqual([]);
+    a.graph.edges = [];
+    const issues = validateAction(a, [a]);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({ warn: true, message: expect.stringMatching(/Not connected/) });
+    expect(typeOf(a, issues[0]!.key)).toBe('chat_send');
+    // Without triggers, steps run from Test, so nothing is loose.
+    expect(validateAction(base({ steps: [say('a')] }), [])).toEqual([]);
   });
 
   it('an action cannot run itself', () => {
     const a = base({});
-    a.steps = [{ type: 'run_action', action_id: a.id }];
+    a.graph = fromTree([], [{ type: 'run_action', action_id: a.id }]);
     expect(validateAction(a, [a])[0]!.message).toMatch(/itself/);
   });
 
@@ -201,12 +174,16 @@ describe('validation', () => {
     const a = base({ steps: [{ type: 'set_layer_visible', overlay_id: 'nope', layer_id: 'x', state: 'on' }] });
     expect(validateAction(a, [a], project.overlays)).toHaveLength(1);
     const o = project.overlays[0]!;
-    a.steps = [{ type: 'set_layer_visible', overlay_id: o.id, layer_id: o.layers[0]!.id, state: 'toggle' }];
+    a.graph = fromTree([], [{ type: 'set_layer_visible', overlay_id: o.id, layer_id: o.layers[0]!.id, state: 'toggle' }]);
     expect(validateAction(a, [a], project.overlays)).toEqual([]);
   });
 
-  it('starter actions are valid', () => {
-    for (const a of project.actions) expect(blocking(validateAction(a, project.actions, project.overlays))).toEqual([]);
+  it('starter actions are valid graphs', () => {
+    for (const a of project.actions) {
+      expect(validateAction(a, project.actions, project.overlays)).toEqual([]);
+      expect(a.steps).toEqual([]);
+      expect(a.graph.nodes.length).toBeGreaterThan(a.triggers.length);
+    }
   });
 
   it('variable keys follow the backend rule', () => {

@@ -90,7 +90,10 @@ pub fn save_alerts(core: Ctx, config: AlertConfig) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub fn save_actions(core: Ctx, actions: Vec<Action>) -> AppResult<()> {
+pub fn save_actions(core: Ctx, mut actions: Vec<Action>) -> AppResult<()> {
+    for a in &mut actions {
+        a.normalize();
+    }
     let mut ids = std::collections::HashSet::new();
     if !actions.iter().all(|a| ids.insert(a.id.clone())) {
         return user_err("Two actions have the same id.");

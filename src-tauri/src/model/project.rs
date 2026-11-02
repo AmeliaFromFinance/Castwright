@@ -4,7 +4,8 @@ use super::overlay::Overlay;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-pub const PROJECT_FORMAT: u32 = 1;
+/// 2: actions are graphs. Older projects are converted when they load.
+pub const PROJECT_FORMAT: u32 = 2;
 
 /// Everything the user builds, saved as `project.json` in the project folder.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -38,6 +39,14 @@ impl Project {
             actions: Action::starters(),
             ..Project::default()
         }
+    }
+
+    /// Bring a loaded project up to the current format.
+    pub fn normalize(&mut self) {
+        for a in &mut self.actions {
+            a.normalize();
+        }
+        self.format = PROJECT_FORMAT;
     }
 }
 

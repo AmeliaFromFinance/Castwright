@@ -44,10 +44,7 @@ function templates(steps: readonly Step[]): string[] {
     for (const [k, v] of Object.entries(s)) {
       if (typeof v === 'string' && k !== 'type') out.push(v);
     }
-    if (s.type === 'if') {
-      out.push(...s.conditions.conditions.map((c) => c.field));
-      out.push(...templates(s.then), ...templates(s.else));
-    }
+    if (s.type === 'if') out.push(...s.conditions.conditions.map((c) => c.field));
   }
   return out;
 }

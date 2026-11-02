@@ -5,7 +5,7 @@ sidebar:
   order: 5
 ---
 
-An action is a list of steps that runs when one of its triggers fires. This page lists every trigger and step. For a walkthrough, see the [automation guide](/guide/automation/).
+An action is a set of trigger and step nodes joined by lines. A run starts at the trigger that fired and follows the lines. This page lists every trigger and step. For a walkthrough, see the [automation guide](/guide/automation/).
 
 ## Action settings
 
@@ -15,7 +15,7 @@ An action is a list of steps that runs when one of its triggers fires. This page
 | Group | `General` | Folder name in the action list |
 | Cooldown | 0 (none) | Seconds before the action can run again, for everyone |
 | Triggers | None | What starts it. An action can have several. |
-| Steps | None | What it does, in order |
+| Steps | None | What it does, joined by lines |
 
 ## Triggers
 
@@ -35,11 +35,7 @@ One event starts an action at most once, even when several of its triggers match
 
 ### Event
 
-Fires for every event of the chosen [kind](/reference/events/#event-kinds) whose fields match the conditions. Test events count too.
-
-:::caution
-Chat message triggers also fire for messages Castwright sent. If the action sends chat, add the condition `data.sent_by_castwright` **is no/false**, or it will trigger itself until the burst limit stops it.
-:::
+Fires for every event of the chosen [kind](/reference/events/#event-kinds) whose fields match the conditions. Test events don't run actions; the log notes the skip. Messages Castwright or the bot account sent never fire chat triggers.
 
 ### Chat command
 
@@ -84,7 +80,7 @@ Fires when the scene on air in OBS changes. The name match ignores capital lette
 
 ### Manual
 
-Run from the app, a Stream Deck button or the [local HTTP API](/reference/http-api/). Any action can be run this way, with or without a Manual trigger. Manual runs ignore the Enabled switch and the cooldown.
+Run from the app, a Stream Deck button or the [local HTTP API](/reference/http-api/). Any action can be run this way, with or without a Manual trigger. Manual runs ignore the Enabled switch and the cooldown. Where they start is explained under [Where a run starts](#where-a-run-starts).
 
 ## Steps
 
@@ -139,7 +135,7 @@ Every state option also takes `toggle`, which flips the current state.
 | Step | Type | Options | Notes |
 | --- | --- | --- | --- |
 | Wait | `delay` | Milliseconds | Up to 10 minutes. Longer waits are cut to 10 minutes. |
-| If | `if` | Conditions, then steps, else steps | See [If](#if). |
+| If | `if` | Conditions | Picks which lines to follow. See [If](#if). |
 | Run action | `run_action` | Action | See [Run action](#run-action). |
 | Stop | `stop` | None | Ends the whole run here. |
 | Log | `log` | Message (T) | Writes a line to the log on the Activity page. |
@@ -161,17 +157,33 @@ POST https://example.com/hook
 
 ### If
 
-Checks its conditions against the run's current values: variables, event fields, command arguments and anything earlier steps set. Then it runs the **then** steps or the **else** steps. A Stop inside either branch ends the whole run.
+Checks its conditions against the run's current values: variables, event fields, command arguments and anything earlier steps set. Then it follows its **Then** lines when they match, or its **Otherwise** lines when they don't. **Always** lines are followed either way.
 
 ### Run action
 
-Runs another action's steps inside the current run. They share the same values, so variables set before are visible inside.
+Runs another action inside the current run, starting where a manual run would. They share the same values, so variables set before are visible inside.
 
-- The other action's triggers, Enabled switch and cooldown are ignored.
+- The other action's Enabled switch and cooldown are ignored.
 - Nesting goes up to 6 levels. Deeper calls fail with "Actions call each other too deeply."
 - A Stop inside the other action ends the whole run.
 
 ## How runs behave
+
+### Where a run starts
+
+| Started by | Starts at |
+| --- | --- |
+| A trigger (command, event, timer, scene, live/offline) | That trigger's node. Other triggers of the action aren't involved. |
+| Test, Stream Deck, HTTP API, an alert, a Run action step | The Button or Stream Deck trigger. Without one, all triggers at once, and a step several triggers lead to runs once. Without any triggers, the steps no line leads to. |
+
+### How a run moves
+
+- From each node the run follows every line leaving it, one at a time. Everything after one line finishes before the next line is followed (depth first).
+- Lines are taken in order of where they lead: the highest node first, then left to right. Move nodes to change the order.
+- When several lines lead into one node, it runs each time it's reached. Nothing waits for the others.
+- Lines can loop back. A run stops after 500 steps with "Stopped after 500 steps" in the log, so a loop can't run forever.
+- **Stop** ends the whole run, including any lines not yet followed.
+- Nodes no trigger leads to never run. The flow marks them **Not connected**.
 
 ### Values in a run
 
@@ -179,7 +191,7 @@ A run starts with a copy of all variables, then adds the event fields and comman
 
 ### Errors
 
-A failing step doesn't stop the run. The error goes to the log as `<action name>: <step name>: <message>`, and the next step runs. The run is marked as failed.
+A failing step doesn't stop the run. The error goes to the log as `<action name>: <step name>: <message>`, and the run carries on along its lines. The run is marked as failed, and the node shows the error after **Test**.
 
 Twitch steps fail when you aren't signed in to Twitch. OBS steps fail when OBS isn't connected.
 
@@ -188,8 +200,9 @@ Twitch steps fail when you aren't signed in to Twitch. OBS steps fail when OBS i
 | Protection | Limit |
 | --- | --- |
 | Burst limit | Each action runs at most 20 times in any 10 seconds. Extra runs are skipped with a warning in the log. |
-| Own messages | Chat commands ignore messages Castwright sent, from any account. |
+| Own messages | Chat commands and chat triggers ignore messages Castwright or the bot account sent. |
 | Bot account | Chat commands ignore every message from the signed-in bot account. |
 | Nesting | Run action goes 6 levels deep at most. |
+| Steps per run | 500 at most, counting every time a node runs. |
 
 The burst limit applies to manual runs too.

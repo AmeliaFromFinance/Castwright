@@ -1,15 +1,15 @@
 {
-  "format": 1,
+  "format": 2,
   "name": "My stream",
   "overlays": [
     {
-      "id": "qm5w7of6usii",
+      "id": "4zb26eb1uyac",
       "name": "Gameplay HUD",
       "width": 1920,
       "height": 1080,
       "layers": [
         {
-          "id": "ui9jlu9w5cik",
+          "id": "oicg1zt9garw",
           "name": "Sub goal",
           "kind": {
             "type": "goal",
@@ -53,7 +53,44 @@
             "radius": 12.0,
             "padding": 16.0,
             "shadow": "0 12px 40px rgba(0,0,0,0.35)",
-            "backdrop_blur": 10.0
+            "backdrop_blur": 10.0,
+            "shape": "rounded",
+            "corners": null,
+            "tail_side": "bottom",
+            "tail_pos": 20.0,
+            "tail_size": 16.0,
+            "slant": 12.0,
+            "cut": 14.0,
+            "pixel": 6.0,
+            "fill": "solid",
+            "gradient": [
+              {
+                "color": "#5b8def",
+                "at": 0.0
+              },
+              {
+                "color": "#c9b3ff",
+                "at": 100.0
+              }
+            ],
+            "gradient_angle": 135.0,
+            "fill_opacity": 1.0,
+            "pattern": "none",
+            "pattern_color": "#000000",
+            "pattern_opacity": 0.18,
+            "pattern_size": 8.0,
+            "border_style": "solid",
+            "stripe": "none",
+            "stripe_width": 4.0,
+            "stripe_color": "#9db8ff",
+            "stripe_name_color": false,
+            "shadow_kind": "custom",
+            "shadow_x": 0.0,
+            "shadow_y": 8.0,
+            "shadow_blur": 24.0,
+            "shadow_color": "rgba(0,0,0,0.35)",
+            "lean": 0.0,
+            "padding_x": null
           },
           "enter": {
             "preset": "slide_down",
@@ -76,7 +113,7 @@
           "css": ""
         },
         {
-          "id": "b1fgvwmokqt0",
+          "id": "fye5pdiouaxf",
           "name": "Chat",
           "kind": {
             "type": "chat",
@@ -106,9 +143,58 @@
               "radius": 0.0,
               "padding": 0.0,
               "shadow": "",
-              "backdrop_blur": 0.0
+              "backdrop_blur": 0.0,
+              "shape": "rounded",
+              "corners": null,
+              "tail_side": "bottom",
+              "tail_pos": 20.0,
+              "tail_size": 16.0,
+              "slant": 12.0,
+              "cut": 14.0,
+              "pixel": 6.0,
+              "fill": "solid",
+              "gradient": [
+                {
+                  "color": "#5b8def",
+                  "at": 0.0
+                },
+                {
+                  "color": "#c9b3ff",
+                  "at": 100.0
+                }
+              ],
+              "gradient_angle": 135.0,
+              "fill_opacity": 1.0,
+              "pattern": "none",
+              "pattern_color": "#000000",
+              "pattern_opacity": 0.18,
+              "pattern_size": 8.0,
+              "border_style": "solid",
+              "stripe": "none",
+              "stripe_width": 4.0,
+              "stripe_color": "#9db8ff",
+              "stripe_name_color": false,
+              "shadow_kind": "custom",
+              "shadow_x": 0.0,
+              "shadow_y": 8.0,
+              "shadow_blur": 24.0,
+              "shadow_color": "rgba(0,0,0,0.35)",
+              "lean": 0.0,
+              "padding_x": null
             },
-            "newest_on_top": false
+            "newest_on_top": false,
+            "seventv_emotes": true,
+            "bttv_emotes": true,
+            "ffz_emotes": true,
+            "seventv_paints": true,
+            "seventv_badges": true,
+            "item_card": {
+              "alternate": false,
+              "tint": 0.0,
+              "around": "message",
+              "width": "full",
+              "gap": 6.0
+            }
           },
           "x": 1392.0,
           "y": 200.0,
@@ -129,7 +215,44 @@
             "radius": 12.0,
             "padding": 16.0,
             "shadow": "0 12px 40px rgba(0,0,0,0.35)",
-            "backdrop_blur": 10.0
+            "backdrop_blur": 10.0,
+            "shape": "rounded",
+            "corners": null,
+            "tail_side": "bottom",
+            "tail_pos": 20.0,
+            "tail_size": 16.0,
+            "slant": 12.0,
+            "cut": 14.0,
+            "pixel": 6.0,
+            "fill": "solid",
+            "gradient": [
+              {
+                "color": "#5b8def",
+                "at": 0.0
+              },
+              {
+                "color": "#c9b3ff",
+                "at": 100.0
+              }
+            ],
+            "gradient_angle": 135.0,
+            "fill_opacity": 1.0,
+            "pattern": "none",
+            "pattern_color": "#000000",
+            "pattern_opacity": 0.18,
+            "pattern_size": 8.0,
+            "border_style": "solid",
+            "stripe": "none",
+            "stripe_width": 4.0,
+            "stripe_color": "#9db8ff",
+            "stripe_name_color": false,
+            "shadow_kind": "custom",
+            "shadow_x": 0.0,
+            "shadow_y": 8.0,
+            "shadow_blur": 24.0,
+            "shadow_color": "rgba(0,0,0,0.35)",
+            "lean": 0.0,
+            "padding_x": null
           },
           "enter": {
             "preset": "none",
@@ -152,7 +275,7 @@
           "css": ""
         },
         {
-          "id": "bbxcdjxa0i38",
+          "id": "qnl6pb0qcsfv",
           "name": "Recent events",
           "kind": {
             "type": "event_list",
@@ -181,6 +304,59 @@
               "shadow": "0 2px 6px rgba(0,0,0,0.45)",
               "stroke_width": 0.0,
               "stroke_color": "#000000"
+            },
+            "item_box": {
+              "background": "transparent",
+              "border_color": "transparent",
+              "border_width": 0.0,
+              "radius": 0.0,
+              "padding": 0.0,
+              "shadow": "",
+              "backdrop_blur": 0.0,
+              "shape": "rounded",
+              "corners": null,
+              "tail_side": "bottom",
+              "tail_pos": 20.0,
+              "tail_size": 16.0,
+              "slant": 12.0,
+              "cut": 14.0,
+              "pixel": 6.0,
+              "fill": "solid",
+              "gradient": [
+                {
+                  "color": "#5b8def",
+                  "at": 0.0
+                },
+                {
+                  "color": "#c9b3ff",
+                  "at": 100.0
+                }
+              ],
+              "gradient_angle": 135.0,
+              "fill_opacity": 1.0,
+              "pattern": "none",
+              "pattern_color": "#000000",
+              "pattern_opacity": 0.18,
+              "pattern_size": 8.0,
+              "border_style": "solid",
+              "stripe": "none",
+              "stripe_width": 4.0,
+              "stripe_color": "#9db8ff",
+              "stripe_name_color": false,
+              "shadow_kind": "custom",
+              "shadow_x": 0.0,
+              "shadow_y": 8.0,
+              "shadow_blur": 24.0,
+              "shadow_color": "rgba(0,0,0,0.35)",
+              "lean": 0.0,
+              "padding_x": null
+            },
+            "item_card": {
+              "alternate": false,
+              "tint": 0.0,
+              "around": "message",
+              "width": "full",
+              "gap": 6.0
             }
           },
           "x": 560.0,
@@ -202,7 +378,44 @@
             "radius": 12.0,
             "padding": 12.0,
             "shadow": "0 12px 40px rgba(0,0,0,0.35)",
-            "backdrop_blur": 10.0
+            "backdrop_blur": 10.0,
+            "shape": "rounded",
+            "corners": null,
+            "tail_side": "bottom",
+            "tail_pos": 20.0,
+            "tail_size": 16.0,
+            "slant": 12.0,
+            "cut": 14.0,
+            "pixel": 6.0,
+            "fill": "solid",
+            "gradient": [
+              {
+                "color": "#5b8def",
+                "at": 0.0
+              },
+              {
+                "color": "#c9b3ff",
+                "at": 100.0
+              }
+            ],
+            "gradient_angle": 135.0,
+            "fill_opacity": 1.0,
+            "pattern": "none",
+            "pattern_color": "#000000",
+            "pattern_opacity": 0.18,
+            "pattern_size": 8.0,
+            "border_style": "solid",
+            "stripe": "none",
+            "stripe_width": 4.0,
+            "stripe_color": "#9db8ff",
+            "stripe_name_color": false,
+            "shadow_kind": "custom",
+            "shadow_x": 0.0,
+            "shadow_y": 8.0,
+            "shadow_blur": 24.0,
+            "shadow_color": "rgba(0,0,0,0.35)",
+            "lean": 0.0,
+            "padding_x": null
           },
           "enter": {
             "preset": "none",
@@ -225,7 +438,7 @@
           "css": ""
         },
         {
-          "id": "2ehfa7vu39gt",
+          "id": "pj6rq151t3td",
           "name": "Alerts",
           "kind": {
             "type": "alerts"
@@ -249,7 +462,44 @@
             "radius": 0.0,
             "padding": 0.0,
             "shadow": "",
-            "backdrop_blur": 0.0
+            "backdrop_blur": 0.0,
+            "shape": "rounded",
+            "corners": null,
+            "tail_side": "bottom",
+            "tail_pos": 20.0,
+            "tail_size": 16.0,
+            "slant": 12.0,
+            "cut": 14.0,
+            "pixel": 6.0,
+            "fill": "solid",
+            "gradient": [
+              {
+                "color": "#5b8def",
+                "at": 0.0
+              },
+              {
+                "color": "#c9b3ff",
+                "at": 100.0
+              }
+            ],
+            "gradient_angle": 135.0,
+            "fill_opacity": 1.0,
+            "pattern": "none",
+            "pattern_color": "#000000",
+            "pattern_opacity": 0.18,
+            "pattern_size": 8.0,
+            "border_style": "solid",
+            "stripe": "none",
+            "stripe_width": 4.0,
+            "stripe_color": "#9db8ff",
+            "stripe_name_color": false,
+            "shadow_kind": "custom",
+            "shadow_x": 0.0,
+            "shadow_y": 8.0,
+            "shadow_blur": 24.0,
+            "shadow_color": "rgba(0,0,0,0.35)",
+            "lean": 0.0,
+            "padding_x": null
           },
           "enter": {
             "preset": "none",
@@ -294,7 +544,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "jxhs4qdaxq8i",
+            "id": "s2lbe2y8n71j",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -352,6 +602,7 @@
             },
             "accent": "#9db8ff",
             "background": "rgba(12,15,22,0.82)",
+            "card": null,
             "tts": false,
             "run_action": null
           }
@@ -362,7 +613,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "8whajya7ndx1",
+            "id": "0vhtukokg5hb",
             "name": "Tier 3",
             "enabled": true,
             "conditions": {
@@ -426,11 +677,12 @@
             },
             "accent": "#c9b3ff",
             "background": "rgba(12,15,22,0.82)",
+            "card": null,
             "tts": false,
             "run_action": null
           },
           {
-            "id": "xdnv7raz5etz",
+            "id": "26omd4kpn7vq",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -488,6 +740,7 @@
             },
             "accent": "#9db8ff",
             "background": "rgba(12,15,22,0.82)",
+            "card": null,
             "tts": false,
             "run_action": null
           }
@@ -498,7 +751,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "zrny5kompqzu",
+            "id": "5ksmtq8beduo",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -556,6 +809,7 @@
             },
             "accent": "#9db8ff",
             "background": "rgba(12,15,22,0.82)",
+            "card": null,
             "tts": false,
             "run_action": null
           }
@@ -566,7 +820,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "i6zjjp1gr292",
+            "id": "5fqzqmg22y5x",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -624,6 +878,7 @@
             },
             "accent": "#9db8ff",
             "background": "rgba(12,15,22,0.82)",
+            "card": null,
             "tts": false,
             "run_action": null
           }
@@ -634,7 +889,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "96fp16e4sztl",
+            "id": "z98c1a5rv5wg",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -692,6 +947,7 @@
             },
             "accent": "#9db8ff",
             "background": "rgba(12,15,22,0.82)",
+            "card": null,
             "tts": false,
             "run_action": null
           }
@@ -702,7 +958,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "vt30jlpa9svn",
+            "id": "unvjq9x08tu3",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -760,6 +1016,7 @@
             },
             "accent": "#9db8ff",
             "background": "rgba(12,15,22,0.82)",
+            "card": null,
             "tts": false,
             "run_action": null
           }
@@ -770,7 +1027,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "wvoaxuevtlz6",
+            "id": "taqsy05nszxv",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -828,6 +1085,7 @@
             },
             "accent": "#9db8ff",
             "background": "rgba(12,15,22,0.82)",
+            "card": null,
             "tts": false,
             "run_action": null
           }
@@ -838,7 +1096,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "5ru51bdw3ixl",
+            "id": "gvagqcnx3k0q",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -896,6 +1154,7 @@
             },
             "accent": "#9db8ff",
             "background": "rgba(12,15,22,0.82)",
+            "card": null,
             "tts": false,
             "run_action": null
           }
@@ -906,7 +1165,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "3kormi6q8esa",
+            "id": "z98u5h67ssax",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -964,6 +1223,7 @@
             },
             "accent": "#9db8ff",
             "background": "rgba(12,15,22,0.82)",
+            "card": null,
             "tts": false,
             "run_action": null
           }
@@ -974,7 +1234,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "1oipg9jc28ya",
+            "id": "ob2f7eut8qgi",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -1032,6 +1292,7 @@
             },
             "accent": "#9db8ff",
             "background": "rgba(12,15,22,0.82)",
+            "card": null,
             "tts": false,
             "run_action": null
           }
@@ -1042,7 +1303,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "e1ocz7i8n4in",
+            "id": "tjhnciqhvgsp",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -1100,6 +1361,7 @@
             },
             "accent": "#9db8ff",
             "background": "rgba(12,15,22,0.82)",
+            "card": null,
             "tts": false,
             "run_action": null
           }
@@ -1110,7 +1372,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "je4pzv0l4n6r",
+            "id": "yp3oldtxtfh2",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -1168,6 +1430,7 @@
             },
             "accent": "#9db8ff",
             "background": "rgba(12,15,22,0.82)",
+            "card": null,
             "tts": false,
             "run_action": null
           }
@@ -1178,7 +1441,7 @@
         "enabled": true,
         "variations": [
           {
-            "id": "1aad3px64jgp",
+            "id": "19oxlxrbq31n",
             "name": "Default",
             "enabled": true,
             "conditions": {
@@ -1236,6 +1499,7 @@
             },
             "accent": "#9db8ff",
             "background": "rgba(12,15,22,0.82)",
+            "card": null,
             "tts": false,
             "run_action": null
           }
@@ -1245,7 +1509,7 @@
   },
   "actions": [
     {
-      "id": "fknlu4xfxd70",
+      "id": "rbi85ntntvds",
       "name": "!uptime",
       "group": "Chat commands",
       "enabled": true,
@@ -1258,18 +1522,54 @@
           "user_cooldown_s": 30
         }
       ],
-      "steps": [
-        {
-          "type": "chat_send",
-          "message": "Live for {{stream.uptime_text | default:\"0m\"}}",
-          "as_bot": true,
-          "reply": true
-        }
-      ],
+      "steps": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "e5zdu1v2usoi",
+            "x": 26.0,
+            "y": 0.0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "command",
+                "name": "uptime",
+                "aliases": [],
+                "permission": "everyone",
+                "user_cooldown_s": 30
+              }
+            }
+          },
+          {
+            "id": "4ryepsudcmx3",
+            "x": 26.0,
+            "y": 210.0,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "chat_send",
+                "message": "Live for {{stream.uptime_text | default:\"0m\"}}",
+                "as_bot": true,
+                "reply": true
+              }
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "nkqnl1djpy5s",
+            "from": "e5zdu1v2usoi",
+            "from_side": "bottom",
+            "to": "4ryepsudcmx3",
+            "to_side": "top",
+            "branch": "next"
+          }
+        ]
+      },
       "cooldown_s": 5
     },
     {
-      "id": "nklh3n7voc16",
+      "id": "a2y3ccnc6w57",
       "name": "!so",
       "group": "Chat commands",
       "enabled": true,
@@ -1284,17 +1584,55 @@
           "user_cooldown_s": 0
         }
       ],
-      "steps": [
-        {
-          "type": "shoutout",
-          "user": "{{arg1}}",
-          "message": "Go follow {{arg1}} at twitch.tv/{{arg1}}!"
-        }
-      ],
+      "steps": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "yzr9r6ghdze6",
+            "x": 26.0,
+            "y": 0.0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "command",
+                "name": "so",
+                "aliases": [
+                  "shoutout"
+                ],
+                "permission": "moderator",
+                "user_cooldown_s": 0
+              }
+            }
+          },
+          {
+            "id": "7fxxq0s1ebc8",
+            "x": 26.0,
+            "y": 210.0,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "shoutout",
+                "user": "{{arg1}}",
+                "message": "Go follow {{arg1}} at twitch.tv/{{arg1}}!"
+              }
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "h97a7u416r0b",
+            "from": "yzr9r6ghdze6",
+            "from_side": "bottom",
+            "to": "7fxxq0s1ebc8",
+            "to_side": "top",
+            "branch": "next"
+          }
+        ]
+      },
       "cooldown_s": 0
     },
     {
-      "id": "q08huxc9pdqi",
+      "id": "ggojh2j49l35",
       "name": "Count deaths",
       "group": "Chat commands",
       "enabled": true,
@@ -1309,24 +1647,78 @@
           "user_cooldown_s": 0
         }
       ],
-      "steps": [
-        {
-          "type": "add_to_variable",
-          "key": "counter.deaths",
-          "amount": 1.0,
-          "persist": true
-        },
-        {
-          "type": "chat_send",
-          "message": "Deaths: {{counter.deaths}}",
-          "as_bot": true,
-          "reply": false
-        }
-      ],
+      "steps": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "otbad1qjnams",
+            "x": 26.0,
+            "y": 0.0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "command",
+                "name": "death",
+                "aliases": [
+                  "deaths+"
+                ],
+                "permission": "moderator",
+                "user_cooldown_s": 0
+              }
+            }
+          },
+          {
+            "id": "z8ldv5oe1q12",
+            "x": 26.0,
+            "y": 210.0,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "add_to_variable",
+                "key": "counter.deaths",
+                "amount": 1.0,
+                "persist": true
+              }
+            }
+          },
+          {
+            "id": "8fh2vdygfq9k",
+            "x": 26.0,
+            "y": 346.0,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "chat_send",
+                "message": "Deaths: {{counter.deaths}}",
+                "as_bot": true,
+                "reply": false
+              }
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "s8geg60xlwmv",
+            "from": "otbad1qjnams",
+            "from_side": "bottom",
+            "to": "z8ldv5oe1q12",
+            "to_side": "top",
+            "branch": "next"
+          },
+          {
+            "id": "j4lpr4j9ja6m",
+            "from": "z8ldv5oe1q12",
+            "from_side": "bottom",
+            "to": "8fh2vdygfq9k",
+            "to_side": "top",
+            "branch": "next"
+          }
+        ]
+      },
       "cooldown_s": 0
     },
     {
-      "id": "p044hpu7qjbh",
+      "id": "k16a32t9i3az",
       "name": "Big raid welcome",
       "group": "Stream events",
       "enabled": true,
@@ -1346,26 +1738,101 @@
           }
         }
       ],
-      "steps": [
-        {
-          "type": "delay",
-          "ms": 4000
-        },
-        {
-          "type": "chat_announce",
-          "message": "Welcome {{name}} and the {{amount}} raiders!",
-          "color": "purple"
-        },
-        {
-          "type": "shoutout",
-          "user": "{{user.login}}",
-          "message": ""
-        }
-      ],
+      "steps": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "w3zs98dg10sd",
+            "x": 26.0,
+            "y": 0.0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "event",
+                "kind": "raid",
+                "conditions": {
+                  "mode": "all",
+                  "conditions": [
+                    {
+                      "field": "amount",
+                      "op": "gte",
+                      "value": 20
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "id": "e4yp3jhpsotd",
+            "x": 26.0,
+            "y": 210.0,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "delay",
+                "ms": 4000
+              }
+            }
+          },
+          {
+            "id": "s3uhuqnvs9bb",
+            "x": 26.0,
+            "y": 346.0,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "chat_announce",
+                "message": "Welcome {{name}} and the {{amount}} raiders!",
+                "color": "purple"
+              }
+            }
+          },
+          {
+            "id": "xz6qf07axvmq",
+            "x": 26.0,
+            "y": 482.0,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "shoutout",
+                "user": "{{user.login}}",
+                "message": ""
+              }
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "7ks3vpg4yq0c",
+            "from": "w3zs98dg10sd",
+            "from_side": "bottom",
+            "to": "e4yp3jhpsotd",
+            "to_side": "top",
+            "branch": "next"
+          },
+          {
+            "id": "c48ozlne6yc3",
+            "from": "e4yp3jhpsotd",
+            "from_side": "bottom",
+            "to": "s3uhuqnvs9bb",
+            "to_side": "top",
+            "branch": "next"
+          },
+          {
+            "id": "85qxvmko7xqp",
+            "from": "s3uhuqnvs9bb",
+            "from_side": "bottom",
+            "to": "xz6qf07axvmq",
+            "to_side": "top",
+            "branch": "next"
+          }
+        ]
+      },
       "cooldown_s": 60
     },
     {
-      "id": "df07n75mzww9",
+      "id": "71ojazv95y92",
       "name": "Hydrate reminder",
       "group": "Timers",
       "enabled": false,
@@ -1377,14 +1844,49 @@
           "min_chat_lines": 5
         }
       ],
-      "steps": [
-        {
-          "type": "chat_send",
-          "message": "Stay hydrated, chat!",
-          "as_bot": true,
-          "reply": false
-        }
-      ],
+      "steps": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "h9f1y9gl0bru",
+            "x": 26.0,
+            "y": 0.0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "timer",
+                "interval_s": 2700,
+                "only_when_live": true,
+                "min_chat_lines": 5
+              }
+            }
+          },
+          {
+            "id": "ki6ue09p2fws",
+            "x": 26.0,
+            "y": 210.0,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "chat_send",
+                "message": "Stay hydrated, chat!",
+                "as_bot": true,
+                "reply": false
+              }
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "ymgp03v0k4a6",
+            "from": "h9f1y9gl0bru",
+            "from_side": "bottom",
+            "to": "ki6ue09p2fws",
+            "to_side": "top",
+            "branch": "next"
+          }
+        ]
+      },
       "cooldown_s": 0
     }
   ]

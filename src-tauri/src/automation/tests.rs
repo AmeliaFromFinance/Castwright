@@ -597,7 +597,14 @@ fn starter_actions_are_valid() {
     assert!(!p.actions.is_empty());
     for a in &p.actions {
         assert!(!a.triggers.is_empty(), "{} has no trigger", a.name);
-        assert!(!a.steps.is_empty(), "{} has no steps", a.name);
+        assert!(a.steps.is_empty(), "{} still has a step list", a.name);
+        assert!(
+            a.graph.nodes.len() > a.triggers.len(),
+            "{} has no steps",
+            a.name
+        );
+        let plan = a.graph.start_plan(Some(0));
+        assert!(!plan.first.is_empty(), "{} trigger leads nowhere", a.name);
     }
 }
 
@@ -617,4 +624,292 @@ fn run_now_from_a_plain_thread_does_not_panic() {
     std::thread::spawn(move || auto.run_manual(&id).unwrap())
         .join()
         .expect("run_manual panicked outside a runtime");
+}
+
+// Graphs
+
+use crate::model::automation::{EdgeBranch, EdgeSide, Graph, GraphEdge, GraphNode, NodeKind};
+
+fn at(id: &str, x: f64, y: f64, kind: NodeKind) -> GraphNode {
+    GraphNode {
+        id: id.into(),
+        x,
+        y,
+        kind,
+    }
+}
+
+fn trig(id: &str, x: f64, t: Trigger) -> GraphNode {
+    at(id, x, 0.0, NodeKind::Trigger { trigger: t })
+}
+
+fn step(id: &str, x: f64, y: f64, s: Step) -> GraphNode {
+    at(id, x, y, NodeKind::Step { step: s })
+}
+
+fn line(from: &str, to: &str, branch: EdgeBranch) -> GraphEdge {
+    GraphEdge {
+        id: format!("{from}-{to}-{branch:?}"),
+        from: from.into(),
+        from_side: EdgeSide::Right,
+        to: to.into(),
+        to_side: EdgeSide::Left,
+        branch,
+    }
+}
+
+fn next(from: &str, to: &str) -> GraphEdge {
+    line(from, to, EdgeBranch::Next)
+}
+
+fn graph(name: &str, nodes: Vec<GraphNode>, edges: Vec<GraphEdge>) -> Action {
+    let mut a = Action {
+        id: name.into(),
+        name: name.into(),
+        graph: Graph { nodes, edges },
+        ..Action::default()
+    };
+    a.normalize();
+    a
+}
+
+fn amount_over(v: i64) -> Step {
+    Step::If {
+        conditions: ConditionGroup {
+            mode: MatchMode::All,
+            conditions: vec![Condition {
+                field: "amount".into(),
+                op: Op::Gt,
+                value: json!(v),
+            }],
+        },
+        then: vec![],
+        otherwise: vec![],
+    }
+}
+
+fn chat_lines(calls: Vec<String>) -> Vec<String> {
+    calls
+        .into_iter()
+        .map(|c| {
+            c.trim_start_matches("chat bot=false reply=false ")
+                .to_string()
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn depth_first_by_position_and_merges_run_each_time() {
+    let r = rig(vec![]);
+    // b sits higher than a, so its path runs first; c is reached twice.
+    let a = graph(
+        "g",
+        vec![
+            trig("t", 0.0, Trigger::Manual),
+            step("a", 0.0, 300.0, say("a")),
+            step("b", 400.0, 200.0, say("b")),
+            step("c", 0.0, 500.0, say("c")),
+            step("d", 0.0, 600.0, say("d")),
+        ],
+        vec![
+            next("t", "a"),
+            next("t", "b"),
+            next("a", "c"),
+            next("b", "c"),
+            next("c", "d"),
+        ],
+    );
+    let run = r.auto.execute(&a, "test", Map::new(), None).await;
+    assert!(run.ok);
+    assert_eq!(chat_lines(r.rec.take()), vec!["b", "c", "d", "a", "c", "d"]);
+    let ids: Vec<&str> = run.nodes.iter().map(|n| n.node_id.as_str()).collect();
+    assert_eq!(ids, vec!["t", "b", "c", "d", "a"]);
+    assert!(run.nodes.iter().all(|n| n.state == NodeState::Ok));
+}
+
+#[tokio::test]
+async fn if_follows_then_or_otherwise_and_always_lines() {
+    let r = rig(vec![]);
+    let a = graph(
+        "g",
+        vec![
+            trig("t", 0.0, Trigger::Manual),
+            step("if", 0.0, 100.0, amount_over(100)),
+            step("big", 0.0, 200.0, say("big")),
+            step("small", 300.0, 200.0, say("small")),
+            step("always", 600.0, 200.0, say("always")),
+        ],
+        vec![
+            next("t", "if"),
+            line("if", "big", EdgeBranch::Then),
+            line("if", "small", EdgeBranch::Otherwise),
+            next("if", "always"),
+        ],
+    );
+    let mut args = Map::new();
+    args.insert("amount".into(), json!(500));
+    let run = r.auto.execute(&a, "test", args, None).await;
+    assert_eq!(chat_lines(r.rec.take()), vec!["big", "always"]);
+    let small = run.nodes.iter().find(|n| n.node_id == "small").unwrap();
+    assert_eq!(small.state, NodeState::Skipped);
+    let mut args = Map::new();
+    args.insert("amount".into(), json!(5));
+    r.auto.execute(&a, "test", args, None).await;
+    assert_eq!(chat_lines(r.rec.take()), vec!["small", "always"]);
+}
+
+#[tokio::test]
+async fn loops_stop_at_the_budget() {
+    let r = rig(vec![]);
+    let a = graph(
+        "loop",
+        vec![
+            trig("t", 0.0, Trigger::Manual),
+            step("a", 0.0, 100.0, say("a")),
+            step("b", 0.0, 200.0, say("b")),
+        ],
+        vec![next("t", "a"), next("a", "b"), next("b", "a")],
+    );
+    let run = r.auto.execute(&a, "test", Map::new(), None).await;
+    assert!(!run.ok);
+    assert_eq!(r.rec.take().len(), MAX_NODE_RUNS as usize);
+    assert!(
+        run.errors[0].contains("Stopped after 500 steps"),
+        "{:?}",
+        run.errors
+    );
+}
+
+#[tokio::test]
+async fn stop_ends_the_whole_run() {
+    let r = rig(vec![]);
+    let a = graph(
+        "g",
+        vec![
+            trig("t", 0.0, Trigger::Manual),
+            step("stop", 0.0, 100.0, Step::Stop),
+            step("later", 300.0, 200.0, say("later")),
+        ],
+        vec![next("t", "stop"), next("t", "later")],
+    );
+    let run = r.auto.execute(&a, "test", Map::new(), None).await;
+    assert!(run.ok);
+    assert!(r.rec.take().is_empty());
+    let later = run.nodes.iter().find(|n| n.node_id == "later").unwrap();
+    assert_eq!(later.state, NodeState::Skipped);
+}
+
+#[tokio::test]
+async fn failed_node_is_marked_and_the_run_goes_on() {
+    let r = rig(vec![]);
+    let a = graph(
+        "g",
+        vec![
+            trig("t", 0.0, Trigger::Manual),
+            step(
+                "bad",
+                0.0,
+                100.0,
+                Step::SetVariable {
+                    key: "bad key".into(),
+                    value: "x".into(),
+                    persist: false,
+                },
+            ),
+            step("ok", 0.0, 200.0, say("ok")),
+        ],
+        vec![next("t", "bad"), next("bad", "ok")],
+    );
+    let run = r.auto.execute(&a, "test", Map::new(), None).await;
+    assert_eq!(chat_lines(r.rec.take()), vec!["ok"]);
+    let bad = run.nodes.iter().find(|n| n.node_id == "bad").unwrap();
+    assert_eq!(bad.state, NodeState::Error);
+    assert!(bad.errors[0].contains("valid variable name"));
+    assert_eq!(run.errors.len(), 1);
+}
+
+fn two_starts(first: Trigger, second: Trigger) -> Action {
+    graph(
+        "two",
+        vec![
+            trig("t0", 0.0, first),
+            trig("t1", 400.0, second),
+            step("s0", 0.0, 200.0, say("first")),
+            step("s1", 400.0, 200.0, say("second")),
+        ],
+        vec![next("t0", "s0"), next("t1", "s1")],
+    )
+}
+
+#[tokio::test]
+async fn runs_start_at_the_trigger_that_fired() {
+    let cmd = |n: &str| Trigger::Command {
+        name: n.into(),
+        aliases: vec![],
+        permission: Permission::Everyone,
+        user_cooldown_s: 0,
+    };
+    let r = rig(vec![two_starts(cmd("a"), cmd("b"))]);
+    r.auto.on_event(&chat("!b", modr()));
+    assert_eq!(chat_lines(wait_calls(&r.rec, 1).await), vec!["second"]);
+    r.auto.on_event(&chat("!a", modr()));
+    assert_eq!(chat_lines(wait_calls(&r.rec, 1).await), vec!["first"]);
+    // A Button trigger is where Test and Stream Deck start.
+    let r = rig(vec![two_starts(cmd("a"), Trigger::Manual)]);
+    r.auto.run_manual("two").unwrap();
+    assert_eq!(chat_lines(wait_calls(&r.rec, 1).await), vec!["second"]);
+}
+
+#[tokio::test]
+async fn timers_start_their_own_trigger() {
+    let timer = |s: u32| Trigger::Timer {
+        interval_s: s,
+        only_when_live: false,
+        min_chat_lines: 0,
+    };
+    let r = rig(vec![two_starts(timer(60), timer(600))]);
+    let t0 = Instant::now();
+    r.auto.on_tick(t0);
+    r.auto.on_tick(t0 + Duration::from_secs(61));
+    assert_eq!(chat_lines(wait_calls(&r.rec, 1).await), vec!["first"]);
+    r.auto.on_tick(t0 + Duration::from_secs(601));
+    let mut both = chat_lines(wait_calls(&r.rec, 2).await);
+    both.sort();
+    assert_eq!(both, vec!["first", "second"]);
+}
+
+#[tokio::test]
+async fn manual_runs_without_a_button_start_from_every_trigger() {
+    let r = rig(vec![]);
+    let a = two_starts(Trigger::StreamOnline, Trigger::StreamOffline);
+    let run = r.auto.execute(&a, "test", Map::new(), None).await;
+    assert_eq!(chat_lines(r.rec.take()), vec!["first", "second"]);
+    assert_eq!(run.nodes.len(), 4);
+    // Converted lists: several triggers share the first step, which runs once.
+    let old = Action {
+        triggers: vec![Trigger::StreamOnline, Trigger::StreamOffline],
+        steps: vec![say("once")],
+        ..Action::default()
+    };
+    r.auto.execute(&old, "test", Map::new(), None).await;
+    assert_eq!(chat_lines(r.rec.take()), vec!["once"]);
+}
+
+#[tokio::test]
+async fn run_action_starts_the_other_action_like_a_button() {
+    let callee = two_starts(Trigger::Manual, Trigger::StreamOnline);
+    let r = rig(vec![callee]);
+    let caller = Action {
+        steps: vec![
+            Step::RunAction {
+                action_id: "two".into(),
+            },
+            say("back"),
+        ],
+        ..Action::default()
+    };
+    let run = r.auto.execute(&caller, "test", Map::new(), None).await;
+    assert_eq!(chat_lines(r.rec.take()), vec!["first", "back"]);
+    // Only the caller's nodes are reported.
+    assert_eq!(run.nodes.len(), 2);
 }

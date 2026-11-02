@@ -77,12 +77,13 @@ describe('selection and rendering', () => {
     const c = config();
     const sub = c.types.find((t) => t.kind === 'sub')!;
     const e = sampleEvent('sub');
+    const who = e.user!.display_name;
     e.tier = 3;
     expect(pickVariation(sub, e)?.name).toBe('Tier 3');
-    expect(buildPlay(c, e)?.title).toBe('quietfox is a legend!');
+    expect(buildPlay(c, e)?.title).toBe(`${who} is a legend!`);
     e.tier = 1;
     const p = buildPlay(c, e)!;
-    expect(p.title).toBe('quietfox subscribed!');
+    expect(p.title).toBe(`${who} subscribed!`);
     expect(p.message).toBe('Tier 1');
     sub.variations[1]!.enabled = false;
     expect(buildPlay(c, e)).toBeNull();
@@ -125,9 +126,11 @@ describe('selection and rendering', () => {
   });
 
   it('context has name, recipient_name and kind', () => {
-    const ctx = alertContext(sampleEvent('gift_sub'));
-    expect(ctx.name).toBe('quietfox');
-    expect(ctx.recipient_name).toBe('LumenLark');
+    const gift = sampleEvent('gift_sub');
+    const ctx = alertContext(gift);
+    expect(ctx.name).toBe(gift.user!.display_name);
+    expect(ctx.recipient_name).toBe(gift.recipient!.display_name);
+    expect(ctx.name).not.toBe('');
     const anon = sampleEvent('gift_sub');
     anon.user = null;
     anon.is_anonymous = true;

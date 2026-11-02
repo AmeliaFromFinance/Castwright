@@ -6,6 +6,7 @@ import type { EventKind } from '$lib/bindings/EventKind';
 import type { Step } from '$lib/bindings/Step';
 import type { Trigger } from '$lib/bindings/Trigger';
 import { newId } from '$lib/editors/ids';
+import { fromTree } from './graph';
 import type { MenuGroup } from '$lib/editors/menu';
 
 export type TriggerType = Trigger['type'];
@@ -93,9 +94,15 @@ export function newAction(patch: Partial<Action> = {}): Action {
     enabled: true,
     triggers: [],
     steps: [],
+    graph: { nodes: [], edges: [] },
     cooldown_s: 0,
     ...patch
   };
+}
+
+/** An action whose graph is the triggers on top and the steps chained below. */
+function chained(patch: Partial<Action>, triggers: Trigger[], steps: Step[]): Action {
+  return newAction({ ...patch, triggers, graph: fromTree(triggers, steps) });
 }
 
 export const TRIGGER_LABELS: Record<TriggerType, string> = {
@@ -172,7 +179,7 @@ export const STEP_GROUPS: Array<{ label: string; items: Array<[StepType, string?
   { label: 'Variables', items: [['set_variable'], ['add_to_variable', 'Counters, totals']] },
   {
     label: 'Logic',
-    items: [['if', 'Only run some steps when…'], ['delay', 'Pause before the next step'], ['run_action', 'Run another action\'s steps'], ['stop', 'End this run']]
+    items: [['if', 'Go one way or another'], ['delay', 'Pause before the next step'], ['run_action', 'Run another action\'s steps'], ['stop', 'End this run']]
   },
   { label: 'Advanced', items: [['http_request', 'Call a web address'], ['run_script', 'A few lines of code'], ['log', 'Write to the run log']] }
 ];
@@ -201,42 +208,36 @@ export function fromTemplate(id: TemplateId): Action {
     case 'blank':
       return newAction();
     case 'command':
-      return newAction({
-        name: '!discord',
-        group: 'Chat commands',
-        triggers: [{ type: 'command', name: 'discord', aliases: [], permission: 'everyone', user_cooldown_s: 30 }],
-        steps: [{ type: 'chat_send', message: 'Join the Discord: https://discord.gg/your-invite', as_bot: true, reply: true }],
-        cooldown_s: 5
-      });
+      return chained(
+        { name: '!discord', group: 'Chat commands', cooldown_s: 5 },
+        [{ type: 'command', name: 'discord', aliases: [], permission: 'everyone', user_cooldown_s: 30 }],
+        [{ type: 'chat_send', message: 'Join the Discord: https://discord.gg/your-invite', as_bot: true, reply: true }]
+      );
     case 'timer':
-      return newAction({
-        name: 'Timer message',
-        group: 'Timers',
-        triggers: [{ type: 'timer', interval_s: 15 * 60, only_when_live: true, min_chat_lines: 5 }],
-        steps: [{ type: 'chat_send', message: 'Enjoying the stream? Follow so you know when I go live!', as_bot: true, reply: false }]
-      });
+      return chained(
+        { name: 'Timer message', group: 'Timers' },
+        [{ type: 'timer', interval_s: 15 * 60, only_when_live: true, min_chat_lines: 5 }],
+        [{ type: 'chat_send', message: 'Enjoying the stream? Follow so you know when I go live!', as_bot: true, reply: false }]
+      );
     case 'raid':
-      return newAction({
-        name: 'Raid welcome',
-        group: 'Stream events',
-        triggers: [{ type: 'event', kind: 'raid', conditions: { mode: 'all', conditions: [{ field: 'amount', op: 'gte', value: 5 }] } }],
-        steps: [
+      return chained(
+        { name: 'Raid welcome', group: 'Stream events', cooldown_s: 30 },
+        [{ type: 'event', kind: 'raid', conditions: { mode: 'all', conditions: [{ field: 'amount', op: 'gte', value: 5 }] } }],
+        [
           { type: 'delay', ms: 3000 },
           { type: 'chat_announce', message: 'Welcome {{name}} and the {{amount}} raiders!', color: 'purple' },
           { type: 'shoutout', user: '{{user.login}}', message: '' }
-        ],
-        cooldown_s: 30
-      });
+        ]
+      );
     case 'deaths':
-      return newAction({
-        name: 'Deaths counter',
-        group: 'Chat commands',
-        triggers: [{ type: 'command', name: 'death', aliases: [], permission: 'moderator', user_cooldown_s: 0 }],
-        steps: [
+      return chained(
+        { name: 'Deaths counter', group: 'Chat commands' },
+        [{ type: 'command', name: 'death', aliases: [], permission: 'moderator', user_cooldown_s: 0 }],
+        [
           { type: 'add_to_variable', key: 'counter.deaths', amount: 1, persist: true },
           { type: 'chat_send', message: 'Deaths: {{counter.deaths}}', as_bot: true, reply: false }
         ]
-      });
+      );
   }
 }
 

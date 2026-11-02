@@ -1,28 +1,63 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import type { Action } from '$lib/bindings/Action';
+  import type { EdgeSide } from '$lib/bindings/EdgeSide';
+  import type { GraphNode } from '$lib/bindings/GraphNode';
+  import type { NodeKind } from '$lib/bindings/NodeKind';
   import type { Permission } from '$lib/bindings/Permission';
-  import type { Step } from '$lib/bindings/Step';
   import type { Trigger } from '$lib/bindings/Trigger';
   import { describeConditions } from '$lib/editors/conditions';
-  import { clone } from '$lib/editors/ids';
+  import { newId } from '$lib/editors/ids';
   import type { MenuGroup } from '$lib/editors/menu';
   import { isTypingTarget } from '$lib/editor/keys';
   import { app } from '$lib/state/app.svelte';
   import { toasts } from '$lib/state/toast.svelte';
   import IconButton from '$lib/ui/IconButton.svelte';
   import ResizeHandle from '$lib/ui/ResizeHandle.svelte';
-  import { Maximize, Minus, Plus } from '@lucide/svelte';
+  import { Grid3x3, Maximize, Minus, Plus, Sparkles, Zap } from '@lucide/svelte';
   import { STEP_GROUPS, STEP_LABELS, STEP_MENU, TRIGGER_LABELS, TRIGGER_MENU, newStep, newTrigger, type StepType, type TriggerType } from './defaults';
   import { describeStep, describeTrigger, every, tokensForAction } from './describe';
-  import { layoutFlow, neighbour, nodeKey, triggerKey, type Direction, type FlowCell, type NodeCell } from './flow';
+  import {
+    DEFAULT_H,
+    GRID,
+    NODE_W,
+    OPPOSITE,
+    addEdge,
+    anchor,
+    arrowHead,
+    bounds,
+    copyNodes,
+    curve,
+    dropTarget,
+    duplicateNodes,
+    edgeCurve,
+    freeSpot,
+    inBox,
+    isIf,
+    nextBranch,
+    nodeById,
+    nodeRect,
+    pasteClip,
+    pathOf,
+    placeBySide,
+    pointAt,
+    rectFrom,
+    removeEdges,
+    removeNodes,
+    snap,
+    tidy,
+    unreachable,
+    type Clip,
+    type Point
+  } from './graph';
   import FlowNode from './FlowNode.svelte';
   import { GROUP_ICONS, STEP_ICONS, TRIGGER_ICONS, stepTone } from './icons';
   import Inspector from './Inspector.svelte';
+  import Minimap from './Minimap.svelte';
   import { runStatus } from './runstatus';
   import StepPicker from './StepPicker.svelte';
   import { actionsEditor as ed, flow, runLog } from './store.svelte';
-  import { duplicateStep, getList, insertStep, isInside, moveStep, moveStepTo, parseStepKey, removeStep, stepKey, type ListPath, type StepAt } from './tree';
+  import { centerOn, fitView, toScreen, toWorld, visibleRect, zoomAt, type View } from './view';
 
   interface Props {
     action: Action;
@@ -38,20 +73,34 @@
     broadcaster: 'Only you'
   };
 
-  let scroller: HTMLDivElement | undefined = $state();
-  let stage: HTMLDivElement | undefined = $state();
+  let viewport: HTMLDivElement | undefined = $state();
   let root: HTMLDivElement | undefined = $state();
+  let vw = $state(0);
+  let vh = $state(0);
   let inspectorW = $state(440);
 
-  const layout = $derived(layoutFlow(action.steps, action.triggers.length));
-  const issues = $derived(ed.issues[action.id] ?? []);
-  const ctx = $derived({ actions: ed.actions ?? [], overlays: app.project?.overlays ?? [] });
+  const g = $derived(action.graph);
+  /** Measured node heights. */
+  let sizes = $state<Record<string, number>>({});
 
-  // Results of the latest run; after a new run they appear node by node.
+  // View: kept per action while the app runs; a new visit fits the flow.
+  const saved = untrack(() => flow.views.get(action.id));
+  let view = $state<View>(saved ?? { x: 0, y: 0, zoom: 1 });
+  $effect(() => {
+    flow.views.set(action.id, { ...view });
+  });
+
+  const issues = $derived(ed.issues[action.id] ?? []);
+  const issuesOf = (id: string) => issues.filter((i) => i.key === `node.${id}`);
+  const loose = $derived(new Set(unreachable(g)));
+  const ctx = $derived({ actions: ed.actions ?? [], overlays: app.project?.overlays ?? [] });
+  const selected = $derived(new Set(flow.selected));
+
+  // Results of the latest run, revealed node by node in the order they ran.
   const lastRun = $derived(runLog.last[action.id]);
-  const status = $derived(lastRun ? runStatus(action, lastRun) : {});
+  const status = $derived(lastRun ? runStatus(lastRun) : new Map());
+  const order = $derived([...status.keys()]);
   const running = $derived(flow.testing?.actionId === action.id);
-  const order = $derived([...action.triggers.map((_, i) => triggerKey(i)), ...layout.nodes.map((n) => n.key)]);
   let revealed = $state(Infinity);
   let seenSeq = -1;
 
@@ -73,175 +122,395 @@
     return () => clearInterval(timer);
   });
 
-  const statusOf = (key: string) => (order.indexOf(key) < revealed ? status[key] : undefined);
+  const statusOf = (id: string) => {
+    const i = order.indexOf(id);
+    return i >= 0 && i < revealed ? status.get(id) : undefined;
+  };
 
-  // Drop the selection when its node is gone (after undo, for example).
+  // Drop selections of nodes and lines that are gone (after undo, for example).
   $effect(() => {
-    const k = flow.selected;
-    if (k && !order.includes(k)) flow.select(null);
+    const ids = new Set(g.nodes.map((n) => n.id));
+    if (flow.selected.some((id) => !ids.has(id))) flow.select(flow.selected.filter((id) => ids.has(id)));
+    if (flow.edge && !g.edges.some((e) => e.id === flow.edge)) flow.selectEdge(null);
   });
 
-  // Dragging
+  // Lines
 
-  let dragging = $state<StepAt | null>(null);
-  let over = $state<string | null>(null);
+  const rects = $derived(new Map(g.nodes.map((n) => [n.id, nodeRect(n, sizes)])));
+  const lines = $derived(
+    g.edges.flatMap((e) => {
+      const a = rects.get(e.from);
+      const b = rects.get(e.to);
+      if (!a || !b) return [];
+      const c = edgeCurve(a, e.from_side, b, e.to_side);
+      const ran = !!statusOf(e.from) && statusOf(e.from)?.state !== 'skipped' && !!statusOf(e.to) && statusOf(e.to)?.state !== 'skipped';
+      return [{ e, d: pathOf(c), tip: anchor(b, e.to_side), mid: pointAt(c, 0.5), fromIf: isIf(nodeById(g, e.from)), ran }];
+    })
+  );
+  const BRANCH_TEXT = { then: 'Then', otherwise: 'Otherwise', next: 'Always' } as const;
 
-  /** A step can't be dropped into its own branches. */
-  const canDrop = (path: ListPath) => !!dragging && !isInside(path, dragging.path, dragging.index);
+  // Pointer gestures
 
-  function dropTo(to: StepAt) {
-    const from = dragging;
-    dragging = null;
-    over = null;
-    if (!from) return;
-    moveTo(from, to);
+  type Gesture =
+    | { kind: 'pan'; start: Point; from: View; moved: boolean; clear: boolean }
+    | { kind: 'box'; a: Point; b: Point; base: string[] }
+    | { kind: 'drag'; id: string; start: Point; origin: Map<string, Point>; moved: boolean; toggle: boolean; additive: boolean }
+    | { kind: 'connect'; from: string; side: EdgeSide; p: Point; target: { id: string; side: EdgeSide } | null };
+
+  let gesture = $state<Gesture | null>(null);
+  let space = $state(false);
+  /** Last pointer position on the canvas, in world units; where Ctrl+V pastes. */
+  let pointer: Point | null = null;
+
+  function local(e: { clientX: number; clientY: number }): Point {
+    const r = viewport!.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
 
-  function moveTo(from: StepAt, to: StepAt) {
-    let at: StepAt | null = null;
-    ed.updateSteps(action.id, (st) => {
-      const r = moveStepTo(st, from, to);
-      at = r?.at ?? null;
-      return r?.steps ?? st;
+  const world = (e: { clientX: number; clientY: number }) => toWorld(view, local(e));
+
+  function down(e: PointerEvent) {
+    if (picker) return;
+    const t = e.target as Element;
+    if (t.closest('[data-chip]')) return;
+    const p = local(e);
+    if (e.button === 1 || (e.button === 0 && space)) {
+      gesture = { kind: 'pan', start: p, from: { ...view }, moved: false, clear: false };
+      viewport!.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      return;
+    }
+    if (e.button !== 0) return;
+    const wrap = t.closest<HTMLElement>('[data-node-wrap]');
+    const handle = t.closest<HTMLElement>('[data-handle]');
+    if (wrap && handle) {
+      const from = wrap.dataset.nodeWrap!;
+      gesture = { kind: 'connect', from, side: handle.dataset.handle as EdgeSide, p: toWorld(view, p), target: null };
+      viewport!.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      return;
+    }
+    if (wrap) {
+      const id = wrap.dataset.nodeWrap!;
+      const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+      let toggle = false;
+      if (additive) {
+        if (selected.has(id)) toggle = true;
+        else flow.select([...flow.selected, id], false);
+      } else if (!selected.has(id)) flow.select([id]);
+      const origin = new Map(g.nodes.filter((n) => flow.selected.includes(n.id)).map((n) => [n.id, { x: n.x, y: n.y }]));
+      gesture = { kind: 'drag', id, start: p, origin, moved: false, toggle, additive };
+      viewport!.setPointerCapture(e.pointerId);
+      return;
+    }
+    const edge = t.closest<SVGElement>('[data-edge]');
+    if (edge) {
+      flow.selectEdge(edge.dataset.edge!);
+      viewport!.focus({ preventScroll: true });
+      e.preventDefault();
+      return;
+    }
+    viewport!.focus({ preventScroll: true });
+    if (e.shiftKey) gesture = { kind: 'box', a: p, b: p, base: e.ctrlKey || e.metaKey || e.shiftKey ? [...flow.selected] : [] };
+    else gesture = { kind: 'pan', start: p, from: { ...view }, moved: false, clear: true };
+    viewport!.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+
+  function move(e: PointerEvent) {
+    const p = local(e);
+    pointer = toWorld(view, p);
+    const gs = gesture;
+    if (!gs) return;
+    if (gs.kind === 'pan') {
+      const dx = p.x - gs.start.x;
+      const dy = p.y - gs.start.y;
+      if (!gs.moved && Math.hypot(dx, dy) < 3) return;
+      gs.moved = true;
+      view = { ...gs.from, x: gs.from.x + dx, y: gs.from.y + dy };
+    } else if (gs.kind === 'box') {
+      gs.b = p;
+      const box = rectFrom(toWorld(view, gs.a), toWorld(view, p));
+      flow.select([...new Set([...gs.base, ...inBox(g, sizes, box)])], false);
+    } else if (gs.kind === 'drag') {
+      const dx = (p.x - gs.start.x) / view.zoom;
+      const dy = (p.y - gs.start.y) / view.zoom;
+      if (!gs.moved && Math.hypot(dx * view.zoom, dy * view.zoom) < 4) return;
+      gs.moved = true;
+      const grid = flow.snap && !e.altKey;
+      const to = new Map([...gs.origin].map(([id, o]) => [id, { x: grid ? snap(o.x + dx) : o.x + dx, y: grid ? snap(o.y + dy) : o.y + dy }]));
+      ed.updateGraph(
+        action.id,
+        (gr) => {
+          for (const n of gr.nodes) {
+            const q = to.get(n.id);
+            if (q) Object.assign(n, q);
+          }
+          return gr;
+        },
+        'drag',
+        Infinity
+      );
+    } else {
+      gs.p = pointer;
+      gs.target = dropTarget(g, sizes, pointer, 18 / view.zoom, gs.from);
+    }
+  }
+
+  function up(e: PointerEvent) {
+    const gs = gesture;
+    gesture = null;
+    if (viewport?.hasPointerCapture(e.pointerId)) viewport.releasePointerCapture(e.pointerId);
+    if (!gs) return;
+    if (gs.kind === 'pan') {
+      if (!gs.moved && gs.clear) flow.clear();
+    } else if (gs.kind === 'drag') {
+      if (gs.moved) ed.seal(action.id);
+      else if (gs.toggle) flow.select(flow.selected.filter((x) => x !== gs.id), false);
+      else if (!gs.additive) flow.select([gs.id], true);
+      focusNode(gs.id);
+    } else if (gs.kind === 'connect') {
+      const p = world(e);
+      if (gs.target) connect(gs.from, gs.side, gs.target.id, gs.target.side);
+      else if (!g.nodes.some((n) => rects.get(n.id) && contains(rects.get(n.id)!, p))) {
+        openPicker({ kind: 'step', at: p, link: { from: gs.from, side: gs.side }, anchor: new DOMRect(e.clientX, e.clientY, 0, 0) });
+      }
+    }
+  }
+
+  const contains = (r: { x: number; y: number; w: number; h: number }, p: Point) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+
+  function connect(from: string, fromSide: EdgeSide, to: string, toSide: EdgeSide) {
+    let made: string | null = null;
+    ed.updateGraph(action.id, (gr) => {
+      const r = addEdge(gr, { from, from_side: fromSide, to, to_side: toSide });
+      made = r?.edge.id ?? null;
+      return r?.graph ?? null;
     });
-    if (at) flow.select(nodeKey((at as StepAt).path, (at as StepAt).index));
+    if (made) flow.selectEdge(made);
+  }
+
+  function dblclick(e: MouseEvent) {
+    const t = e.target as Element;
+    if (t.closest('[data-node-wrap], [data-edge], [data-chip]')) return;
+    openPicker({ kind: 'step', at: world(e), anchor: new DOMRect(e.clientX, e.clientY, 0, 0) });
+  }
+
+  // View
+
+  function zoomBy(f: number, at: Point = { x: vw / 2, y: vh / 2 }) {
+    view = zoomAt(view, view.zoom * f, at);
+  }
+
+  /** Pan just enough to show a node, e.g. after adding it or when the inspector narrows the canvas. */
+  function reveal(id: string) {
+    const r = rects.get(id);
+    if (!r || !vw || !vh) return;
+    const pad = 32;
+    const a = toScreen(view, { x: r.x, y: r.y });
+    const w = r.w * view.zoom;
+    const h = Math.min(r.h * view.zoom, vh - pad * 2);
+    let dx = 0;
+    let dy = 0;
+    if (a.x + w > vw - pad) dx = vw - pad - (a.x + w);
+    if (a.x + dx < pad) dx = pad - a.x;
+    if (a.y + h > vh - pad - 60) dy = vh - pad - 60 - (a.y + h);
+    if (a.y + dy < pad + 40) dy = pad + 40 - a.y;
+    if (dx || dy) view = { ...view, x: view.x + dx, y: view.y + dy };
+  }
+
+  $effect(() => {
+    const id = flow.inspected;
+    void vw;
+    if (id) untrack(() => requestAnimationFrame(() => reveal(id)));
+  });
+
+  function fit() {
+    // Room for the toolbar on top, and the add bar and overview below.
+    const side = vw > 900 ? 230 : 56;
+    view = fitView(bounds(g.nodes, sizes), vw, vh, { top: 64, right: side, bottom: 84, left: side }, 1);
+  }
+
+  onMount(() => {
+    const el = viewport!;
+    const wheel = (e: WheelEvent) => {
+      if (picker) return;
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) {
+        zoomBy(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0018)), local(e));
+      } else {
+        const k = e.deltaMode === 1 ? 16 : 1;
+        const dx = (e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX) * k;
+        const dy = (e.shiftKey && !e.deltaX ? 0 : e.deltaY) * k;
+        view = { ...view, x: view.x - dx, y: view.y - dy };
+      }
+    };
+    // Focus can scroll a clipped box; the view moves only by panning.
+    const scroll = () => {
+      el.scrollLeft = 0;
+      el.scrollTop = 0;
+    };
+    el.addEventListener('wheel', wheel, { passive: false });
+    el.addEventListener('scroll', scroll);
+    if (!saved) {
+      // Wait a frame so nodes have been measured.
+      requestAnimationFrame(() => fit());
+    }
+    return () => {
+      el.removeEventListener('wheel', wheel);
+      el.removeEventListener('scroll', scroll);
+    };
+  });
+
+  function measure(el: HTMLElement, id: string) {
+    const ro = new ResizeObserver(() => {
+      const h = el.offsetHeight;
+      if (h && sizes[id] !== h) sizes[id] = h;
+    });
+    ro.observe(el);
+    return { destroy: () => ro.disconnect() };
   }
 
   // Editing
 
-  function insertAt(path: ListPath, index: number, step: Step) {
-    ed.updateSteps(action.id, (st) => insertStep(st, path, index, step));
-    flow.select(nodeKey(path, index), true);
-    void focusNode(nodeKey(path, index));
+  function addNode(kind: NodeKind, topLeft: Point, link?: { from: string; side: EdgeSide }) {
+    const id = newId();
+    const at = flow.snap ? { x: snap(topLeft.x), y: snap(topLeft.y) } : topLeft;
+    ed.updateGraph(action.id, (gr) => {
+      gr.nodes.push({ id, x: at.x, y: at.y, kind });
+      if (!link) return gr;
+      return addEdge(gr, { from: link.from, from_side: link.side, to: id, to_side: OPPOSITE[link.side] })?.graph ?? gr;
+    });
+    flow.select([id], true);
+    focusNode(id);
   }
 
-  function removeNode(key: string) {
-    if (key.startsWith('t.')) {
-      const i = Number(key.slice(2));
-      ed.patchAction(action.id, { triggers: (clone($state.snapshot(action.triggers)) as Trigger[]).filter((_, j) => j !== i) });
-      flow.select(null);
-      toasts.show('Trigger removed. Ctrl+Z brings it back.');
-      return;
+  function removeSelected() {
+    if (flow.selected.length) {
+      const n = flow.selected.length;
+      ed.updateGraph(action.id, (gr) => removeNodes(gr, flow.selected));
+      flow.clear();
+      toasts.show(`${n === 1 ? 'Node' : `${n} nodes`} deleted. Ctrl+Z brings ${n === 1 ? 'it' : 'them'} back.`);
+    } else if (flow.edge) {
+      const id = flow.edge;
+      ed.updateGraph(action.id, (gr) => removeEdges(gr, [id]));
+      flow.selectEdge(null);
     }
-    const at = parseStepKey(key.slice(2));
-    if (!at) return;
-    ed.updateSteps(action.id, (st) => removeStep(st, at.path, at.index));
-    // Select the step that took its place, the one before, or the if it was in.
-    const left = getList(action.steps, at.path)?.length ?? 0;
-    const parent = at.path[at.path.length - 1];
-    flow.select(
-      at.index < left
-        ? key
-        : at.index > 0
-          ? nodeKey(at.path, at.index - 1)
-          : parent
-            ? nodeKey(at.path.slice(0, -1), parent.index)
-            : null
+  }
+
+  function duplicateSelected() {
+    if (!flow.selected.length) return;
+    let ids: string[] = [];
+    ed.updateGraph(action.id, (gr) => {
+      const r = duplicateNodes(gr, flow.selected, { x: GRID * 2, y: GRID * 2 });
+      ids = r.ids;
+      return r.graph;
+    });
+    flow.select(ids, false);
+  }
+
+  function copySelected(cut: boolean) {
+    if (!flow.selected.length) return;
+    flow.clipboard = copyNodes($state.snapshot(g) as typeof g, flow.selected);
+    if (cut) removeSelected();
+    else toasts.show(flow.selected.length === 1 ? 'Copied' : `Copied ${flow.selected.length} nodes`);
+  }
+
+  function paste() {
+    const clip = $state.snapshot(flow.clipboard) as Clip | null;
+    if (!clip?.nodes.length) return;
+    const at = pointer && contains(visibleRect(view, vw, vh), pointer) ? pointer : toWorld(view, { x: vw / 2 - NODE_W / 2, y: vh / 3 });
+    let ids: string[] = [];
+    ed.updateGraph(action.id, (gr) => {
+      const r = pasteClip(gr, clip, flow.snap ? { x: snap(at.x), y: snap(at.y) } : at);
+      ids = r.ids;
+      return r.graph;
+    });
+    flow.select(ids, false);
+  }
+
+  function nudge(dx: number, dy: number) {
+    if (!flow.selected.length) return;
+    ed.updateGraph(
+      action.id,
+      (gr) => {
+        for (const n of gr.nodes)
+          if (flow.selected.includes(n.id)) {
+            n.x += dx;
+            n.y += dy;
+          }
+        return gr;
+      },
+      'nudge'
     );
-    toasts.show('Step deleted. Ctrl+Z brings it back.');
   }
 
-  function duplicateNode(key: string) {
-    if (key.startsWith('t.')) {
-      const i = Number(key.slice(2));
-      const t = action.triggers[i];
-      if (!t) return;
-      const list = clone($state.snapshot(action.triggers)) as Trigger[];
-      list.splice(i + 1, 0, clone($state.snapshot(t)) as Trigger);
-      ed.patchAction(action.id, { triggers: list });
-      flow.select(triggerKey(i + 1));
-      return;
+  async function tidyUp() {
+    if (ed.updateGraph(action.id, (gr) => tidy(gr, sizes))) {
+      await tick();
+      requestAnimationFrame(() => fit());
     }
-    const at = parseStepKey(key.slice(2));
-    if (!at) return;
-    ed.updateSteps(action.id, (st) => duplicateStep(st, at.path, at.index));
-    flow.select(nodeKey(at.path, at.index + 1));
   }
 
-  function addTrigger(type: TriggerType) {
-    ed.patchAction(action.id, { triggers: [...(clone($state.snapshot(action.triggers)) as Trigger[]), newTrigger(type)] });
-    flow.select(triggerKey(action.triggers.length - 1), true);
-  }
-
-  /** Where new and pasted steps go: after the selected step, else at the end. */
-  function insertPoint(): StepAt {
-    const at = flow.selected?.startsWith('s.') ? parseStepKey(flow.selected.slice(2)) : null;
-    if (at) return { path: at.path, index: at.index + 1 };
-    if (flow.selected?.startsWith('t.')) return { path: [], index: 0 };
-    return { path: [], index: action.steps.length };
+  function setBranch(edgeId: string) {
+    ed.updateGraph(action.id, (gr) => {
+      const e = gr.edges.find((x) => x.id === edgeId);
+      if (e) e.branch = nextBranch(e.branch);
+      return gr;
+    });
   }
 
   // Picker for new steps and triggers
 
-  type PickFor = { kind: 'step'; at: StepAt; group?: string } | { kind: 'trigger' };
-  let picker = $state<(PickFor & { anchor: DOMRect }) | null>(null);
+  type Pick = { kind: 'step' | 'trigger'; group?: string; anchor: DOMRect; at?: Point; link?: { from: string; side: EdgeSide } };
+  let picker = $state<Pick | null>(null);
 
-  function openPicker(e: MouseEvent, p: PickFor) {
-    picker = { ...p, anchor: (e.currentTarget as HTMLElement).getBoundingClientRect() };
+  function openPicker(p: Pick) {
+    picker = p;
   }
 
-  const stepGroups = $derived(
-    picker?.kind === 'step' && picker.group ? STEP_MENU.filter((g) => g.label === (picker as { group?: string }).group) : STEP_MENU
-  );
+  const stepGroups = $derived(picker?.kind === 'step' && picker.group ? STEP_MENU.filter((x) => x.label === picker!.group) : STEP_MENU);
 
-  // Zoom
-
-  async function zoomTo(z: number, cx?: number, cy?: number) {
-    if (!scroller) return;
-    const r = scroller.getBoundingClientRect();
-    const mx = cx ?? r.width / 2;
-    const my = cy ?? r.height / 2;
-    const old = flow.zoom;
-    const px = (scroller.scrollLeft + mx) / old;
-    const py = (scroller.scrollTop + my) / old;
-    flow.setZoom(z);
-    await tick();
-    scroller.scrollLeft = px * flow.zoom - mx;
-    scroller.scrollTop = py * flow.zoom - my;
+  /** Where a node added from the bottom bar goes: under the one selected node, else the middle of the view. */
+  function fromBar(e: MouseEvent, kind: 'step' | 'trigger', group?: string) {
+    const anchorRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const one = flow.selected.length === 1 ? nodeById(g, flow.selected[0]!) : undefined;
+    if (kind === 'step' && one) {
+      const r = nodeRect(one, sizes);
+      openPicker({ kind, group, anchor: anchorRect, at: { x: r.x + r.w / 2, y: r.y + r.h + 64 }, link: { from: one.id, side: 'bottom' } });
+      return;
+    }
+    openPicker({ kind, group, anchor: anchorRect });
   }
 
-  function fit() {
-    if (!scroller || !stage) return;
-    const r = stage.getBoundingClientRect();
-    const w = r.width / flow.zoom;
-    const h = r.height / flow.zoom;
-    const z = Math.min(1, scroller.clientWidth / w, (scroller.clientHeight - 56) / h);
-    flow.setZoom(Math.max(0.3, Math.floor(z * 20) / 20));
-    void tick().then(() => scroller?.scrollTo({ left: 0, top: 0 }));
+  function placeNew(p: Pick): Point {
+    if (p.link && p.at) return placeBySide(p.at, OPPOSITE[p.link.side]);
+    if (p.at) return { x: p.at.x - NODE_W / 2, y: p.at.y - DEFAULT_H / 2 };
+    const c = toWorld(view, { x: vw / 2, y: vh / 2 });
+    return freeSpot(g, { x: c.x - NODE_W / 2, y: c.y - DEFAULT_H / 2 - (p.kind === 'trigger' ? 80 : 0) });
   }
 
-  onMount(() => {
-    const el = scroller!;
-    const wheel = (e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      e.preventDefault();
-      const r = el.getBoundingClientRect();
-      void zoomTo(flow.zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1), e.clientX - r.left, e.clientY - r.top);
-    };
-    el.addEventListener('wheel', wheel, { passive: false });
-    return () => el.removeEventListener('wheel', wheel);
-  });
+  function pickStep(type: StepType) {
+    const p = picker!;
+    addNode({ type: 'step', step: newStep(type) }, placeNew(p), p.link);
+  }
+
+  function pickTrigger(type: TriggerType) {
+    addNode({ type: 'trigger', trigger: newTrigger(type) }, placeNew(picker!));
+  }
 
   // Keyboard
 
-  async function focusNode(key: string) {
-    await tick();
-    root?.querySelector<HTMLElement>(`[data-node="${key}"]`)?.focus();
-  }
-
-  function selectAndFocus(key: string | null) {
-    if (!key) return;
-    flow.select(key);
-    void focusNode(key);
+  function focusNode(id: string) {
+    void tick().then(() => root?.querySelector<HTMLElement>(`[data-node="${id}"]`)?.focus({ preventScroll: true }));
   }
 
   function inScope(e: KeyboardEvent): boolean {
     if (e.defaultPrevented || isTypingTarget(e.target) || picker) return false;
     const t = e.target as Element | null;
     if (!t || t === document.body) return true;
-    if (!root?.contains(t)) return false;
-    // Keep keys for controls that use them.
-    return !t.closest('[role="radiogroup"], [role="separator"], [role="menu"], [role="dialog"], select');
+    if (!root?.contains(t) || t.closest('.inspector')) return false;
+    return !t.closest('[role="menu"], [role="dialog"], select');
   }
 
   function onKey(e: KeyboardEvent) {
@@ -250,7 +519,7 @@
       const t = e.target as Element | null;
       if (!t?.closest?.('[role="menu"], [role="dialog"]')) {
         flow.inspecting = false;
-        if (flow.selected) void focusNode(flow.selected);
+        if (flow.selected[0]) focusNode(flow.selected[0]);
         e.preventDefault();
         return;
       }
@@ -258,51 +527,32 @@
     if (!inScope(e)) return;
     const mod = e.ctrlKey || e.metaKey;
     const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-    const sel = flow.selected;
-    const at = sel?.startsWith('s.') ? parseStepKey(sel.slice(2)) : null;
-    const arrows: Record<string, Direction> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
-
     if (mod && !e.altKey) {
-      if (key === 'd' && sel) duplicateNode(sel);
-      else if (key === 'c' && at) {
-        flow.clipboard = clone($state.snapshot(getList(action.steps, at.path)![at.index]!)) as Step;
-        toasts.show('Step copied');
-      } else if (key === 'x' && at && sel) {
-        flow.clipboard = clone($state.snapshot(getList(action.steps, at.path)![at.index]!)) as Step;
-        removeNode(sel);
-      } else if (key === 'v' && flow.clipboard) {
-        const p = insertPoint();
-        insertAt(p.path, p.index, clone(flow.clipboard));
-      } else return;
+      if (key === 'd') duplicateSelected();
+      else if (key === 'c' && flow.selected.length) copySelected(false);
+      else if (key === 'x' && flow.selected.length) copySelected(true);
+      else if (key === 'v' && flow.clipboard) paste();
+      else if (key === 'a') flow.select(g.nodes.map((n) => n.id), false);
+      else return;
       e.preventDefault();
       return;
     }
-    if (e.altKey && at && (key === 'ArrowUp' || key === 'ArrowDown')) {
-      const by = key === 'ArrowUp' ? -1 : 1;
-      const len = getList(action.steps, at.path)?.length ?? 0;
-      if (at.index + by >= 0 && at.index + by < len) {
-        ed.updateSteps(action.id, (st) => moveStep(st, at.path, at.index, by));
-        selectAndFocus(nodeKey(at.path, at.index + by));
-      }
-      e.preventDefault();
-      return;
-    }
-    if (e.altKey || mod) return;
-    if (arrows[key]) {
-      const first = order[0] ?? null;
-      selectAndFocus(sel ? neighbour(layout, action.triggers.length, sel, arrows[key]!) : first);
-    } else if ((key === 'Delete' || key === 'Backspace') && sel) {
-      removeNode(sel);
-      if (flow.selected) void focusNode(flow.selected);
-    } else if (key === 'Enter' && sel && !(e.target as Element)?.closest?.('button')) {
-      flow.select(sel, true);
-    } else if (key === 'Escape') {
-      if (flow.inspecting) {
-        flow.inspecting = false;
-        if (sel) void focusNode(sel);
-      } else flow.select(null);
-    } else return;
+    if (e.altKey) return;
+    const step = e.shiftKey ? GRID : 1;
+    const arrows: Record<string, [number, number]> = { ArrowUp: [0, -step], ArrowDown: [0, step], ArrowLeft: [-step, 0], ArrowRight: [step, 0] };
+    if (arrows[key] && flow.selected.length) nudge(...arrows[key]!);
+    else if (key === 'Delete' || key === 'Backspace') removeSelected();
+    else if (key === 'Escape') flow.clear();
+    else if (key === 'f') fit();
+    else if (key === ' ' && (!(e.target as Element)?.closest?.('button') || (e.target as Element).closest('[data-node]'))) space = true;
+    else if (key === 'Enter' && flow.selected.length === 1 && !(e.target as Element)?.closest?.('button')) flow.select(flow.selected, true);
+    else return;
     e.preventDefault();
+  }
+
+  function onKeyUp(e: KeyboardEvent) {
+    if (e.key === ' ') space = false;
+    if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Meta') ed.seal(action.id);
   }
 
   // Node content
@@ -335,166 +585,134 @@
       .filter((x) => !x.startsWith('stream.'))
       .slice(0, 6);
 
-  const nodeIssues = (key: string) => issues.filter((i) => i.key === (key.startsWith('t.') ? `trigger.${key.slice(2)}` : `step.${key.slice(2)}`));
-
-  function cellStyle(c: FlowCell): string {
-    const rows = c.kind === 'rail' ? `${c.row + 1} / ${c.rowEnd + 1}` : `${c.row + 1}`;
-    return `grid-row:${rows};grid-column:${c.col + 1} / span ${c.span}`;
+  function nodeProps(n: GraphNode) {
+    if (n.kind.type === 'trigger') {
+      const t = n.kind.trigger;
+      return { icon: TRIGGER_ICONS[t.type], tone: 'trigger', title: TRIGGER_LABELS[t.type], summary: describeTrigger(t), rows: triggerRows(t), chips: outputs(t), trigger: true };
+    }
+    const s = n.kind.step;
+    return { icon: STEP_ICONS[s.type], tone: stepTone(s.type), title: s.type === 'if' ? 'If' : STEP_LABELS[s.type], summary: describeStep(s, ctx), rows: [], chips: [], trigger: false };
   }
 
-  const forkStyle = (c: { span: number; then: number }) => `--a:${(c.then / 2 / c.span) * 100}%;--b:${((c.then + (c.span - c.then) / 2) / c.span) * 100}%`;
+  // Drawing helpers
 
-  const laneLabel = (path: ListPath) => {
-    const last = path[path.length - 1];
-    return !last ? 'Add step' : last.branch === 'then' ? 'Add to Then' : 'Add to Otherwise';
-  };
+  const connectPath = $derived.by(() => {
+    const gs = gesture;
+    if (gs?.kind !== 'connect') return null;
+    const r = rects.get(gs.from);
+    if (!r) return null;
+    const a = anchor(r, gs.side);
+    const tr = gs.target ? rects.get(gs.target.id) : undefined;
+    if (gs.target && tr) return pathOf(edgeCurve(r, gs.side, tr, gs.target.side));
+    return pathOf(curve(a, gs.side, gs.p, null));
+  });
+
+  const marquee = $derived(gesture?.kind === 'box' ? rectFrom(gesture.a, gesture.b) : null);
+  const dot = $derived(GRID * (view.zoom < 0.6 ? 2 : 1) * view.zoom);
+  const visible = $derived(visibleRect(view, vw, vh));
+  const mapNodes = $derived(g.nodes.map((n) => ({ ...rects.get(n.id)!, id: n.id, trigger: n.kind.type === 'trigger', selected: selected.has(n.id) })));
+  const cursor = $derived(
+    gesture?.kind === 'pan' && gesture.moved ? 'grabbing' : gesture?.kind === 'connect' ? 'crosshair' : gesture?.kind === 'drag' && gesture.moved ? 'grabbing' : space ? 'grab' : 'default'
+  );
+  const stats = $derived(`${g.nodes.length} node${g.nodes.length === 1 ? '' : 's'} · ${g.edges.length} line${g.edges.length === 1 ? '' : 's'}`);
+  const toScreenPt = (p: Point) => toScreen(view, p);
 </script>
 
-<svelte:window onkeydown={onKey} />
-
-{#snippet gap(path: ListPath, index: number, label: string)}
-  {@const id = `${stepKey(path, index)}`}
-  {@const ok = canDrop(path)}
-  <div
-    class="gap"
-    class:droppable={dragging && ok}
-    class:over={over === id && ok}
-    role="presentation"
-    ondragover={(e) => {
-      if (!ok) return;
-      e.preventDefault();
-      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-      over = id;
-    }}
-    ondragleave={() => {
-      if (over === id) over = null;
-    }}
-    ondrop={(e) => {
-      e.preventDefault();
-      dropTo({ path, index });
-    }}
-  >
-    <button type="button" class="ins" aria-label={label} title={label} onclick={(e) => openPicker(e, { kind: 'step', at: { path, index } })}>
-      <Plus size={12} strokeWidth={2.5} />
-    </button>
-  </div>
-{/snippet}
-
-{#snippet stepNode(c: NodeCell)}
-  {@const s = c.step}
-  <FlowNode
-    id={c.key}
-    icon={STEP_ICONS[s.type]}
-    tone={stepTone(s.type)}
-    title={s.type === 'if' ? 'If' : STEP_LABELS[s.type]}
-    summary={describeStep(s, ctx)}
-    number={c.number}
-    issues={nodeIssues(c.key)}
-    status={statusOf(c.key)}
-    running={running}
-    selected={flow.selected === c.key}
-    dragging={dragging !== null && nodeKey(dragging.path, dragging.index) === c.key}
-    draggable
-    onselect={() => flow.select(c.key, true)}
-    onduplicate={() => duplicateNode(c.key)}
-    ondelete={() => removeNode(c.key)}
-    ondragstart={(e) => {
-      dragging = { path: c.path, index: c.index };
-      e.dataTransfer?.setData('text/plain', c.key);
-      if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-    }}
-    ondragend={() => {
-      dragging = null;
-      over = null;
-    }}
-  />
-{/snippet}
+<svelte:window onkeydown={onKey} onkeyup={onKeyUp} onblur={() => (space = false)} />
 
 <div class="flow" bind:this={root}>
   <div class="canvas-wrap">
-    <div class="canvas" bind:this={scroller} tabindex="-1" role="region" aria-label="Flow of {action.name || 'this action'}">
-      <div class="stage" bind:this={stage} style="zoom:{flow.zoom}">
-        <div class="grid" style="grid-template-columns:repeat({layout.cols}, var(--col-w))">
-          {#each layout.cells as c, ci (ci)}
-            {#if c.kind === 'triggers'}
-              <div class="triggers" style={cellStyle(c)}>
-                <div class="trow" class:fan={action.triggers.length > 1}>
-                  {#each action.triggers as t, i (i)}
-                    {@const key = triggerKey(i)}
-                    <div class="tslot">
-                      <FlowNode
-                        id={key}
-                        icon={TRIGGER_ICONS[t.type]}
-                        tone="trigger"
-                        title={TRIGGER_LABELS[t.type]}
-                        summary={describeTrigger(t)}
-                        rows={triggerRows(t)}
-                        chips={outputs(t)}
-                        issues={nodeIssues(key)}
-                        status={statusOf(key)}
-                        {running}
-                        selected={flow.selected === key}
-                        deleteLabel="Remove trigger"
-                        onselect={() => flow.select(key, true)}
-                        onduplicate={() => duplicateNode(key)}
-                        ondelete={() => removeNode(key)}
-                      />
-                    </div>
-                  {:else}
-                    <div class="tslot">
-                      <div class="no-trigger">
-                        <span class="nt-title">No trigger</span>
-                        <span class="faint">Runs from Test or another action.</span>
-                      </div>
-                    </div>
-                  {/each}
-                  <button type="button" class="add-trigger" aria-label="Add trigger" title="Add trigger" onclick={(e) => openPicker(e, { kind: 'trigger' })}>
-                    <Plus size={14} />
-                  </button>
-                </div>
-              </div>
-            {:else if c.kind === 'node'}
-              <div class="cell" style={cellStyle(c)}>
-                {@render gap(c.path, c.index, 'Insert step here')}
-                <div
-                  class="slot"
-                  role="presentation"
-                  ondragover={(e) => {
-                    if (!canDrop(c.path) || (dragging && nodeKey(dragging.path, dragging.index) === c.key)) return;
-                    e.preventDefault();
-                    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    over = stepKey(c.path, e.clientY > r.top + r.height / 2 ? c.index + 1 : c.index);
-                  }}
-                  ondrop={(e) => {
-                    e.preventDefault();
-                    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    dropTo({ path: c.path, index: e.clientY > r.top + r.height / 2 ? c.index + 1 : c.index });
-                  }}
-                >
-                  {@render stepNode(c)}
-                </div>
-              </div>
-            {:else if c.kind === 'end'}
-              <div class="cell end" class:lane={c.path.length > 0} class:empty={c.empty} style={cellStyle(c)}>
-                {@render gap(c.path, c.index, c.path.length ? `${laneLabel(c.path)} (end)` : 'Add step at the end')}
-                <button type="button" class="add" onclick={(e) => openPicker(e, { kind: 'step', at: { path: c.path, index: c.index } })}>
-                  <Plus size={13} />{laneLabel(c.path)}
-                </button>
-                {#if c.path.length === 0}<span class="stop-dot" aria-hidden="true"></span>{/if}
-              </div>
-            {:else if c.kind === 'split'}
-              <div class="fork split" style="{cellStyle(c)};{forkStyle(c)}" aria-hidden="true">
-                <span class="lab then" data-text="Then"></span>
-                <span class="lab else" data-text="Otherwise"></span>
-              </div>
-            {:else if c.kind === 'join'}
-              <div class="fork join" style="{cellStyle(c)};{forkStyle(c)}" aria-hidden="true"></div>
-            {:else if c.kind === 'rail'}
-              <div class="rail" style={cellStyle(c)} aria-hidden="true"></div>
-            {/if}
+    <div
+      class="canvas"
+      bind:this={viewport}
+      bind:clientWidth={vw}
+      bind:clientHeight={vh}
+      tabindex="-1"
+      role="region"
+      aria-label="Flow of {action.name || 'this action'}"
+      style="cursor:{cursor};background-size:{dot}px {dot}px;background-position:{view.x}px {view.y}px"
+      onpointerdown={down}
+      onpointermove={move}
+      onpointerup={up}
+      onpointercancel={up}
+      ondblclick={dblclick}
+      onpointerleave={() => {
+        if (!gesture) pointer = null;
+      }}
+    >
+      <div class="world" class:connecting={gesture?.kind === 'connect'} style="transform:translate({view.x}px, {view.y}px) scale({view.zoom})">
+        <svg class="edges" width="1" height="1" aria-hidden="true">
+          {#each lines as l (l.e.id)}
+            <g class="edge b-{l.e.branch}" class:if={l.fromIf} class:selected={flow.edge === l.e.id} class:ran={l.ran} data-edge={l.e.id} data-from={l.e.from} data-to={l.e.to} data-to-side={l.e.to_side} data-branch={l.e.branch}>
+              <path class="hit" d={l.d} />
+              <path class="line" d={l.d} />
+              <polygon class="head" points={arrowHead(l.tip, l.e.to_side)} />
+            </g>
           {/each}
-        </div>
+          {#if connectPath}
+            <path class="draft" d={connectPath} />
+          {/if}
+        </svg>
+
+        {#each lines as l (l.e.id)}
+          {#if l.fromIf}
+            <button
+              type="button"
+              class="bchip b-{l.e.branch}"
+              class:selected={flow.edge === l.e.id}
+              data-chip
+              style="left:{l.mid.x}px;top:{l.mid.y}px"
+              title="Click to switch between Then, Otherwise and Always"
+              onclick={() => setBranch(l.e.id)}>{BRANCH_TEXT[l.e.branch]}</button
+            >
+          {/if}
+        {/each}
+
+        {#each g.nodes as n (n.id)}
+          {@const p = nodeProps(n)}
+          <div
+            class="gn"
+            class:lifted={gesture?.kind === 'drag' && gesture.moved && selected.has(n.id)}
+            style="left:{n.x}px;top:{n.y}px"
+            data-node-wrap={n.id}
+            data-x={Math.round(n.x)}
+            data-y={Math.round(n.y)}
+            use:measure={n.id}
+          >
+            <FlowNode
+              id={n.id}
+              icon={p.icon}
+              tone={p.tone}
+              title={p.title}
+              summary={p.summary}
+              rows={p.rows}
+              chips={p.chips}
+              trigger={p.trigger}
+              issues={issuesOf(n.id)}
+              status={statusOf(n.id)}
+              {running}
+              selected={selected.has(n.id)}
+              loose={loose.has(n.id)}
+              hot={gesture?.kind === 'connect' && gesture.target?.id === n.id ? gesture.target.side : null}
+              onactivate={() => flow.select([n.id], true)}
+            />
+          </div>
+        {/each}
       </div>
+
+      {#if marquee}
+        <div class="marquee" style="left:{marquee.x}px;top:{marquee.y}px;width:{marquee.w}px;height:{marquee.h}px"></div>
+      {/if}
+
+      {#if !g.nodes.length}
+        <div class="empty">
+          <span class="empty-ic"><Zap size={18} /></span>
+          <p class="empty-title">Start with a trigger</p>
+          <p class="faint">What should start this action? A chat command, a raid, a timer, a button…</p>
+          <button type="button" class="empty-btn" data-chip onclick={(e) => fromBar(e, 'trigger')}><Plus size={14} />Add trigger</button>
+          <p class="faint small">Or double-click anywhere to add a step.</p>
+        </div>
+      {/if}
     </div>
 
     {#if running || lastRun}
@@ -508,67 +726,100 @@
       </div>
     {/if}
 
-    <div class="palette" role="toolbar" aria-label="Add step">
-      <span class="pl faint">Add step</span>
+    <div class="tools" role="toolbar" aria-label="Canvas">
+      <button
+        type="button"
+        class="tool"
+        class:on={flow.snap}
+        aria-pressed={flow.snap}
+        aria-label="Snap"
+        title="Snap to grid (hold Alt while dragging to place freely)"
+        onclick={() => flow.setSnap(!flow.snap)}><Grid3x3 size={14} /><span>Snap</span></button
+      >
+      <button type="button" class="tool" aria-label="Tidy up" title="Arrange the nodes neatly (one undo step)" disabled={!g.nodes.length} onclick={tidyUp}
+        ><Sparkles size={14} /><span>Tidy up</span></button
+      >
+      <span class="sep" aria-hidden="true"></span>
+      <IconButton size="sm" label="Zoom out" onclick={() => zoomBy(1 / 1.2)}><Minus /></IconButton>
+      <button type="button" class="pct mono" title="Reset zoom to 100%" onclick={() => (view = zoomAt(view, 1, { x: vw / 2, y: vh / 2 }))}
+        >{Math.round(view.zoom * 100)}%</button
+      >
+      <IconButton size="sm" label="Zoom in" onclick={() => zoomBy(1.2)}><Plus /></IconButton>
+      <IconButton size="sm" label="Fit to view (F)" onclick={fit}><Maximize /></IconButton>
+    </div>
+
+    <div class="palette" role="toolbar" aria-label="Add to the flow">
+      <button type="button" class="chip trig" title="Add trigger" aria-label="Add trigger" onclick={(e) => fromBar(e, 'trigger')}
+        ><Zap size={14} /><span>Trigger</span></button
+      >
+      <span class="psep" aria-hidden="true"></span>
       {#each STEP_GROUPS as g (g.label)}
         {@const Icon = GROUP_ICONS[g.label]}
-        <button
-          type="button"
-          class="chip"
-          title={g.label}
-          aria-label={g.label}
-          onclick={(e) => openPicker(e, { kind: 'step', at: insertPoint(), group: g.label })}
-        >
+        <button type="button" class="chip" title="Add {g.label} step" aria-label={g.label} onclick={(e) => fromBar(e, 'step', g.label)}>
           {#if Icon}<Icon size={14} />{/if}<span>{g.label}</span>
         </button>
       {/each}
     </div>
 
-    <div class="zoom" role="toolbar" aria-label="Zoom">
-      <IconButton size="sm" label="Zoom out" onclick={() => zoomTo(flow.zoom / 1.2)}><Minus /></IconButton>
-      <button type="button" class="pct mono" title="Reset zoom" onclick={() => zoomTo(1)}>{Math.round(flow.zoom * 100)}%</button>
-      <IconButton size="sm" label="Zoom in" onclick={() => zoomTo(flow.zoom * 1.2)}><Plus /></IconButton>
-      <IconButton size="sm" label="Zoom to fit" onclick={fit}><Maximize /></IconButton>
+    <div class="hint faint" aria-hidden="true">
+      <span>Drag to pan</span><span><kbd>Shift</kbd> + drag to select</span><span><kbd>Ctrl</kbd> + scroll to zoom</span><span>Double-click to add a step</span>
     </div>
+
+    {#if g.nodes.length}
+      <div class="map" aria-label="Overview">
+        <Minimap nodes={mapNodes} {visible} onjump={(p) => (view = centerOn(view, p, vw, vh))} />
+        <span class="stats faint">{stats}</span>
+      </div>
+    {/if}
   </div>
 
-  {#if flow.inspecting && flow.selected}
+  {#if flow.inspected}
+    {@const id = flow.inspected}
     <ResizeHandle bind:size={inspectorW} id="automation.inspector" min={340} max={760} initial={440} panel="after" label="Resize inspector" />
     <div class="inspector" style="width:{inspectorW}px">
       <Inspector
         {action}
-        nodeKey={flow.selected}
+        nodeId={id}
         onclose={() => {
-          const k = flow.selected;
           flow.inspecting = false;
-          if (k) void focusNode(k);
+          focusNode(id);
         }}
-        onmove={(from, to) => moveTo(from, to)}
-        ondelete={() => flow.selected && removeNode(flow.selected)}
+        onduplicate={duplicateSelected}
+        ondelete={removeSelected}
       />
     </div>
   {/if}
 </div>
 
 {#if picker?.kind === 'step'}
-  {@const at = picker.at}
   <StepPicker
     groups={stepGroups as MenuGroup<StepType>[]}
     label="Add a step"
     anchor={picker.anchor}
     icons={STEP_ICONS}
-    onselect={(type) => insertAt(at.path, at.index, newStep(type))}
+    onselect={pickStep}
     onclose={() => (picker = null)}
   />
 {:else if picker?.kind === 'trigger'}
-  <StepPicker groups={TRIGGER_MENU} label="Add a trigger" anchor={picker.anchor} icons={TRIGGER_ICONS} onselect={addTrigger} onclose={() => (picker = null)} />
+  <StepPicker groups={TRIGGER_MENU} label="Add a trigger" anchor={picker.anchor} icons={TRIGGER_ICONS} onselect={pickTrigger} onclose={() => (picker = null)} />
+{/if}
+
+{#if picker?.at && picker.link}
+  {@const r = rects.get(picker.link.from)}
+  {#if r}
+    {@const a = toScreenPt(anchor(r, picker.link.side))}
+    {@const b = toScreenPt(picker.at)}
+    <svg class="pending" aria-hidden="true" style="left:{viewport?.getBoundingClientRect().left ?? 0}px;top:{viewport?.getBoundingClientRect().top ?? 0}px">
+      <path d={pathOf(curve(a, picker.link.side, b, OPPOSITE[picker.link.side]))} />
+      <circle cx={b.x} cy={b.y} r="4" />
+    </svg>
+  {/if}
 {/if}
 
 <style>
   .flow {
     --node-w: 280px;
-    --col-w: 332px;
-    --line: color-mix(in srgb, var(--text-faint) 55%, var(--border));
+    --line: color-mix(in srgb, var(--text-faint) 70%, var(--border));
     display: flex;
     flex: 1;
     min-height: 0;
@@ -582,297 +833,102 @@
     container-type: inline-size;
   }
   .canvas {
+    position: relative;
     flex: 1;
-    overflow: auto;
+    overflow: hidden;
+    touch-action: none;
     background-color: var(--bg-0);
-    background-image: radial-gradient(circle, color-mix(in srgb, var(--border-strong) 70%, transparent) 1px, transparent 1.2px);
-    background-size: 18px 18px;
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--border-strong) 75%, transparent) 1px, transparent 1.3px);
   }
   .canvas:focus-visible {
     outline: none;
   }
-  .stage {
-    display: flex;
-    justify-content: center;
-    min-width: fit-content;
-    padding: 56px 48px 120px;
-  }
-  .grid {
-    display: grid;
-    grid-auto-rows: auto;
-    align-items: stretch;
-  }
-
-  /* Triggers */
-  .triggers {
-    display: flex;
-    justify-content: center;
-    padding-bottom: 0;
-  }
-  .trow {
-    position: relative;
-    display: inline-flex;
-    gap: 24px;
-    padding-bottom: 14px;
-  }
-  .trow.fan {
-    padding-bottom: 28px;
-  }
-  .tslot {
-    position: relative;
-    width: var(--node-w);
-  }
-  /* Line from each trigger down, joined by a bar when there are several. */
-  .tslot::after {
-    content: '';
+  .world {
     position: absolute;
-    left: calc(50% - 1px);
-    top: 100%;
-    width: 2px;
-    height: 14px;
-    background: var(--line);
-  }
-  .trow::after {
-    content: '';
-    position: absolute;
-    left: calc(50% - 1px);
-    bottom: 0;
-    width: 2px;
-    height: 14px;
-    background: var(--line);
-  }
-  .trow.fan::before {
-    content: '';
-    position: absolute;
-    left: calc(var(--node-w) / 2 - 1px);
-    right: calc(var(--node-w) / 2 - 1px);
-    bottom: 13px;
-    height: 2px;
-    border-radius: 2px;
-    background: var(--line);
-  }
-  .no-trigger {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 12px 14px;
-    border: 1px dashed var(--border-strong);
-    border-radius: var(--radius-lg);
-    background: var(--bg-1);
-    font-size: 12px;
-  }
-  .nt-title {
-    font-weight: 620;
-  }
-  .add-trigger {
-    position: absolute;
-    right: -40px;
-    top: 8px;
-    display: grid;
-    place-items: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    border: 1px dashed var(--border-strong);
-    color: var(--text-muted);
-    background: var(--bg-1);
-  }
-  .add-trigger:hover {
-    border-style: solid;
-    border-color: var(--accent);
-    color: var(--accent-text);
-  }
-
-  /* Steps */
-  .cell {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 0;
-  }
-  .slot {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-  }
-  .gap {
-    position: relative;
-    width: 100%;
-    height: 40px;
-    display: grid;
-    place-items: center;
-    flex: none;
-  }
-  .gap::before {
-    content: '';
-    position: absolute;
-    left: calc(50% - 1px);
+    left: 0;
     top: 0;
-    bottom: 0;
-    width: 2px;
-    background: var(--line);
+    width: 0;
+    height: 0;
+    transform-origin: 0 0;
   }
-  .ins {
-    position: relative;
-    display: grid;
-    place-items: center;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    border: 1px solid var(--border-strong);
-    background: var(--bg-1);
-    color: var(--text-faint);
-    opacity: 0;
-    transform: scale(0.85);
-    transition:
-      opacity 0.12s,
-      transform 0.12s var(--ease);
-  }
-  .gap:hover .ins,
-  .ins:focus-visible {
-    opacity: 1;
-    transform: none;
-  }
-  .ins:hover {
-    border-color: var(--accent);
-    color: var(--accent-text);
-  }
-  .gap.droppable::after {
-    content: '';
+  .gn {
     position: absolute;
-    left: calc(50% - var(--node-w) / 2);
     width: var(--node-w);
-    max-width: 100%;
-    top: calc(50% - 2px);
-    height: 4px;
-    border-radius: 4px;
-    background: color-mix(in srgb, var(--accent) 25%, transparent);
   }
-  .gap.over::after {
-    background: var(--accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  .gn.lifted {
+    z-index: 3;
+    filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.25));
   }
-  .gap.droppable .ins {
-    opacity: 0;
-  }
-  .end {
-    padding-bottom: 6px;
-  }
-  .end.lane::after {
-    content: '';
+
+  /* Lines */
+  .edges {
     position: absolute;
-    left: calc(50% - 1px);
-    top: 40px;
-    bottom: 0;
-    width: 2px;
-    background: var(--line);
+    left: 0;
+    top: 0;
+    overflow: visible;
+    pointer-events: none;
   }
-  .add {
-    position: relative;
+  .edge {
+    --c: var(--line);
+    cursor: pointer;
+  }
+  .edge.if.b-then {
+    --c: color-mix(in srgb, var(--ok) 80%, var(--line));
+  }
+  .edge.if.b-otherwise {
+    --c: color-mix(in srgb, var(--warn) 75%, var(--line));
+  }
+  .edge.ran {
+    --c: color-mix(in srgb, var(--ok) 85%, var(--text));
+  }
+  .edge:hover {
+    --c: var(--text-muted);
+  }
+  .edge.selected {
+    --c: var(--accent);
+  }
+  .hit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 14;
+    pointer-events: stroke;
+  }
+  .line {
+    fill: none;
+    stroke: var(--c);
+    stroke-width: 2;
+    stroke-linecap: round;
+    transition: stroke 0.12s;
+  }
+  .edge:hover .line,
+  .edge.selected .line {
+    stroke-width: 2.5;
+  }
+  .edge.selected .line {
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 60%, transparent));
+  }
+  .head {
+    fill: var(--c);
+    transition: fill 0.12s;
+  }
+  .draft {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    stroke-dasharray: 6 5;
+    animation: march 0.6s linear infinite;
+  }
+  @keyframes march {
+    to {
+      stroke-dashoffset: -11;
+    }
+  }
+  .bchip {
+    position: absolute;
     z-index: 1;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    height: 28px;
-    padding: 0 12px;
-    border: 1px dashed var(--border-strong);
-    border-radius: 999px;
-    background: var(--bg-1);
-    color: var(--text-muted);
-    font-size: 12px;
-    font-weight: 550;
-  }
-  .add:hover {
-    border-style: solid;
-    border-color: var(--accent);
-    color: var(--accent-text);
-  }
-  .end:not(.lane) .add {
-    height: 32px;
-    padding: 0 16px;
-  }
-  .stop-dot {
-    width: 10px;
-    height: 10px;
-    margin-top: 14px;
-    border-radius: 50%;
-    border: 2px solid var(--line);
-  }
-  .rail {
-    position: relative;
-  }
-  .rail::before {
-    content: '';
-    position: absolute;
-    left: calc(50% - 1px);
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: var(--line);
-  }
-
-  /* Where an if splits and joins. --a and --b are the lane centres. */
-  .fork {
-    position: relative;
-  }
-  .split {
-    height: 46px;
-  }
-  .join {
-    height: 28px;
-  }
-  .fork::before,
-  .fork::after {
-    content: '';
-    position: absolute;
-    background: var(--line);
-  }
-  .split::before {
-    left: var(--a);
-    right: calc(100% - var(--b));
-    top: 12px;
-    height: 2px;
-  }
-  .split::after {
-    left: calc(50% - 1px);
-    top: 0;
-    width: 2px;
-    height: 13px;
-  }
-  .join::before {
-    left: var(--a);
-    right: calc(100% - var(--b));
-    top: 13px;
-    height: 2px;
-  }
-  .join::after {
-    left: calc(50% - 1px);
-    top: 14px;
-    bottom: 0;
-    width: 2px;
-  }
-  .lab {
-    position: absolute;
-    top: 12px;
-    bottom: 0;
-    display: grid;
-    place-items: center;
-    transform: translateX(-50%);
-  }
-  .lab::before {
-    content: '';
-    position: absolute;
-    left: calc(50% - 1px);
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: var(--line);
-  }
-  .lab::after {
-    content: attr(data-text);
-    position: relative;
-    padding: 1px 8px;
+    transform: translate(-50%, -50%);
+    height: 20px;
+    padding: 0 8px;
     border: 1px solid var(--border);
     border-radius: 999px;
     background: var(--bg-1);
@@ -881,14 +937,93 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     white-space: nowrap;
-  }
-  .lab.then {
-    left: var(--a);
-    color: var(--ok);
-  }
-  .lab.else {
-    left: var(--b);
     color: var(--text-muted);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.15);
+  }
+  .bchip.b-then {
+    color: var(--ok);
+    border-color: color-mix(in srgb, var(--ok) 40%, var(--border));
+  }
+  .bchip.b-otherwise {
+    color: var(--warn);
+    border-color: color-mix(in srgb, var(--warn) 40%, var(--border));
+  }
+  .bchip:hover {
+    background: var(--bg-3);
+  }
+  .bchip.selected {
+    border-color: var(--accent);
+  }
+  .marquee {
+    position: absolute;
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    pointer-events: none;
+  }
+  .pending {
+    position: fixed;
+    z-index: 55;
+    width: 1px;
+    height: 1px;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .pending path {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    stroke-dasharray: 6 5;
+  }
+  .pending circle {
+    fill: var(--accent);
+  }
+
+  /* Empty flow */
+  .empty {
+    position: absolute;
+    left: 50%;
+    top: 42%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 340px;
+    padding: 22px 24px;
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--bg-1) 90%, transparent);
+    text-align: center;
+  }
+  .empty-ic {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    margin-bottom: 4px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent-text);
+  }
+  .empty-title {
+    font-size: 14px;
+    font-weight: 650;
+  }
+  .empty-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    margin: 8px 0 2px;
+    padding: 0 14px;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: var(--on-accent);
+    font-weight: 600;
+  }
+  .small {
+    font-size: 12px;
   }
 
   /* Overlays on the canvas */
@@ -899,7 +1034,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    height: 28px;
+    height: 30px;
     padding: 0 12px;
     border: 1px solid var(--border);
     border-radius: 999px;
@@ -930,6 +1065,58 @@
       transform: rotate(360deg);
     }
   }
+  .tools {
+    position: absolute;
+    right: 14px;
+    top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--bg-1) 94%, transparent);
+    backdrop-filter: blur(8px);
+    box-shadow: var(--shadow-pop);
+  }
+  .tool {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 9px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 550;
+    color: var(--text-muted);
+  }
+  .tool:hover:not(:disabled) {
+    background: var(--bg-3);
+    color: var(--text);
+  }
+  .tool:disabled {
+    opacity: 0.5;
+  }
+  .tool.on {
+    color: var(--accent-text);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+  .sep {
+    width: 1px;
+    height: 18px;
+    margin: 0 4px;
+    background: var(--border);
+  }
+  .pct {
+    min-width: 46px;
+    height: 24px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    border-radius: 6px;
+  }
+  .pct:hover {
+    background: var(--bg-3);
+  }
   .palette {
     position: absolute;
     left: 50%;
@@ -937,7 +1124,7 @@
     transform: translateX(-50%);
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
     max-width: calc(100% - 28px);
     overflow-x: auto;
     padding: 5px;
@@ -946,11 +1133,6 @@
     background: color-mix(in srgb, var(--bg-1) 94%, transparent);
     backdrop-filter: blur(8px);
     box-shadow: var(--shadow-pop);
-  }
-  .pl {
-    padding: 0 8px 0 6px;
-    font-size: 12px;
-    white-space: nowrap;
   }
   .chip {
     display: inline-flex;
@@ -968,28 +1150,52 @@
     background: var(--bg-3);
     color: var(--text);
   }
-  .zoom {
+  .chip.trig {
+    color: var(--accent-text);
+  }
+  .chip.trig:hover {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+  .psep {
+    width: 1px;
+    height: 18px;
+    margin: 0 4px;
+    background: var(--border);
+  }
+  .hint {
+    position: absolute;
+    left: 16px;
+    bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 11.5px;
+    pointer-events: none;
+  }
+  .hint kbd {
+    padding: 0 4px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+  }
+  .map {
     position: absolute;
     right: 14px;
-    top: 12px;
+    bottom: 14px;
     display: flex;
-    align-items: center;
-    gap: 2px;
-    padding: 3px;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px;
     border: 1px solid var(--border);
     border-radius: 10px;
     background: color-mix(in srgb, var(--bg-1) 94%, transparent);
+    backdrop-filter: blur(8px);
     box-shadow: var(--shadow-pop);
   }
-  .pct {
-    min-width: 46px;
-    height: 24px;
-    font-size: 11.5px;
-    color: var(--text-muted);
-    border-radius: 6px;
-  }
-  .pct:hover {
-    background: var(--bg-3);
+  .stats {
+    padding: 0 2px;
+    font-size: 11px;
   }
   .inspector {
     flex: none;
@@ -998,12 +1204,25 @@
     flex-direction: column;
     background: var(--bg-1);
   }
-  /* Narrow canvas: icons only, names in the tooltip. */
-  @container (max-width: 860px) {
+  /* Narrower canvas: icons only in the bar, no key hints, smaller overview. */
+  @container (max-width: 1180px) {
+    .hint {
+      display: none;
+    }
+  }
+  @container (max-width: 980px) {
     .palette .chip {
       padding: 0 9px;
     }
     .palette .chip span {
+      display: none;
+    }
+    .tool span {
+      display: none;
+    }
+  }
+  @container (max-width: 760px) {
+    .map {
       display: none;
     }
   }

@@ -161,14 +161,6 @@ test('automation', async ({ page }) => {
   await shot(page, 'automation');
 });
 
-test('automation list view', async ({ page }) => {
-  await open(page);
-  await nav(page, 'Automation');
-  await page.getByText('Count deaths', { exact: true }).first().click();
-  await page.getByRole('radio', { name: 'List' }).click();
-  await shot(page, 'automation-list');
-});
-
 test('chat with 7TV', async ({ page }) => {
   await open(page);
   await nav(page, 'Activity');

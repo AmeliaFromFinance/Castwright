@@ -6,37 +6,28 @@
   import TemplateField from '$lib/editors/TemplateField.svelte';
   import type { Token } from '$lib/editors/tokens';
   import { app } from '$lib/state/app.svelte';
-  import IconButton from '$lib/ui/IconButton.svelte';
   import Slider from '$lib/ui/Slider.svelte';
   import Switch from '$lib/ui/Switch.svelte';
   import AssetPicker from '$lib/widgets/AssetPicker.svelte';
   import ConditionEditor from '$lib/widgets/ConditionEditor.svelte';
-  import { ArrowDown, ArrowUp, Copy, Trash2 } from '@lucide/svelte';
   import { ANNOUNCE_COLORS, STEP_LABELS } from './defaults';
   import { fieldsForAction } from './describe';
-  import type { StepOps } from './ops';
-  import StepList from './StepList.svelte';
-  import { child, stepKey, type ListPath } from './tree';
   import { VAR_KEY_HELP, type Issue } from './validate';
 
   interface Props {
     step: Step;
-    path: ListPath;
-    index: number;
-    count: number;
+    nodeId: string;
     action: Action;
-    ops: StepOps;
     tokens: Token[];
+    /** Problems with this node. */
     issues: Issue[];
-    /** Shown on its own next to the flow: branches are edited in the flow instead. */
-    inspector?: boolean;
+    onpatch: (patch: Record<string, unknown>) => void;
   }
 
-  let { step, path, index, count, action, ops, tokens, issues, inspector = false }: Props = $props();
+  let { step, nodeId, action, tokens, issues, onpatch }: Props = $props();
 
   const uid = `step-${Math.random().toString(36).slice(2, 8)}`;
-  const key = $derived(stepKey(path, index));
-  const mine = $derived(issues.filter((i) => i.key === `step.${key}`));
+  const mine = $derived(issues);
   const obsOn = $derived(app.obs.state === 'connected');
   const overlays = $derived(app.project?.overlays ?? []);
   const otherActions = $derived((app.project?.actions ?? []).filter((a) => a.id !== action.id));
@@ -48,7 +39,7 @@
   ];
 
   function set(k: string, v: unknown) {
-    ops.patch(path, index, { [k]: v });
+    onpatch({ [k]: v });
   }
 
   function num(v: string, min: number, max: number): number | null {
@@ -134,15 +125,9 @@
   </div>
 {/snippet}
 
-<div class="step" class:invalid={mine.some((i) => !i.warn)} class:logic={step.type === 'if'} data-step={key}>
+<div class="step" class:invalid={mine.some((i) => !i.warn)} data-step={nodeId}>
   <header>
-    <span class="num mono faint">{index + 1}</span>
     <span class="label">{STEP_LABELS[step.type]}</span>
-    <div class="grow"></div>
-    <IconButton size="sm" label="Move step up" disabled={index === 0} onclick={() => ops.move(path, index, -1)}><ArrowUp /></IconButton>
-    <IconButton size="sm" label="Move step down" disabled={index === count - 1} onclick={() => ops.move(path, index, 1)}><ArrowDown /></IconButton>
-    <IconButton size="sm" label="Duplicate step" onclick={() => ops.duplicate(path, index)}><Copy /></IconButton>
-    <IconButton size="sm" label="Delete step" tone="danger" onclick={() => ops.remove(path, index)}><Trash2 /></IconButton>
   </header>
 
   <div class="fields">
@@ -256,7 +241,7 @@
             id="{uid}-ov"
             class="input"
             value={step.overlay_id}
-            onchange={(e) => ops.patch(path, index, { overlay_id: e.currentTarget.value, layer_id: '' })}
+            onchange={(e) => onpatch({ overlay_id: e.currentTarget.value, layer_id: '' })}
           >
             <option value="">Pick an overlay</option>
             {#each overlays as o (o.id)}<option value={o.id}>{o.name}</option>{/each}
@@ -354,18 +339,7 @@
           onchange={(g) => set('conditions', g)}
         />
       </div>
-      {#if inspector}
-        <p class="hint">The steps for Then and Otherwise are in the flow.</p>
-      {:else}
-      <div class="branch">
-        <span class="branch-label">Then</span>
-        <StepList steps={step.then} path={child(path, index, 'then')} {action} {ops} {tokens} {issues} addLabel="Add step to Then" emptyText="Nothing yet." />
-      </div>
-      <div class="branch else">
-        <span class="branch-label">Otherwise</span>
-        <StepList steps={step.else} path={child(path, index, 'else')} {action} {ops} {tokens} {issues} addLabel="Add step to Otherwise" emptyText="Nothing; carry on." />
-      </div>
-      {/if}
+      <p class="hint">Draw lines from this node to choose what runs next. Click a line's label to switch it between Then, Otherwise and Always.</p>
     {:else if step.type === 'run_action'}
       <div class="grid2">
         <div class="f">
@@ -376,9 +350,9 @@
           </select>
         </div>
       </div>
-      <p class="hint">Runs its steps here, with this run's values. Its triggers and cooldown are ignored.</p>
+      <p class="hint">Runs that action here, with this run's values, starting from its Button trigger (or all its triggers). Its cooldown is ignored.</p>
     {:else if step.type === 'stop'}
-      <p class="hint">Ends this run. Steps after it are skipped.</p>
+      <p class="hint">Ends the whole run. Nothing after it runs.</p>
     {:else if step.type === 'log'}
       {@render text('Text', 'message', step.message)}
     {/if}
@@ -406,16 +380,9 @@
     padding: 0 6px 0 10px;
     border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   }
-  .num {
-    font-size: 11px;
-    min-width: 14px;
-  }
   .label {
     font-weight: 600;
     font-size: 12.5px;
-  }
-  .logic > header .label {
-    color: var(--accent-text);
   }
   .fields {
     display: flex;
@@ -476,23 +443,6 @@
   .gap {
     gap: 18px;
     flex-wrap: wrap;
-  }
-  .branch {
-    position: relative;
-    padding: 8px 0 2px 14px;
-    border-left: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  }
-  .branch.else {
-    border-left-color: var(--border-strong);
-  }
-  .branch-label {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 11px;
-    font-weight: 650;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-faint);
   }
   .hint {
     font-size: 12px;

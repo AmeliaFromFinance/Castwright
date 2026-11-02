@@ -126,7 +126,8 @@ impl ProjectStore {
         f(&mut self.project.write().unwrap())
     }
 
-    pub fn replace(&self, project: Project) {
+    pub fn replace(&self, mut project: Project) {
+        project.normalize();
         *self.project.write().unwrap() = project;
     }
 
@@ -342,12 +343,13 @@ impl ProjectStore {
 
 fn read_project(path: &Path) -> AppResult<Project> {
     let bytes = std::fs::read(path)?;
-    let p: Project = serde_json::from_slice(&bytes)?;
+    let mut p: Project = serde_json::from_slice(&bytes)?;
     if p.format > crate::model::project::PROJECT_FORMAT {
         return user_err(
             "This project was saved by a newer version of Castwright. Install the latest version to open it.",
         );
     }
+    p.normalize();
     Ok(p)
 }
 
@@ -523,6 +525,48 @@ mod tests {
             std::fs::read(&file).unwrap(),
             serde_json::to_vec(&p).unwrap()
         );
+    }
+
+    #[test]
+    fn converts_step_lists_from_format_1() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = serde_json::json!({
+            "format": 1,
+            "name": "Old",
+            "actions": [{
+                "id": "a1",
+                "name": "Deaths",
+                "triggers": [{ "type": "command", "name": "death" }],
+                "steps": [
+                    { "type": "add_to_variable", "key": "deaths", "amount": 1 },
+                    { "type": "if", "conditions": { "mode": "all", "conditions": [] },
+                      "then": [{ "type": "log", "message": "yes" }], "else": [] },
+                    { "type": "chat_send", "message": "Deaths: {{deaths}}" }
+                ]
+            }]
+        });
+        std::fs::write(
+            dir.path().join("project.json"),
+            serde_json::to_vec(&old).unwrap(),
+        )
+        .unwrap();
+        let (s, outcome) = ProjectStore::open(dir.path()).unwrap();
+        assert_eq!(outcome, LoadOutcome::Loaded);
+        let p = s.get();
+        assert_eq!(p.format, crate::model::project::PROJECT_FORMAT);
+        let a = &p.actions[0];
+        assert!(a.steps.is_empty());
+        assert_eq!(a.graph.nodes.len(), 5);
+        assert_eq!(a.graph.edges.len(), 5);
+        assert_eq!(a.triggers.len(), 1);
+        // Saved in the new form; reading it again changes nothing.
+        s.save().unwrap();
+        let (s2, _) = ProjectStore::open(dir.path()).unwrap();
+        assert_eq!(s2.get(), p);
+        let raw: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(dir.path().join("project.json")).unwrap())
+                .unwrap();
+        assert_eq!(raw["format"], 2);
     }
 
     #[test]

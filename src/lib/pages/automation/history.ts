@@ -17,8 +17,8 @@ export class ActionHistory {
   }
 
   /** Call with a copy of the action from before a change. */
-  record(before: Action, key?: string | null, now = Date.now()): void {
-    this.#get(before.id).record(before, key, now);
+  record(before: Action, key?: string | null, now = Date.now(), windowMs?: number): void {
+    this.#get(before.id).record(before, key, now, windowMs);
   }
 
   canUndo(id: string): boolean {

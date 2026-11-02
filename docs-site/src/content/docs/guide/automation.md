@@ -3,34 +3,44 @@ title: Automation
 description: Chat commands, timers and reactions to events, built from simple steps.
 ---
 
-An **action** is a list of steps that runs when one of its triggers fires. Use actions for chat commands, timed messages, raid welcomes, counters, scene switches and much more.
+An **action** is a set of steps, joined by lines, that runs when one of its triggers fires. Use actions for chat commands, timed messages, raid welcomes, counters, scene switches and much more.
 
 ![Automation](../../../assets/screens/automation.png)
 
 ## The page
 
 - **Left**: your actions, in folding sections (Chat commands, Stream events, Timers, Buttons and Stream Deck, plus your own groups). Search opens the sections that match.
-- **Middle**: the selected action as a **flow**: its triggers at the top, then each step in order. An **If** step splits into **Then** and **Otherwise** lanes side by side.
+- **Middle**: the selected action as a **flow**. Triggers are the blue **Start** nodes; steps are the other nodes. Lines show what runs next.
 - **Right**: the run log and every variable. Fold either one, or drag the divider between them.
 
-Drag the dividers to resize any column. **Flow / List** at the top switches to a compact list of steps if you prefer it.
+Drag the dividers to resize any column.
 
 ## Working in the flow
 
-- Click a step to edit it in the panel that opens beside the flow.
-- Hover between two steps and click **+** to insert one there, or use the bar at the bottom of the flow.
-- Drag a step to move it, including into or out of an If lane.
-- **Test** runs the action now. Each step shows a tick or the error it hit.
-- Zoom with the buttons in the corner, or <kbd>Ctrl</kbd> + scroll over the flow.
+Nodes can sit anywhere. Lines can go from any side of a node to any side of another, and many lines can leave or arrive at the same side.
+
+- **Move a node**: drag it. With **Snap** on it lines up with the grid; hold <kbd>Alt</kbd> to place it freely.
+- **Connect two nodes**: hover a node, drag from one of the dots on its sides and drop on another node.
+- **Add a step**: double-click empty space, use the bar at the bottom (with a node selected, the new step goes under it and is connected), or drag a line from a dot and let go on empty space.
+- **Edit**: click a node. Its settings open beside the flow.
+- **Lines from an If**: the first is **Then**, the second **Otherwise**. Click the label on a line to switch between Then, Otherwise and **Always**.
+- **Select several**: <kbd>Shift</kbd> or <kbd>Ctrl</kbd> + click, or <kbd>Shift</kbd> + drag a box. Dragging one moves them all.
+- **Move around**: drag empty space, scroll, or use the overview in the corner. <kbd>Ctrl</kbd> + scroll zooms where the pointer is. The corner buttons zoom and fit the whole flow.
+- **Tidy up** lines everything up neatly: triggers on top, If branches side by side. One undo brings your layout back.
+- **Test** runs the action now. Each node it reached shows a tick, an error, or a dash if it was skipped.
+
+A dashed node with **Not connected** can't run because no trigger leads to it. The header counts these warnings.
 
 | Keys | Does |
 | --- | --- |
-| Arrow keys | Move between steps |
-| <kbd>Enter</kbd> / <kbd>Esc</kbd> | Open or close the step panel |
-| <kbd>Delete</kbd> | Remove the step |
-| <kbd>Ctrl</kbd> + <kbd>D</kbd> | Duplicate it |
-| <kbd>Ctrl</kbd> + <kbd>X</kbd> / <kbd>C</kbd> / <kbd>V</kbd> | Cut, copy, paste after the selected step |
-| <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> | Move it up or down |
+| <kbd>Delete</kbd> | Remove the selected nodes or line |
+| <kbd>Ctrl</kbd> + <kbd>D</kbd> | Duplicate the selected nodes, with the lines between them |
+| <kbd>Ctrl</kbd> + <kbd>X</kbd> / <kbd>C</kbd> / <kbd>V</kbd> | Cut, copy, paste where the pointer is |
+| <kbd>Ctrl</kbd> + <kbd>A</kbd> | Select every node |
+| Arrow keys | Nudge the selected nodes (<kbd>Shift</kbd> for a grid step) |
+| <kbd>Enter</kbd> / <kbd>Esc</kbd> | Open or close the settings; <kbd>Esc</kbd> again clears the selection |
+| <kbd>F</kbd> | Fit the whole flow in view |
+| <kbd>Space</kbd> + drag | Move around (so does the middle mouse button) |
 | <kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> | Undo and redo |
 
 ## Start an action
@@ -45,7 +55,7 @@ Click **New action** and pick a template (chat command, timer message, raid welc
 
 ## Triggers
 
-An action can have several triggers. Any of them starts it.
+An action can have several triggers. Each starts the run from its own node, so different triggers can lead to different steps.
 
 | Trigger | Fires when |
 | --- | --- |
@@ -54,13 +64,13 @@ An action can have several triggers. Any of them starts it.
 | **Timer** | Every few minutes. Can be limited to while you're live and to when chat has been active. Runs at most every 10 seconds. |
 | **Stream goes live** / **Stream ends** | Your stream starts or stops. |
 | **Scene changes** | OBS switches to a scene (or any scene). |
-| **Button or Stream Deck** | Only runs when you click **Test** or call its [run link](/guide/stream-deck/). |
+| **Button or Stream Deck** | Only runs when you click **Test** or call its [run link](/guide/stream-deck/). **Test** starts here when the action has one. |
 
 Messages from your bot and from Castwright itself never trigger actions, so actions can't set each other off in a loop. Test events from the Alerts page don't run actions either; use **Test** to try one.
 
 ## Steps
 
-Steps run from top to bottom. Add one from the flow and pick from:
+Steps run along the lines from the trigger that fired. Add one from the flow and pick from:
 
 | Group | Steps |
 | --- | --- |
@@ -74,7 +84,7 @@ Steps run from top to bottom. Add one from the flow and pick from:
 
 Text fields accept live values in `{{double braces}}`. In web request addresses, add `| url` to keep chat input from breaking the link, like `{{input | url}}`. The chips under each field show what's available, such as `name`, `arg1` (the first word after a command) and `input` (everything after it). See [templates](/reference/templates/).
 
-**If** steps run their **Then** steps only when the conditions match, and **Otherwise** steps when they don't. They can be nested.
+An **If** follows its **Then** lines when the conditions match and its **Otherwise** lines when they don't. **Always** lines are followed either way. How runs move through the lines is explained in the [steps reference](/reference/automation-steps/#how-a-run-moves).
 
 Every step and option is described in the [automation steps reference](/reference/automation-steps/).
 
@@ -82,7 +92,7 @@ Every step and option is described in the [automation steps reference](/referenc
 
 **`!so` shoutout**: trigger *Chat command* `so`, who can use it *Moderators and the streamer*; step *Shoutout* with `{{arg1}}`.
 
-**Deaths counter**: trigger *Chat command* `death`; steps *Add to variable* `counter.deaths` by 1, then *Send chat message* `Deaths: {{counter.deaths}}`. Show it on stream with a **Counter** layer.
+**Deaths counter**: trigger *Chat command* `death`; steps *Add to variable* `counter.deaths` by 1, connected to *Send chat message* `Deaths: {{counter.deaths}}`. Show it on stream with a **Counter** layer.
 
 **Raid welcome**: trigger *Twitch event* `Raid` when `amount is at least 10`; steps *Switch scene* to "Raid", *Wait* 15 seconds, *Switch scene* back.
 
