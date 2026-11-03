@@ -48,7 +48,10 @@ describe('selector catalogue', () => {
     expect(variablesFor('image')).toEqual([]);
     expect(selectorsFor('poll').map((s) => s.selector)).toEqual(expect.arrayContaining(['.cw-poll-choice', '.cw-poll-fill', '.cw-winner', '.cw-text']));
     expect(selectorsFor('ad_break').map((s) => s.selector)).toEqual(expect.arrayContaining(['.cw-ad', '.cw-ad-card', '.cw-ad-text', '.cw-ad-running', '.cw-text']));
+    expect(selectorsFor('giveaway').map((s) => s.selector)).toEqual(expect.arrayContaining(['.cw-gw', '.cw-gw-reel', '.cw-gw-winner', '.cw-paint', '.cw-chat-badge', '.cw-text']));
+    expect(selectorsFor('queue').map((s) => s.selector)).toEqual(expect.arrayContaining(['.cw-q', '.cw-q-item', '.cw-q-pos', '.cw-q-note', '.cw-text']));
     expect(selectorsFor('now_playing').map((s) => s.selector)).toEqual(expect.arrayContaining(['.cw-np', '.cw-np-art', '.cw-np-title', '.cw-np-fill', '.cw-np-vinyl', '.cw-text']));
+    expect(selectorsFor('hype_train').map((s) => s.selector)).toEqual(expect.arrayContaining(['.cw-hype', '.cw-hype-fill', '.cw-hype-levelup', '.cw-hype-golden', '.cw-text']));
     expect(selectorsFor('chat').map((s) => s.selector)).toEqual(expect.arrayContaining(['.cw-hl', '.cw-hl-first', '.cw-hl-mention', '.cw-hl-keyword', '.cw-hl-user']));
     for (const v of VARIABLES) expect(sources).toContain(v.name);
   });
@@ -65,7 +68,7 @@ describe('selector catalogue', () => {
     expect(md).toContain('## Chat');
     expect(md).toContain('| `.cw-chat-line` | Each message card |');
     expect(md).toContain('| `--cw-accent` |');
-    expect(md.split('## ').length - 1).toBe(15);
+    expect(md.split('## ').length - 1).toBe(18);
   });
 });
 

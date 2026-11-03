@@ -392,6 +392,80 @@ async fn alert_controls_endpoint() {
 }
 
 #[tokio::test]
+async fn sound_endpoints() {
+    use crate::model::soundboard::{SoundButton, Soundboard};
+    let r = rig().await;
+    let client = reqwest::Client::new();
+    let post = |path: &str| {
+        client
+            .post(format!("{}/api/sounds/{path}", r.base))
+            .header("x-castwright-token", TOKEN)
+            .send()
+    };
+    assert_eq!(
+        post("horn/play").await.unwrap().status().as_u16(),
+        503,
+        "no soundboard yet"
+    );
+    let sb = crate::soundboard::SoundboardService::new(r.hub.clone(), r.project.clone());
+    sb.save(Soundboard {
+        buttons: vec![SoundButton {
+            id: "horn".into(),
+            src: "assets/horn.wav".into(),
+            cooldown_s: 60,
+            ..SoundButton::default()
+        }],
+        ..Soundboard::default()
+    });
+    r.server.set_soundboard(sb.clone());
+    let mut overlays = r.hub.subscribe_overlays();
+
+    let no_token = client
+        .post(format!("{}/api/sounds/horn/play", r.base))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(no_token.status().as_u16(), 403);
+
+    let resp = post("horn/play").await.unwrap();
+    assert_eq!(resp.status().as_u16(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["result"], "played");
+    loop {
+        if let OverlayMsg::SoundPlay { sound_id, src, .. } = overlays.recv().await.unwrap().msg {
+            assert_eq!(
+                (sound_id.as_str(), src.as_str()),
+                ("horn", "assets/horn.wav")
+            );
+            break;
+        }
+    }
+
+    let again = post("horn/play").await.unwrap();
+    assert_eq!(again.status().as_u16(), 409);
+    let body: serde_json::Value = again.json().await.unwrap();
+    assert_eq!(body["result"], "cooldown");
+    assert!(body["seconds_left"].as_u64().unwrap() > 50);
+
+    let stop = post("horn/stop").await.unwrap();
+    assert_eq!(stop.status().as_u16(), 200);
+    assert_eq!(
+        stop.json::<serde_json::Value>().await.unwrap()["result"],
+        "stopped"
+    );
+    loop {
+        if let OverlayMsg::SoundStop { sound_id } = overlays.recv().await.unwrap().msg {
+            assert_eq!(sound_id.as_deref(), Some("horn"));
+            break;
+        }
+    }
+    assert_eq!(post("all/stop").await.unwrap().status().as_u16(), 200);
+    assert_eq!(post("gone/play").await.unwrap().status().as_u16(), 404);
+    assert_eq!(post("gone/stop").await.unwrap().status().as_u16(), 404);
+    assert_eq!(post("horn/dance").await.unwrap().status().as_u16(), 404);
+}
+
+#[tokio::test]
 async fn open_overlay_pages_are_counted() {
     let r = rig().await;
     assert_eq!(r.server.overlay_clients(&r.overlay_id), 0);

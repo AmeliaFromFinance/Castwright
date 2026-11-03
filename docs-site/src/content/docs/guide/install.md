@@ -76,7 +76,7 @@ Sign-ins are stored unencrypted in `data/secrets.json` in portable mode, so keep
 
 ## Updating
 
-Castwright updates itself. When a new version is out, the status bar shows **Version x.y.z is out**.
+Castwright updates itself. When a new version is out, the status bar shows **Version x.y.z is out** (or **Update** when space is tight).
 
 1. Click it to read what's new.
 2. Click **Download and install**. A bar shows the download.

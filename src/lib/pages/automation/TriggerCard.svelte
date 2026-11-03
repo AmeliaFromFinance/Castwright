@@ -292,6 +292,18 @@
     <p class="hint">
       Runs when a new song starts. Gives <code>{'{{title}}'}</code>, <code>{'{{artist}}'}</code> and <code>{'{{album}}'}</code>. Pick the music source in Settings → Music.
     </p>
+  {:else if t.type === 'hype_train_begin' || t.type === 'hype_train_level_up' || t.type === 'hype_train_end'}
+    <p class="hint">
+      Runs when {t.type === 'hype_train_begin' ? 'a hype train starts' : t.type === 'hype_train_end' ? 'a hype train ends' : 'a running hype train reaches a new level'}. Gives
+      <code>{'{{level}}'}</code>, <code>{'{{total}}'}</code>, <code>{'{{train_type}}'}</code>{#if t.type === 'hype_train_level_up'}, <code>{'{{previous_level}}'}</code>{/if}
+      and <code>{'{{top_bits_name}}'}</code>.
+    </p>
+  {:else if t.type === 'giveaway_opened' || t.type === 'giveaway_closed'}
+    <p class="hint">Runs when a giveaway {t.type === 'giveaway_opened' ? 'opens' : 'stops taking entries'}. Gives <code>{'{{title}}'}</code> and <code>{'{{entries}}'}</code>.</p>
+  {:else if t.type === 'giveaway_winner'}
+    <p class="hint">Runs once per winner, re-rolls too. Gives <code>{'{{winner}}'}</code>, <code>{'{{title}}'}</code> and <code>{'{{entries}}'}</code>.</p>
+  {:else if t.type === 'player_picked'}
+    <p class="hint">Runs once per player "Next" or "Random" pulls in. Gives <code>{'{{player}}'}</code>, <code>{'{{note}}'}</code> and <code>{'{{players}}'}</code>.</p>
   {:else if t.type === 'stream_online'}
     <p class="hint">Runs when the stream goes live on Twitch.</p>
   {:else if t.type === 'stream_offline'}

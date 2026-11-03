@@ -178,7 +178,7 @@
         {/key}
       </Section>
 
-      {#if layer.kind.type === 'chat' || layer.kind.type === 'event_list' || layer.kind.type === 'poll' || layer.kind.type === 'ad_break' || layer.kind.type === 'now_playing'}
+      {#if layer.kind.type === 'chat' || layer.kind.type === 'event_list' || layer.kind.type === 'poll' || layer.kind.type === 'ad_break' || layer.kind.type === 'now_playing' || layer.kind.type === 'hype_train' || layer.kind.type === 'giveaway' || layer.kind.type === 'queue'}
         <Section
           title="Cards"
           bind:open={open.cards}
@@ -190,7 +190,13 @@
                 ? 'The message'
                 : layer.kind.type === 'now_playing'
                   ? 'The song'
-                  : 'Each event'}
+                  : layer.kind.type === 'hype_train'
+                    ? 'The train'
+                    : layer.kind.type === 'giveaway'
+                    ? 'The giveaway'
+                    : layer.kind.type === 'queue'
+                      ? 'Each person'
+                      : 'Each event'}
         >
           {#key layer.id}
             <CardsEditor kind={layer.kind} {uid} set={setKind} />

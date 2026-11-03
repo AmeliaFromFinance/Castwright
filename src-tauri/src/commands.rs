@@ -18,6 +18,7 @@ use crate::model::settings::{
     AdSettings, AppearanceSettings, BackupSettings, DEFAULT_SOCIAL_TEMPLATE, DiscordWebhook,
     GoLiveSettings, HotkeySettings, MAX_SOCIAL_TEMPLATE, Settings, SummarySettings, WindowEffect,
 };
+use crate::model::soundboard::{PlayOutcome, Soundboard, SoundboardStatus};
 use crate::paths::Layout;
 use crate::store::action_package::{self, ActionPackage, ImportChoices, ImportReport};
 use crate::store::backup::{BackupInfo, BackupReason};
@@ -916,6 +917,140 @@ pub fn save_chat_rules(core: Ctx, rules: ChatRules) -> AppResult<ChatRules> {
     );
     project_changed(&core);
     Ok(rules)
+}
+
+// ---------- soundboard ----------
+
+#[tauri::command]
+pub fn soundboard_status(core: Ctx) -> SoundboardStatus {
+    core.soundboard.status()
+}
+
+#[tauri::command]
+pub fn save_soundboard(core: Ctx, board: Soundboard) -> Soundboard {
+    let saved = core.soundboard.save(board);
+    project_changed(&core);
+    saved
+}
+
+#[tauri::command]
+pub fn sound_play(core: Ctx, id: String) -> PlayOutcome {
+    core.soundboard.play(&id, crate::soundboard::Source::App)
+}
+
+/// `id` null stops every sound.
+#[tauri::command]
+pub fn sound_stop(core: Ctx, id: Option<String>) {
+    core.soundboard.stop(id.as_deref());
+}
+
+#[tauri::command]
+pub fn soundboard_mute(core: Ctx, muted: bool) -> SoundboardStatus {
+    core.soundboard.set_muted(muted);
+    project_changed(&core);
+    core.soundboard.status()
+}
+// ---------- giveaways and the viewer queue ----------
+
+use crate::model::play::{
+    Giveaway, GiveawayRecord, GiveawaySettings, PlayState, QueueEntry, QueueSettings, ViewerQueue,
+};
+
+#[tauri::command]
+pub fn play_state(core: Ctx) -> PlayState {
+    core.play.state()
+}
+
+#[tauri::command]
+pub fn save_giveaway_settings(
+    core: Ctx,
+    settings: GiveawaySettings,
+) -> AppResult<GiveawaySettings> {
+    core.play.save_giveaway_settings(settings)
+}
+
+#[tauri::command]
+pub fn giveaway_open(core: Ctx, settings: GiveawaySettings) -> AppResult<Giveaway> {
+    core.play.open_giveaway(settings)
+}
+
+/// Open or close entries.
+#[tauri::command]
+pub fn giveaway_set_open(core: Ctx, open: bool) -> AppResult<Giveaway> {
+    core.play.set_giveaway_open(open)
+}
+
+#[tauri::command]
+pub fn giveaway_draw(core: Ctx, count: u32) -> AppResult<Giveaway> {
+    core.play.draw(count)
+}
+
+#[tauri::command]
+pub fn giveaway_reroll(core: Ctx, user_id: String) -> AppResult<Giveaway> {
+    core.play.reroll(&user_id)
+}
+
+#[tauri::command]
+pub fn giveaway_claim(core: Ctx, user_id: String) -> AppResult<Giveaway> {
+    core.play.claim(&user_id)
+}
+
+#[tauri::command]
+pub fn giveaway_remove(core: Ctx, user_id: String) -> AppResult<Giveaway> {
+    core.play.remove_entrant(&user_id)
+}
+
+/// Saves it to history and clears it.
+#[tauri::command]
+pub fn giveaway_finish(core: Ctx) -> AppResult<Option<GiveawayRecord>> {
+    core.play.finish()
+}
+
+#[tauri::command]
+pub fn giveaway_history(core: Ctx, limit: u32) -> AppResult<Vec<GiveawayRecord>> {
+    core.play.history(limit)
+}
+
+#[tauri::command]
+pub fn giveaway_delete_record(core: Ctx, id: String) -> AppResult<()> {
+    core.play.delete_record(&id)
+}
+
+#[tauri::command]
+pub fn save_queue_settings(core: Ctx, settings: QueueSettings) -> AppResult<QueueSettings> {
+    core.play.save_queue_settings(settings)
+}
+
+#[tauri::command]
+pub fn queue_set_open(core: Ctx, open: bool) -> ViewerQueue {
+    core.play.set_queue_open(open)
+}
+
+/// `count` 0 = the party size.
+#[tauri::command]
+pub fn queue_next(core: Ctx, count: u32, random: bool) -> AppResult<Vec<QueueEntry>> {
+    core.play.queue_next(count, random)
+}
+
+#[tauri::command]
+pub fn queue_remove(core: Ctx, user_id: String) -> ViewerQueue {
+    core.play.queue_remove(&user_id)
+}
+
+#[tauri::command]
+pub fn queue_clear(core: Ctx) -> ViewerQueue {
+    core.play.queue_clear()
+}
+
+/// Moves `user_id` in front of `before`, or to the end.
+#[tauri::command]
+pub fn queue_move(core: Ctx, user_id: String, before: Option<String>) -> ViewerQueue {
+    core.play.queue_move(&user_id, before.as_deref())
+}
+
+#[tauri::command]
+pub fn queue_note(core: Ctx, user_id: String, note: String) -> ViewerQueue {
+    core.play.queue_note(&user_id, &note)
 }
 
 // ---------- discord ----------

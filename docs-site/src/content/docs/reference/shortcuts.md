@@ -67,6 +67,7 @@ Global hotkeys work while another app, like a game, has focus. None are set at f
 | Add stream marker | Only while live. You can add a note afterwards. |
 | Create clip | Only while live. Shows the link when Twitch is done. |
 | Run an action | Any automation action |
+| Play sound button | A [soundboard](/guide/soundboard/) button, with its cooldown. Also set from the sound's editor. |
 
 Key names in `settings.json`, in this order: `Ctrl`, `Alt`, `Shift`, `Super`, then one key.
 

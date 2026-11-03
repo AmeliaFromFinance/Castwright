@@ -13,8 +13,10 @@ import { findPreset, presetBox } from '$lib/overlay/presets';
 import { defaultChatRules } from '$lib/overlay/chat-filters';
 
 /** Same as the backend defaults in model/overlay.rs. */
+export const DEFAULT_HYPE_END_TEXT = 'Hype train reached level {{level}}!';
 export const DEFAULT_AD_SOON_TEXT = 'Ads in {{time}}, back soon';
 export const DEFAULT_AD_RUNNING_TEXT = 'Thanks for sticking around! Back in {{time}}';
+export const DEFAULT_GIVEAWAY_TEXT = 'Type {{keyword}} to enter';
 
 export type LayerType = LayerKind['type'];
 export type KindOf<T extends LayerType> = Extract<LayerKind, { type: T }>;
@@ -34,6 +36,9 @@ export const LAYER_TYPES: ReadonlyArray<{ type: LayerType; label: string; hint: 
   { type: 'credits', label: 'Credits', hint: 'End-of-stream roll of followers, subs and chatters' },
   { type: 'ad_break', label: 'Ad break', hint: 'A heads-up before and during ads' },
   { type: 'now_playing', label: 'Now playing', hint: 'The song playing now, with cover and progress' },
+  { type: 'hype_train', label: 'Hype train', hint: 'Level, progress, time left and top contributors' },
+  { type: 'giveaway', label: 'Giveaway', hint: 'Prize and entries, then a spin to the winner' },
+  { type: 'queue', label: 'Viewer queue', hint: 'Who is playing and who is next' },
   { type: 'custom', label: 'Custom widget', hint: 'Your own HTML, CSS and JavaScript' }
 ];
 
@@ -197,6 +202,47 @@ export function kindDefaults<T extends LayerType>(type: T): KindOf<T> {
       animate: true,
       bar_color: '',
       track_color: '',
+      style: defaultTextStyle(),
+      item_box: defaultBoxStyle(),
+      item_card: defaultItemCard()
+    },
+    hype_train: {
+      type: 'hype_train',
+      layout: 'card',
+      show_timer: true,
+      show_total: true,
+      show_top: true,
+      celebrate: true,
+      after_s: 10,
+      end_text: DEFAULT_HYPE_END_TEXT,
+      bar_color: '',
+      track_color: '',
+      style: defaultTextStyle(),
+      item_box: defaultBoxStyle(),
+      item_card: defaultItemCard()
+    },
+    giveaway: {
+      type: 'giveaway',
+      hide_idle: true,
+      open_text: DEFAULT_GIVEAWAY_TEXT,
+      show_entries: true,
+      spin_s: 6,
+      show_badges: true,
+      seventv_paints: true,
+      accent_color: '',
+      style: defaultTextStyle(),
+      item_box: defaultBoxStyle(),
+      item_card: defaultItemCard()
+    },
+    queue: {
+      type: 'queue',
+      show_playing: true,
+      next_count: 5,
+      show_positions: true,
+      show_notes: true,
+      hide_empty: true,
+      playing_label: 'Playing now',
+      next_label: 'Up next',
       style: defaultTextStyle(),
       item_box: defaultBoxStyle(),
       item_card: defaultItemCard()
@@ -403,6 +449,47 @@ function preset(type: LayerType): Preset {
         }
       };
     }
+    case 'hype_train': {
+      const glass = findPreset('glass') ?? findPreset('clean');
+      return {
+        name: 'Hype train',
+        w: 620,
+        h: 170,
+        kind: {
+          ...kindDefaults('hype_train'),
+          style: { ...defaultTextStyle(), font_size: 28, font_weight: 800 },
+          bar_color: '#9147ff',
+          item_box: glass ? presetBox(glass, 'events') : panelBox()
+        }
+      };
+    }
+    case 'giveaway': {
+      const glass = findPreset('glass') ?? findPreset('clean');
+      return {
+        name: 'Giveaway',
+        w: 520,
+        h: 190,
+        kind: {
+          ...kindDefaults('giveaway'),
+          style: { ...defaultTextStyle(), font_size: 30, font_weight: 700 },
+          accent_color: '#f5c451',
+          item_box: glass ? presetBox(glass, 'events') : panelBox()
+        }
+      };
+    }
+
+    case 'queue':
+      return {
+        name: 'Viewer queue',
+        w: 420,
+        h: 460,
+        kind: {
+          ...kindDefaults('queue'),
+          style: small({ font_weight: 600 }),
+          item_box: { ...defaultBoxStyle(), background: 'rgba(12,15,22,0.7)', radius: 10, padding: 8, padding_x: 14 },
+          item_card: { ...defaultItemCard(), gap: 6 }
+        }
+      };
     case 'custom':
       return {
         name: 'Custom widget',

@@ -271,6 +271,18 @@ pub enum OverlayMsg {
         src: String,
         volume: u8,
     },
+    /// A soundboard sound. Stopped by `sound_stop` with the same `sound_id`.
+    SoundPlay {
+        #[ts(type = "number")]
+        play_id: u64,
+        sound_id: String,
+        src: String,
+        volume: u8,
+    },
+    /// `None` stops every soundboard sound.
+    SoundStop {
+        sound_id: Option<String>,
+    },
     LayerVisible {
         layer_id: String,
         visible: bool,

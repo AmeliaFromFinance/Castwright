@@ -3,6 +3,7 @@ import type { Action } from "./Action";
 import type { AlertConfig } from "./AlertConfig";
 import type { ChatRules } from "./ChatRules";
 import type { Overlay } from "./Overlay";
+import type { Soundboard } from "./Soundboard";
 
 /**
  * Everything the user builds, saved as `project.json` in the project folder.
@@ -11,4 +12,4 @@ export type Project = { format: number, name: string, overlays: Array<Overlay>, 
 /**
  * What the chat panel and chat layers hide and highlight.
  */
-chat_rules: ChatRules, };
+chat_rules: ChatRules, soundboard: Soundboard, };

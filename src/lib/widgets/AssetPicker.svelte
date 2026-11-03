@@ -29,7 +29,7 @@
   });
 
   const options = $derived(assetStore.items.filter((a: AssetInfo) => kind === 'any' || a.kind === kind));
-  const isUrl = $derived(/^(https?:|data:)/.test(value));
+  const isUrl = $derived(/^(https?:|data:)/.test(value) && !options.some((a) => a.path === value));
 
   function set(v: string) {
     value = v;

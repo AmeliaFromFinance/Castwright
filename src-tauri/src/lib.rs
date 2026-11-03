@@ -8,14 +8,17 @@ pub mod error;
 pub mod golive;
 pub mod hotkeys;
 pub mod hub;
+pub mod hype;
 pub mod model;
 pub mod moments;
 pub mod music;
 pub mod obs;
 pub mod paths;
+pub mod play;
 pub mod server;
 pub mod services;
 pub mod sessions;
+pub mod soundboard;
 pub mod store;
 pub mod template;
 pub mod twitch;
@@ -234,6 +237,29 @@ pub fn run() {
             commands::spotify_cancel_login,
             commands::spotify_logout,
             commands::save_chat_rules,
+            commands::soundboard_status,
+            commands::save_soundboard,
+            commands::sound_play,
+            commands::sound_stop,
+            commands::soundboard_mute,
+            commands::play_state,
+            commands::save_giveaway_settings,
+            commands::giveaway_open,
+            commands::giveaway_set_open,
+            commands::giveaway_draw,
+            commands::giveaway_reroll,
+            commands::giveaway_claim,
+            commands::giveaway_remove,
+            commands::giveaway_finish,
+            commands::giveaway_history,
+            commands::giveaway_delete_record,
+            commands::save_queue_settings,
+            commands::queue_set_open,
+            commands::queue_next,
+            commands::queue_remove,
+            commands::queue_clear,
+            commands::queue_move,
+            commands::queue_note,
             commands::obs_snapshot,
             commands::obs_connect,
             commands::obs_disconnect,

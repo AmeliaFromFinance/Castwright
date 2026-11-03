@@ -76,6 +76,16 @@ pub enum Trigger {
     AdEnd,
     /// A new song starts, from Settings → Music.
     SongChanged,
+    HypeTrainBegin,
+    /// A running hype train reaches a higher level.
+    HypeTrainLevelUp,
+    HypeTrainEnd,
+    GiveawayOpened,
+    GiveawayClosed,
+    /// Runs once per winner, re-rolls included.
+    GiveawayWinner,
+    /// Runs once per player the queue picks.
+    PlayerPicked,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
@@ -228,6 +238,10 @@ pub enum Step {
         #[serde(default = "default_volume")]
         volume: u8,
     },
+    /// A button from the soundboard, with its own volume, output and cooldown.
+    PlaySoundboardSound {
+        sound_id: String,
+    },
     HttpRequest {
         #[serde(default)]
         method: HttpMethod,
@@ -303,6 +317,32 @@ pub enum Step {
         webhook_id: String,
         message: String,
     },
+    /// Start the giveaway set up on the Interact page.
+    OpenGiveaway {
+        /// Replaces the prize when set. Templates allowed.
+        #[serde(default)]
+        title: String,
+    },
+    /// Stop taking entries.
+    CloseGiveaway,
+    DrawGiveaway {
+        #[serde(default = "default_one")]
+        count: u32,
+    },
+    /// On = open, Off = close.
+    SetQueueOpen {
+        #[serde(default)]
+        state: Toggle,
+    },
+    QueueNext {
+        /// 0 = the party size from the Interact page.
+        #[serde(default)]
+        count: u32,
+        /// Pick at random instead of in order.
+        #[serde(default)]
+        random: bool,
+    },
+    ClearQueue,
     /// Stop this run here.
     Stop,
     Log {
@@ -320,6 +360,9 @@ fn default_poll_s() -> u32 {
     120
 }
 fn default_ad_minutes() -> u32 {
+    1
+}
+fn default_one() -> u32 {
     1
 }
 

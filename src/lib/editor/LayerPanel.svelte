@@ -9,7 +9,7 @@
 
   let { store }: { store: EditorStore } = $props();
 
-  const SHORT: Record<string, string> = { event_list: 'Events', custom: 'Widget', poll: 'Poll', credits: 'Credits', ad_break: 'Ads', now_playing: 'Music' };
+  const SHORT: Record<string, string> = { event_list: 'Events', custom: 'Widget', poll: 'Poll', credits: 'Credits', ad_break: 'Ads', now_playing: 'Music', hype_train: 'Hype', giveaway: 'Giveaway', queue: 'Queue' };
 
   /** Front layer first. */
   const rows = $derived(store.doc.layers.slice().reverse());

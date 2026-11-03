@@ -2,13 +2,14 @@
 // desktop app: development in a browser, end-to-end tests and documentation
 // screenshots. Add `?demo=static` to the URL to turn off the simulated activity,
 // `&setup` to start at first-time setup, `&ended` to have the stream just end and
-// `&oldscopes` for a Twitch sign-in made before the mod tools and `&crashed` for
-// the prompt shown after a crash.
+// `&oldscopes` for a Twitch sign-in made before the mod tools, `&crashed` for
+// the prompt shown after a crash and `&noplay` to stop demo viewers joining
+// giveaways and the queue on their own.
 
 import { version as DEMO_VERSION } from '../../../package.json';
 import type { Backend, Unlisten } from './backend';
 import { isValidVarKey } from '$lib/pages/automation/validate';
-import { builtIn } from '$lib/vars/builtins';
+import { builtIn, isLiveKey } from '$lib/vars/builtins';
 import starter from './fixtures/starter-project.json';
 import samples from './fixtures/sample-events.json';
 import type { Action } from '$lib/bindings/Action';
@@ -52,6 +53,10 @@ import { DEFAULT_SOCIAL_TEMPLATE } from '$lib/sessions/summary';
 import { createInteractMock } from './mock-interact';
 import { createAdsMock } from './mock-ads';
 import { createMusicMock } from './mock-music';
+import { createSoundboardMock, demoBoard, demoSoundAssets } from './mock-soundboard';
+import { createHypeMock } from './mock-hype';
+import { createPlayMock, type CrowdPerson } from './mock-play';
+import { defaultGiveawaySettings, defaultQueueSettings } from '$lib/pages/interact/play-forms';
 import { defaultChatRules } from '$lib/overlay/chat-filters';
 import { DEFAULT_END as DEFAULT_DISCORD_END } from '$lib/pages/settings/discord';
 import { credits, demoClip, demoMarker, listItem, liveActivity, pastSessions, summarize, type DemoPerson, type DemoSession, type MakeEvent } from './mock-sessions';
@@ -177,6 +182,8 @@ function defaultSettings(): Settings {
     ads: { warn: true, warn_minutes: 1 },
     updates: { auto_install: false, channel: 'stable' },
     music: { source: 'spotify', spotify_client_id: 'demo-client-id', text_file: '', text_format: '{artist} - {title}' },
+    giveaway: { ...defaultGiveawaySettings(), title: 'Steam game key' },
+    queue: { ...defaultQueueSettings(), party_size: 2 },
     discord: {
       webhooks: [
         {
@@ -206,12 +213,17 @@ const DEMO_HOTKEYS: HotkeyStatus = {
 function cleanHotkeys(h: HotkeySettings): HotkeySettings {
   const seen = new Set<string>();
   const bindings = h.bindings.filter((b) =>
-    b.action.type === 'run_action' ? !!b.action.action_id.trim() : !seen.has(b.action.type) && !!seen.add(b.action.type)
+    b.action.type === 'run_action'
+      ? !!b.action.action_id.trim()
+      : b.action.type === 'play_sound_button'
+        ? !!b.action.sound_id.trim()
+        : !seen.has(b.action.type) && !!seen.add(b.action.type)
   );
   bindings.forEach((b, i) => {
     const other = findConflict(bindings, b.keys, i);
     if (other >= 0 && other < i) {
-      const label = (x: typeof b) => (x.action.type === 'run_action' ? 'Run an action' : ACTION_LABELS[x.action.type]);
+      const label = (x: typeof b) =>
+        x.action.type === 'run_action' ? 'Run an action' : x.action.type === 'play_sound_button' ? 'Play sound button' : ACTION_LABELS[x.action.type];
       throw {
         code: 'user',
         message: `${b.keys} is set for both "${label(bindings[other]!)}" and "${label(b)}". Pick a different combination for one of them.`
@@ -360,6 +372,12 @@ export function createDemoBackend(): Backend {
   const twitch = demoTwitch();
   const signedIn = { broadcaster: twitch.broadcaster, bot: twitch.bot };
   const query = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
+  // Everything in the status bar at once: an update downloading, an ad soon and a health warning.
+  const busy = query.has('busy');
+  if (busy) {
+    settings.updates.auto_install = true;
+    obs.stats.stream_dropped_percent = 1.6;
+  }
   if (query.has('setup')) {
     settings.first_run_done = false;
     twitch.broadcaster = null;
@@ -495,8 +513,10 @@ export function createDemoBackend(): Backend {
     { name: 'fanfare.ogg', path: 'assets/fanfare.ogg', bytes: 182_331, kind: 'audio' },
     { name: 'gold-confetti.webm', path: 'assets/gold-confetti.webm', bytes: 2_411_002, kind: 'video' },
     { name: 'logo.png', path: 'assets/logo.png', bytes: 48_120, kind: 'image' },
-    { name: 'stinger.webm', path: 'assets/stinger.webm', bytes: 3_920_441, kind: 'video' }
+    { name: 'stinger.webm', path: 'assets/stinger.webm', bytes: 3_920_441, kind: 'video' },
+    ...demoSoundAssets()
   ];
+  project.soundboard ??= demoBoard(assets);
   // Backups live in memory: each keeps a copy of the project and saved variables.
   interface MockBackup {
     info: BackupInfo;
@@ -504,7 +524,7 @@ export function createDemoBackend(): Backend {
     vars: Record<string, unknown>;
     key: string;
   }
-  const isLive = (k: string) => /^(stream|obs|twitch|ads|music)\./.test(k);
+  const isLive = isLiveKey;
   /** Variables set without "Keep after restart". */
   const sessionOnly = new Set<string>();
   const savedVars = () => Object.fromEntries(Object.entries(vars).filter(([k]) => !isLive(k) && !sessionOnly.has(k)));
@@ -650,7 +670,37 @@ export function createDemoBackend(): Backend {
     }
     emit('cw://event', e);
     interact.onRedemption(e);
+    play.onEvent(e);
   };
+  const crowdChat = (p: CrowdPerson, text: string) => {
+    const badges = [p.mod && 'moderator', p.vip && 'vip', p.tier > 0 && 'subscriber'].filter((b): b is string => !!b);
+    const e = chatEvent(0, 0, text);
+    e.user = { id: p.id, login: p.name.toLowerCase(), display_name: p.name };
+    e.roles = { broadcaster: false, moderator: !!p.mod, vip: !!p.vip, subscriber: p.tier > 0 };
+    e.data = { color: p.color, badges, badge_images: badgeImages(badges), ...(p.tier > 0 ? { sub_tier: p.tier } : {}) };
+    publish(e);
+  };
+  const botSay = (text: string) => {
+    const e = chatEvent(0, 0, text);
+    e.user = { id: '2000', login: 'castwright_bot', display_name: 'castwright_bot' };
+    e.roles = { broadcaster: false, moderator: true, vip: false, subscriber: false };
+    e.data = { color: '#9DB8FF', badges: ['moderator'], badge_images: badgeImages(['moderator']), sent_by_castwright: true };
+    publish(e);
+  };
+  const play = createPlayMock({
+    emit,
+    setVars,
+    chat: crowdChat,
+    say: botSay,
+    recentChat: () => chat,
+    log: (message) => log('info', 'giveaway', message),
+    uid,
+    giveawaySettings: () => settings.giveaway,
+    setGiveawaySettings: (s) => (settings.giveaway = clone(s)),
+    queueSettings: () => settings.queue,
+    setQueueSettings: (s) => (settings.queue = clone(s)),
+    simulate: !query.has('noplay')
+  });
   const interact = createInteractMock({ emit, publish, uid, staticMode, viewers: VIEWERS.map(([name]) => name) });
   const ads = createAdsMock({
     emit,
@@ -659,7 +709,7 @@ export function createDemoBackend(): Backend {
     log,
     staticMode,
     settings: () => settings,
-    start: query.get('ads'),
+    start: query.get('ads') ?? (busy ? 'soon' : null),
     channel: () => ({
       channel: twitch.broadcaster?.display_name ?? 'Castwright',
       login: twitch.broadcaster?.login ?? 'castwright',
@@ -671,6 +721,14 @@ export function createDemoBackend(): Backend {
   ads.publish();
   const music = createMusicMock({ emit, setVars, settings: () => settings, staticMode });
   music.publish();
+  const soundboard = createSoundboardMock({
+    emit,
+    board: () => project.soundboard,
+    setBoard: (b) => {
+      project.soundboard = b;
+    }
+  });
+  createHypeMock({ publish, setVars, uid, viewers: VIEWERS.map(([name]) => name), staticMode, startNow: query.has('hype') });
 
   if (!staticMode && typeof window !== 'undefined') {
     let n = 0;
@@ -735,6 +793,9 @@ export function createDemoBackend(): Backend {
     const issues: HealthIssue[] = [];
     if (obs.state === 'connected' && renderLag >= 1) {
       issues.push({ level: 'warn', area: 'obs', text: `${renderLag.toFixed(1)}% of frames rendered late. The GPU is too busy.` });
+    }
+    if (obs.stream.active && obs.stats.stream_dropped_percent > 1) {
+      issues.push({ level: 'warn', area: 'obs', text: `${obs.stats.stream_dropped_percent.toFixed(1)}% of frames dropped. The connection can't keep up.` });
     }
     if (twitch.broadcaster) issues.push({ level: 'warn', area: 'twitch', text: `Twitch isn't sending ${failed[0]!.kind} events.` });
     return {
@@ -1298,8 +1359,10 @@ export function createDemoBackend(): Backend {
       };
     },
     ...interact.handlers,
+    ...play.handlers,
     ...ads.handlers,
     ...music.handlers,
+    ...soundboard.handlers,
     save_chat_rules: ({ rules }) => {
       project.chat_rules = clone(rules as Project['chat_rules']);
       emit('cw://project', {});

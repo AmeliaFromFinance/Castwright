@@ -7,11 +7,14 @@
   import Segmented from '$lib/ui/Segmented.svelte';
   import { RefreshCw, Vote } from '@lucide/svelte';
   import { needsNewSignIn } from './forms';
+  import Giveaways from './Giveaways.svelte';
   import Polls from './Polls.svelte';
+  import Queue from './Queue.svelte';
+  import Soundboard from './soundboard/Soundboard.svelte';
   import Rewards from './Rewards.svelte';
   import { interact } from './store.svelte';
 
-  type Tab = 'points' | 'polls';
+  type Tab = 'points' | 'polls' | 'giveaways' | 'queue' | 'sounds';
   let tab = $state<Tab>(loadPref<Tab>('interact.tab', 'points'));
   $effect(() => savePref('interact.tab', tab));
 
@@ -40,19 +43,24 @@
       value={tab}
       options={[
         { value: 'points', label: 'Channel points' },
-        { value: 'polls', label: 'Polls & predictions' }
+        { value: 'polls', label: 'Polls & predictions' },
+        { value: 'giveaways', label: 'Giveaways' },
+        { value: 'queue', label: 'Queue' },
+        { value: 'sounds', label: 'Soundboard' }
       ]}
       onchange={(v) => (tab = v)}
     />
     <div class="grow"></div>
-    {#if signedIn}
+    {#if signedIn && tab !== 'sounds'}
       <Button size="sm" variant="ghost" busy={interact.loading} onclick={() => interact.load()}><RefreshCw size={14} />Refresh</Button>
     {/if}
   </header>
 
-  {#if !signedIn}
+  {#if tab === 'sounds'}
+    <div class="body"><Soundboard /></div>
+  {:else if !signedIn}
     <div class="empty">
-      <EmptyState title="Sign in to Twitch" body="Rewards, polls and predictions come from your Twitch channel.">
+      <EmptyState title="Sign in to Twitch" body="Rewards, polls, predictions, giveaways and the queue use your Twitch channel. The soundboard works without it.">
         {#snippet icon()}<Vote size={28} />{/snippet}
         <Button variant="primary" onclick={openSettings}>Open Twitch settings</Button>
       </EmptyState>
@@ -65,7 +73,7 @@
       </p>
     {/if}
     <div class="body">
-      {#if tab === 'points'}<Rewards />{:else}<Polls />{/if}
+      {#if tab === 'points'}<Rewards />{:else if tab === 'polls'}<Polls />{:else if tab === 'giveaways'}<Giveaways />{:else}<Queue />{/if}
     </div>
   {/if}
 </div>

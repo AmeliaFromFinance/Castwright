@@ -170,9 +170,34 @@ pub fn hype_train(meta: Meta, ev: &Value, kind: EventKind) -> Option<Event> {
             e.data.insert(key.into(), json!(v));
         }
     }
-    let golden = ev.get("is_golden_kappa_train").and_then(Value::as_bool) == Some(true)
-        || ev.get("type").and_then(Value::as_str) == Some("golden_kappa");
-    e.data.insert("is_golden_kappa".into(), golden.into());
+    // Version 1 only knows golden Kappa trains; version 2 has a type and shared trains.
+    let train_type = match ev.get("type").and_then(Value::as_str) {
+        Some(t @ ("golden_kappa" | "treasure" | "regular")) => t,
+        _ if bool_of(ev, "is_golden_kappa_train") => "golden_kappa",
+        _ => "regular",
+    };
+    e.data.insert(
+        "is_golden_kappa".into(),
+        (train_type == "golden_kappa").into(),
+    );
+    e.data.insert("train_type".into(), train_type.into());
+    e.data
+        .insert("is_shared".into(), bool_of(ev, "is_shared_train").into());
+    let shared: Vec<Value> = list(ev, "shared_train_participants")
+        .iter()
+        .map(|p| str_of(p, "broadcaster_user_name"))
+        .filter(|n| !n.is_empty())
+        .map(Value::from)
+        .collect();
+    e.data.insert("shared_with".into(), shared.into());
+    for key in ["started_at", "expires_at", "ended_at", "cooldown_ends_at"] {
+        if let Some(ms) = ev.get(key).and_then(Value::as_str).and_then(parse_rfc3339) {
+            e.data.insert(key.into(), json!(ms));
+        }
+    }
+    if let Some(v) = ev.get("all_time_high_level").and_then(Value::as_u64) {
+        e.data.insert("record_level".into(), json!(v));
+    }
     let top: Vec<Value> = ev
         .get("top_contributions")
         .and_then(Value::as_array)
@@ -342,6 +367,10 @@ pub fn chat_message(meta: Meta, ev: &Value) -> Option<Event> {
     e.roles = roles(ev, meta.broadcaster_id);
     e.data.insert("color".into(), str_of(ev, "color").into());
     e.data.insert("badges".into(), badge_ids(ev).into());
+    let tier = sub_tier(ev);
+    if tier > 0 {
+        e.data.insert("sub_tier".into(), json!(tier));
+    }
     e.data
         .insert("message_type".into(), str_of(ev, "message_type").into());
     if let Some(parent) = ev
@@ -504,6 +533,20 @@ fn roles(ev: &Value, broadcaster_id: &str) -> UserRoles {
         vip: has("vip"),
         subscriber: has("subscriber") || has("founder"),
     }
+}
+
+/// 1 to 3 from the subscriber badge (tier 2 badges are 2000 and up, tier 3 3000 and up).
+/// Founders count as tier 1. 0 when not subscribed.
+pub fn sub_tier(ev: &Value) -> u8 {
+    let badges = list(ev, "badges");
+    if let Some(b) = badges.iter().find(|b| str_of(b, "set_id") == "subscriber") {
+        return match str_of(b, "id").parse::<u32>().unwrap_or(0) {
+            3000.. => 3,
+            2000.. => 2,
+            _ => 1,
+        };
+    }
+    u8::from(badges.iter().any(|b| str_of(b, "set_id") == "founder"))
 }
 
 fn badge_ids(ev: &Value) -> Vec<String> {

@@ -6,7 +6,7 @@ pub mod script;
 
 use crate::alerts::AlertEngine;
 use crate::error::{AppResult, user_err};
-use crate::hub::{Hub, Signal, ui};
+use crate::hub::{Hub, PlayTrigger, Signal, ui};
 use crate::model::ads::{AdAlarm, AdSchedule, clock};
 use crate::model::automation::{
     Action, EdgeBranch, Graph, HttpMethod, NodeKind, Permission, Step, Toggle, Trigger,
@@ -17,7 +17,7 @@ use crate::model::interact::{PollDraft, PredictionAction, PredictionDraft};
 use crate::model::music::NowPlaying;
 use crate::model::overlay::LayerKind;
 use crate::model::runtime::{LogLevel, OverlayMsg};
-use crate::services::{DiscordActions, ObsActions, TwitchActions};
+use crate::services::{DiscordActions, ObsActions, PlayActions, SoundActions, TwitchActions};
 use crate::store::project::ProjectStore;
 use crate::template::render;
 use futures_util::future::BoxFuture;
@@ -157,6 +157,8 @@ pub struct Automation {
     twitch: RwLock<Option<Arc<dyn TwitchActions>>>,
     obs: RwLock<Option<Arc<dyn ObsActions>>>,
     discord: RwLock<Option<Arc<dyn DiscordActions>>>,
+    sounds: RwLock<Option<Arc<dyn SoundActions>>>,
+    play: RwLock<Option<Arc<dyn PlayActions>>>,
     http: reqwest::Client,
     last_run: Mutex<HashMap<String, Instant>>,
     user_cooldowns: Mutex<HashMap<(String, String), Instant>>,
@@ -205,6 +207,8 @@ impl Automation {
             twitch: RwLock::new(None),
             obs: RwLock::new(None),
             discord: RwLock::new(None),
+            sounds: RwLock::new(None),
+            play: RwLock::new(None),
             http: reqwest::Client::builder()
                 .timeout(Duration::from_secs(10))
                 .user_agent(concat!("Castwright/", env!("CARGO_PKG_VERSION")))
@@ -236,6 +240,13 @@ impl Automation {
 
     pub fn set_discord(&self, d: Arc<dyn DiscordActions>) {
         *self.discord.write().unwrap() = Some(d);
+    }
+
+    pub fn set_sounds(&self, s: Arc<dyn SoundActions>) {
+        *self.sounds.write().unwrap() = Some(s);
+    }
+    pub fn set_play(&self, p: Arc<dyn PlayActions>) {
+        *self.play.write().unwrap() = Some(p);
     }
 
     pub fn set_ignored_users(&self, ids: Vec<String>) {
@@ -384,6 +395,12 @@ impl Automation {
                         Trigger::PredictionEnd if event.kind == EventKind::PredictionEnd => {
                             Some((index, "prediction ends".to_string(), Map::new(), None))
                         }
+                        Trigger::HypeTrainBegin if event.kind == EventKind::HypeTrainBegin => {
+                            Some((index, "hype train begins".to_string(), Map::new(), None))
+                        }
+                        Trigger::HypeTrainEnd if event.kind == EventKind::HypeTrainEnd => {
+                            Some((index, "hype train ends".to_string(), Map::new(), None))
+                        }
                         Trigger::Command {
                             name,
                             aliases,
@@ -437,6 +454,14 @@ impl Automation {
             }
             Signal::SongChanged(song) => {
                 self.run_song_triggers(song);
+                return;
+            }
+            Signal::HypeLevelUp { from, event } => {
+                self.run_level_up_triggers(*from, event);
+                return;
+            }
+            Signal::Play { trigger, args } => {
+                self.run_play_triggers(*trigger, args);
                 return;
             }
             _ => return,
@@ -493,6 +518,40 @@ impl Automation {
                     song_args(song),
                     None,
                 );
+            }
+        }
+    }
+
+    fn run_level_up_triggers(self: &Arc<Self>, from: u64, event: &Event) {
+        for action in self.actions() {
+            let hit = action
+                .triggers
+                .iter()
+                .position(|t| matches!(t, Trigger::HypeTrainLevelUp));
+            if let Some(index) = hit {
+                let mut args = ctx_from(&event.as_context());
+                args.extend(interact::args(event));
+                args.insert("previous_level".into(), from.into());
+                self.spawn_run(&action.id, Some(index), "hype train level up", args, None);
+            }
+        }
+    }
+    fn run_play_triggers(self: &Arc<Self>, which: PlayTrigger, args: &Map<String, Value>) {
+        let (label, hit): (&str, fn(&Trigger) -> bool) = match which {
+            PlayTrigger::GiveawayOpened => {
+                ("giveaway opened", |t| matches!(t, Trigger::GiveawayOpened))
+            }
+            PlayTrigger::GiveawayClosed => {
+                ("giveaway closed", |t| matches!(t, Trigger::GiveawayClosed))
+            }
+            PlayTrigger::GiveawayWinner => {
+                ("winner drawn", |t| matches!(t, Trigger::GiveawayWinner))
+            }
+            PlayTrigger::PlayerPicked => ("player picked", |t| matches!(t, Trigger::PlayerPicked)),
+        };
+        for action in self.actions() {
+            if let Some(index) = action.triggers.iter().position(hit) {
+                self.spawn_run(&action.id, Some(index), label, args.clone(), None);
             }
         }
     }
@@ -954,6 +1013,14 @@ impl Automation {
             .ok_or_else(|| crate::error::AppError::User("Discord isn't set up.".into()))
     }
 
+    fn play(&self) -> AppResult<Arc<dyn PlayActions>> {
+        self.play
+            .read()
+            .unwrap()
+            .clone()
+            .ok_or_else(|| crate::error::AppError::User("Giveaways aren't ready yet.".into()))
+    }
+
     fn obs(&self) -> AppResult<Arc<dyn ObsActions>> {
         self.obs
             .read()
@@ -1124,6 +1191,12 @@ impl Automation {
                     volume: (*volume).min(100),
                 },
             ),
+            Step::PlaySoundboardSound { sound_id } => {
+                let sounds = self.sounds.read().unwrap().clone().ok_or_else(|| {
+                    crate::error::AppError::User("The soundboard isn't ready.".into())
+                })?;
+                sounds.play_sound(sound_id)?;
+            }
             Step::HttpRequest {
                 method,
                 url,
@@ -1275,6 +1348,16 @@ impl Automation {
                 }
                 self.discord()?.post_text(webhook_id, &text).await?
             }
+            Step::OpenGiveaway { title } => self.play()?.open_giveaway(&t(title))?,
+            Step::CloseGiveaway => self.play()?.close_giveaway()?,
+            Step::DrawGiveaway { count } => self.play()?.draw_giveaway(*count)?,
+            Step::SetQueueOpen { state } => self.play()?.set_queue_open(match state {
+                Toggle::On => Some(true),
+                Toggle::Off => Some(false),
+                Toggle::Toggle => None,
+            })?,
+            Step::QueueNext { count, random } => self.play()?.queue_next(*count, *random)?,
+            Step::ClearQueue => self.play()?.clear_queue()?,
             Step::Stop => return Ok(Flow::Stop),
             Step::Log { message } => self.hub.log(LogLevel::Info, "automation", t(message)),
         }
@@ -1439,6 +1522,7 @@ pub fn step_label(step: &Step) -> &'static str {
         Step::PauseAlerts { .. } => "Pause alerts",
         Step::SkipAlert => "Skip alert",
         Step::PlaySound { .. } => "Play sound",
+        Step::PlaySoundboardSound { .. } => "Play soundboard sound",
         Step::HttpRequest { .. } => "Web request",
         Step::RunScript { .. } => "Run script",
         Step::If { .. } => "If",
@@ -1452,6 +1536,12 @@ pub fn step_label(step: &Step) -> &'static str {
         Step::EndPrediction { .. } => "Lock or resolve prediction",
         Step::SnoozeAd => "Snooze ad",
         Step::PostToDiscord { .. } => "Post to Discord",
+        Step::OpenGiveaway { .. } => "Open giveaway",
+        Step::CloseGiveaway => "Close giveaway",
+        Step::DrawGiveaway { .. } => "Draw winner",
+        Step::SetQueueOpen { .. } => "Open or close queue",
+        Step::QueueNext { .. } => "Next in queue",
+        Step::ClearQueue => "Clear queue",
         Step::Stop => "Stop",
         Step::Log { .. } => "Log",
     }

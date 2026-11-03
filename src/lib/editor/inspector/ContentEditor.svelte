@@ -21,6 +21,9 @@
   import TemplateField from '$lib/editors/TemplateField.svelte';
   import { AD_TOKENS } from '$lib/overlay/ads';
   import { adPreview } from '$lib/overlay/ad-preview.svelte';
+  import { hypePreview } from '$lib/overlay/hype-preview.svelte';
+  import { GIVEAWAY_TOKENS } from '$lib/overlay/play';
+  import { giveawayPreview } from '$lib/overlay/play-preview.svelte';
   import TextStyleEditor from './TextStyleEditor.svelte';
   import ChatRulesForm from '$lib/widgets/chat/ChatRulesForm.svelte';
   import type { ChatFilterSource } from '$lib/bindings/ChatFilterSource';
@@ -449,6 +452,127 @@
   </Prop>
   <p class="hint">Pick where songs come from in Settings → Music. The editor shows a sample song while nothing plays. Change the card under Cards.</p>
   {@render textGroup(k.style)}
+{:else if k.type === 'hype_train'}
+  <Prop label="Layout">
+    <Segmented
+      label="Layout"
+      value={k.layout}
+      options={[
+        { value: 'bar', label: 'Bar' },
+        { value: 'card', label: 'Card' }
+      ]}
+      onchange={(v) => set((x) => x.type === 'hype_train' && (x.layout = v), 'layout')}
+    />
+  </Prop>
+  <Prop label="Preview">
+    <Segmented
+      label="Preview on the canvas"
+      value={hypePreview.ended ? 'ended' : 'running'}
+      options={[
+        { value: 'running', label: 'Running' },
+        { value: 'ended', label: 'Ended' }
+      ]}
+      onchange={(v) => (hypePreview.ended = v === 'ended')}
+    />
+  </Prop>
+  <Prop label="Show">
+    <div class="switches">
+      <Switch label="Time left" showLabel checked={k.show_timer} onchange={(v) => set((x) => x.type === 'hype_train' && (x.show_timer = v), 'timer')} />
+      <Switch label="Total" showLabel checked={k.show_total} onchange={(v) => set((x) => x.type === 'hype_train' && (x.show_total = v), 'total')} />
+      <Switch label="Top contributors" showLabel checked={k.show_top} onchange={(v) => set((x) => x.type === 'hype_train' && (x.show_top = v), 'top')} />
+    </div>
+  </Prop>
+  <Prop label="Level up" hint="Shows “Level up!” for a moment. Without movement when motion is reduced.">
+    <div class="pair-row">
+      <Switch label="Celebrate level ups" checked={k.celebrate} onchange={(v) => set((x) => x.type === 'hype_train' && (x.celebrate = v), 'celebrate')} />
+      <Button
+        size="sm"
+        disabled={!k.celebrate}
+        onclick={() => {
+          hypePreview.ended = false;
+          hypePreview.bumps++;
+        }}>Try it</Button
+      >
+    </div>
+  </Prop>
+  <Prop label="After the end" hint="Seconds the end text stays. 0 hides the layer right away.">
+    <NumberInput label="Seconds to show the end text" unit="s" min={0} max={600} value={k.after_s} oninput={(v) => set((x) => x.type === 'hype_train' && (x.after_s = Math.max(0, Math.round(v))), 'after')} />
+  </Prop>
+  {#if k.after_s > 0}
+    <TemplateField
+      label="End text"
+      value={k.end_text}
+      tokens={[{ token: 'level', label: 'Level reached' }, { token: 'total', label: 'Total points' }]}
+      onchange={(v) => set((x) => x.type === 'hype_train' && (x.end_text = v), 'endtext')}
+    />
+  {/if}
+  <Prop label="Bar" hint="Empty uses Twitch purple. Golden Kappa and treasure trains use their own colours.">
+    <ColorInput label="Bar colour" value={k.bar_color} onchange={(v) => set((x) => x.type === 'hype_train' && (x.bar_color = v), 'bar')} />
+  </Prop>
+  <Prop label="Track">
+    <ColorInput label="Track colour" value={k.track_color} onchange={(v) => set((x) => x.type === 'hype_train' && (x.track_color = v), 'track')} />
+  </Prop>
+  <p class="hint">Hidden while no hype train runs. The editor shows a sample train. Change the card under Cards.</p>
+  {@render textGroup(k.style)}
+{:else if k.type === 'giveaway'}
+  <Prop label="When idle" hint="Hide while no giveaway runs.">
+    <Switch label="Hide when idle" checked={k.hide_idle} onchange={(v) => set((x) => x.type === 'giveaway' && (x.hide_idle = v), 'idle')} />
+  </Prop>
+  <TemplateField
+    label="While open"
+    value={k.open_text}
+    tokens={GIVEAWAY_TOKENS}
+    hint="Under the prize while entries are open. Empty hides it."
+    onchange={(v) => set((x) => x.type === 'giveaway' && (x.open_text = v), 'opentext')}
+  />
+  <Prop label="Show">
+    <div class="switches">
+      <Switch label="Entry count" showLabel checked={k.show_entries} onchange={(v) => set((x) => x.type === 'giveaway' && (x.show_entries = v), 'entries')} />
+      <Switch label="Badges" showLabel checked={k.show_badges} onchange={(v) => set((x) => x.type === 'giveaway' && (x.show_badges = v), 'badges')} />
+      <Switch label="7TV paints" showLabel checked={k.seventv_paints} onchange={(v) => set((x) => x.type === 'giveaway' && (x.seventv_paints = v), 'paints')} />
+    </div>
+  </Prop>
+  <Prop label="Spin" hint="Seconds the names spin before landing on the winner. Reduced motion fades the winner in.">
+    <NumberInput label="Spin seconds" unit="s" min={1} max={30} value={k.spin_s} oninput={(v) => set((x) => x.type === 'giveaway' && (x.spin_s = Math.min(30, Math.max(1, Math.round(v)))), 'spin')} />
+  </Prop>
+  <Prop label="Accent">
+    <ColorInput label="Accent colour" value={k.accent_color} onchange={(v) => set((x) => x.type === 'giveaway' && (x.accent_color = v), 'accent')} />
+  </Prop>
+  <Prop label="Preview">
+    <Button size="sm" onclick={() => (giveawayPreview.spinAt = Date.now())}>Spin the sample</Button>
+  </Prop>
+  <p class="hint">Run giveaways on the Interact page. The editor shows a sample winner while none runs. Change the card under Cards.</p>
+  {@render textGroup(k.style)}
+{:else if k.type === 'queue'}
+  <Prop label="Playing now">
+    <Switch label="Show who is playing" checked={k.show_playing} onchange={(v) => set((x) => x.type === 'queue' && (x.show_playing = v), 'playing')} />
+  </Prop>
+  <Prop label="Up next" hint="People in line to list. 0 hides the line.">
+    <NumberInput label="People in line to show" min={0} max={20} value={k.next_count} oninput={(v) => set((x) => x.type === 'queue' && (x.next_count = Math.min(20, Math.max(0, Math.round(v)))), 'next')} />
+  </Prop>
+  <Prop label="Show">
+    <div class="switches">
+      <Switch label="Positions" showLabel checked={k.show_positions} onchange={(v) => set((x) => x.type === 'queue' && (x.show_positions = v), 'pos')} />
+      <Switch label="Notes" showLabel checked={k.show_notes} onchange={(v) => set((x) => x.type === 'queue' && (x.show_notes = v), 'notes')} />
+    </div>
+  </Prop>
+  <Prop label="When empty" hint="Hide while nobody is playing or waiting.">
+    <Switch label="Hide when empty" checked={k.hide_empty} onchange={(v) => set((x) => x.type === 'queue' && (x.hide_empty = v), 'empty')} />
+  </Prop>
+  <Prop label="Headings" for="{uid}-qplay">
+    <div class="pair">
+      <input id="{uid}-qplay" class="input" aria-label="Playing now heading" value={k.playing_label} oninput={(e) => {
+        const v = e.currentTarget.value;
+        set((x) => x.type === 'queue' && (x.playing_label = v), 'plabel');
+      }} />
+      <input class="input" aria-label="Up next heading" value={k.next_label} oninput={(e) => {
+        const v = e.currentTarget.value;
+        set((x) => x.type === 'queue' && (x.next_label = v), 'nlabel');
+      }} />
+    </div>
+  </Prop>
+  <p class="hint">Run the queue on the Interact page. The editor shows a sample queue while it's empty. Change the cards under Cards.</p>
+  {@render textGroup(k.style)}
 {:else if k.type === 'custom'}
   <CustomWidgetEditor kind={k} {uid} {wide} {ontogglewide} set={(fn, key) => set((x) => x.type === 'custom' && fn(x), key)} />
 {/if}
@@ -457,6 +581,11 @@
   .switches {
     display: grid;
     gap: 2px;
+  }
+  .pair-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
   .filters {
     display: flex;

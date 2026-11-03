@@ -26,6 +26,9 @@ The editor shows your overlay exactly as OBS will, with live chat, events and va
 | **Timer** | Countdown, stopwatch, clock or stream uptime. |
 | **Events** | Recent follows, subs, cheers and more, as a list or ticker. |
 | **Music** | The song playing now, with cover and progress. See [Music and now playing](/guide/music/#now-playing-layer). |
+| **Hype** | The running hype train: level, progress, time left and top contributors. See [Hype train layer](#hype-train-layer). |
+| **Giveaway** | The prize and entries, then a spin that lands on the winner. See [Giveaways and queue](/guide/giveaways-queue/#overlay-layers). |
+| **Queue** | Who's playing now and who's next in the viewer queue. |
 | **Credits** | An end-of-stream roll of everyone who followed, subbed, gifted, cheered, raided or chatted. See [Credits layer](#credits-layer). |
 | **Widget** | Your own HTML, CSS and JavaScript. See [custom widgets](/reference/custom-widgets/). |
 
@@ -84,6 +87,31 @@ Highlighted messages get a coloured bar and a soft tint. Restyle them with the `
 ## Now playing layer
 
 Shows the song from [Settings → Music](/guide/music/), in a compact, card or vinyl layout. It can hide while nothing plays and slides in each new song. See [Music and now playing](/guide/music/#now-playing-layer).
+
+## Hype train layer
+
+Shows the hype train while one runs, and hides itself the rest of the time.
+
+![Hype train layer mid-train in the editor](../../../assets/screens/hype-train-layer.png)
+
+| Setting | What it does |
+| --- | --- |
+| **Layout** | **Bar**: one thin line, made for the top of the screen. **Card**: the kind of train, level, bar, total and top contributors. |
+| **Show** | Time left, the total, and the top bits and sub contributors. |
+| **Level up** | Shows "Level up!" for a moment when the train reaches a new level. **Try it** plays it on the canvas. |
+| **After the end** | Seconds to show the end text once the train is over. `0` hides the layer right away. |
+| **End text** | Like `Hype train reached level {{level}}!`. `{{total}}` works too. |
+| **Bar** and **Track** | Bar colours. Golden Kappa trains get gold and treasure trains teal. |
+
+**Preview** switches the canvas between a running and an ended train. While no train runs, the editor shows a sample one. Pick a card look under **Cards**.
+
+Golden Kappa, treasure and shared trains get their own class, like `.cw-hype-golden`, and the card shows what kind it is. With *reduced motion* on, "Level up!" shows without the pop and flash. See the [styling reference](/reference/styling/#hype-train).
+
+The layer reads the [`hype.*` variables](/reference/variables/#hype-train), so text layers can show the same values.
+
+## Giveaway and queue layers
+
+The **Giveaway** layer shows the prize and entry count, then spins to the winner. The **Viewer queue** layer shows who's playing and who's next. See [Giveaways and queue](/guide/giveaways-queue/#overlay-layers).
 
 ## Credits layer
 

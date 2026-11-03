@@ -198,6 +198,7 @@ pub fn action_label(action: &HotkeyAction) -> &'static str {
         HotkeyAction::AddMarker => "Add stream marker",
         HotkeyAction::CreateClip => "Create clip",
         HotkeyAction::RunAction { .. } => "Run an action",
+        HotkeyAction::PlaySoundButton { .. } => "Play sound button",
     }
 }
 
@@ -207,6 +208,7 @@ pub fn clean(mut s: HotkeySettings) -> Result<HotkeySettings, String> {
     let mut seen_actions = std::collections::HashSet::new();
     s.bindings.retain(|b| match &b.action {
         HotkeyAction::RunAction { action_id } => !action_id.trim().is_empty(),
+        HotkeyAction::PlaySoundButton { sound_id } => !sound_id.trim().is_empty(),
         other => seen_actions.insert(other.clone()),
     });
     let mut used: std::collections::HashMap<Combo, &'static str> = Default::default();

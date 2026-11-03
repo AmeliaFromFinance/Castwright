@@ -61,7 +61,7 @@ export function buildLayer(t: TemplateLayer, id: string): Layer {
   const { box, items, kind: k, box_style, enter, exit, idle, ...rest } = t;
   let kind = kindDefaults(k.type) as unknown as Obj;
   const p = preset(items);
-  if (p && (k.type === 'chat' || k.type === 'event_list' || k.type === 'poll' || k.type === 'ad_break' || k.type === 'now_playing')) {
+  if (p && (k.type === 'chat' || k.type === 'event_list' || k.type === 'poll' || k.type === 'ad_break' || k.type === 'now_playing' || k.type === 'hype_train' || k.type === 'giveaway' || k.type === 'queue')) {
     const chat = k.type === 'chat';
     kind = {
       ...kind,

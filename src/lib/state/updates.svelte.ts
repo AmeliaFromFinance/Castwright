@@ -68,9 +68,10 @@ class Updates {
     }
   }
 
-  /** The browser demo has an update when asked for one (Check for updates, or `?update`). */
+  /** The browser demo has an update when asked for one (Check for updates, `?update` or `?busy`). */
   private async demoCheck(current: string, force: boolean) {
-    if (!force && !new URLSearchParams(location.search).has('update')) return;
+    const q = new URLSearchParams(location.search);
+    if (!force && !q.has('update') && !q.has('busy')) return;
     const { demoRelease } = await import('$lib/api/mock-updates');
     this.found(demoRelease(current));
   }

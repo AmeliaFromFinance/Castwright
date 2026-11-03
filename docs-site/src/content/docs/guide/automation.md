@@ -117,6 +117,7 @@ An action can have several triggers. Each starts the run from its own node, so d
 | **Stream goes live** / **Stream ends** | Your stream starts or stops. |
 | **Scene changes** | OBS switches to a scene (or any scene). |
 | **Ad starting soon** / **Ad break begins** / **Ad break ends** | Some minutes before an ad, or when one starts or ends. See [Ads and Discord](/guide/ads-discord/#automation). |
+| **Giveaway opens** / **closes** / **winner drawn**, **Player picked from queue** | Giveaway and queue moments. See [Giveaways and queue](/guide/giveaways-queue/#automation). |
 | **Button or Stream Deck** | Only runs when you click **Test** or call its [run link](/guide/stream-deck/). **Test** starts here when the action has one. |
 
 Messages from your bot and from Castwright itself never trigger actions, so actions can't set each other off in a loop. Test events from the Alerts page don't run actions either; use **Test** to try one.
@@ -129,6 +130,7 @@ Steps run along the lines from the trigger that fired. Add one from the flow and
 | --- | --- |
 | **Chat** | Send chat message (as you or the bot, optionally as a reply), announcement |
 | **Twitch** | Shoutout, create clip, stream marker, run ad, snooze ad, set title and category, time out user |
+| **Giveaways & queue** | Open, close and draw a giveaway; open or close the queue, next players, clear |
 | **OBS** | Switch scene, show/hide source, mute/unmute, recording, save replay |
 | **Overlays & alerts** | Show/hide overlay layer, roll credits, play a custom alert, play sound |
 | **Variables** | Set variable, add to variable |

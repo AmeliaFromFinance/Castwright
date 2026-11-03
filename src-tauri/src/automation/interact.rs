@@ -1,4 +1,4 @@
-//! What redemption, poll and prediction triggers give an action to work with.
+//! What redemption, poll, prediction and hype train triggers give an action to work with.
 
 use crate::model::event::{Event, EventKind};
 use serde_json::{Map, Value, json};
@@ -39,7 +39,7 @@ pub fn reward_matches(e: &Event, reward_id: &str, reward_title: &str) -> bool {
         || (!title.is_empty() && text(e, "reward_title").trim().eq_ignore_ascii_case(title))
 }
 
-/// Short names for the values of redemption, poll and prediction events.
+/// Short names for the values of redemption, poll, prediction and hype train events.
 pub fn args(e: &Event) -> Map<String, Value> {
     let mut m = Map::new();
     match e.kind {
@@ -107,6 +107,29 @@ pub fn args(e: &Event) -> Map<String, Value> {
                 json!(winner.map(title).unwrap_or_default()),
             );
         }
+        EventKind::HypeTrainBegin | EventKind::HypeTrainProgress | EventKind::HypeTrainEnd => {
+            for key in ["level", "total", "progress", "goal"] {
+                m.insert(
+                    key.into(),
+                    json!(e.data.get(key).and_then(Value::as_u64).unwrap_or(0)),
+                );
+            }
+            let kind = text(e, "train_type");
+            m.insert(
+                "train_type".into(),
+                json!(if kind.is_empty() { "regular" } else { &kind }),
+            );
+            let top = items(e, "top_contributions");
+            let name_of = |kind: &str| {
+                top.iter()
+                    .find(|c| c["type"] == kind)
+                    .and_then(|c| c["name"].as_str())
+                    .unwrap_or("")
+                    .to_string()
+            };
+            m.insert("top_bits_name".into(), json!(name_of("bits")));
+            m.insert("top_sub_name".into(), json!(name_of("subscription")));
+        }
         _ => {}
     }
     m
@@ -167,6 +190,25 @@ mod tests {
         );
         assert_eq!(args(&tie)["poll.winner"], "");
         assert!(!is_real_end(&poll(json!([]), "archived")));
+    }
+
+    #[test]
+    fn hype_train_values() {
+        let mut e = Event::new(EventKind::HypeTrainProgress);
+        e.data.insert("level".into(), json!(3));
+        e.data.insert("total".into(), json!(2200));
+        e.data.insert("train_type".into(), json!("golden_kappa"));
+        e.data.insert(
+            "top_contributions".into(),
+            json!([{"name": "Kappa", "type": "subscription", "total": 500}]),
+        );
+        let a = args(&e);
+        assert_eq!(a["level"], 3);
+        assert_eq!(a["total"], 2200);
+        assert_eq!(a["goal"], 0);
+        assert_eq!(a["train_type"], "golden_kappa");
+        assert_eq!(a["top_sub_name"], "Kappa");
+        assert_eq!(a["top_bits_name"], "");
     }
 
     #[test]

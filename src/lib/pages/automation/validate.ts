@@ -129,6 +129,9 @@ export function validateAction(a: Action, all: readonly Action[], overlays: read
       case 'play_sound':
         if (!s.src.trim()) add('Pick a sound.');
         break;
+      case 'play_soundboard_sound':
+        if (!s.sound_id) add('Pick a soundboard button.');
+        break;
       case 'play_alert':
         if (!s.title.trim() && !s.message.trim()) add('Give the alert a title or a message.');
         break;

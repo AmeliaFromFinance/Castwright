@@ -2,6 +2,7 @@ use super::alert::AlertConfig;
 use super::automation::Action;
 use super::chat::ChatRules;
 use super::overlay::Overlay;
+use super::soundboard::Soundboard;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -20,6 +21,7 @@ pub struct Project {
     pub actions: Vec<Action>,
     /// What the chat panel and chat layers hide and highlight.
     pub chat_rules: ChatRules,
+    pub soundboard: Soundboard,
 }
 
 impl Default for Project {
@@ -31,6 +33,7 @@ impl Default for Project {
             alerts: AlertConfig::default(),
             actions: Vec::new(),
             chat_rules: ChatRules::default(),
+            soundboard: Soundboard::default(),
         }
     }
 }

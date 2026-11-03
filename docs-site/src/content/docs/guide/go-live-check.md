@@ -5,7 +5,7 @@ description: A quick check of OBS, overlays, Twitch and alerts before or right a
 
 The go-live check looks for the usual things that break a stream. It takes a few seconds.
 
-Open it from **Go-live check** in the status bar, or search for it in the command palette (<kbd>Ctrl</kbd> + <kbd>K</kbd>).
+Open it from **Go-live check** in the status bar (under **More** when the window is narrow), or search for it in the command palette (<kbd>Ctrl</kbd> + <kbd>K</kbd>).
 
 ## What it checks
 

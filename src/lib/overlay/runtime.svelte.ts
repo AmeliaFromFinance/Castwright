@@ -15,6 +15,12 @@ export interface RuntimeOptions {
   onReload?: () => void;
   /** Called for `play_sound` with a resolved URL and 0-1 volume. */
   playSound?: (url: string, volume: number) => void;
+  /** Called for `sound_play` (soundboard). The handle stops it. */
+  playSoundboard?: (url: string, volume: number, onEnd: () => void) => SoundHandle;
+}
+
+export interface SoundHandle {
+  stop: () => void;
 }
 
 const PING_MS = 25_000;
@@ -27,6 +33,23 @@ function defaultPlaySound(url: string, volume: number): void {
   } catch (err) {
     console.warn('[overlay] sound failed', err);
   }
+}
+
+function defaultPlaySoundboard(url: string, volume: number, onEnd: () => void): SoundHandle {
+  const a = new Audio(url);
+  a.volume = volume;
+  a.addEventListener('ended', onEnd);
+  a.play().catch((err: unknown) => {
+    console.warn('[overlay] sound blocked or failed', err);
+    onEnd();
+  });
+  return {
+    stop: () => {
+      a.pause();
+      a.removeAttribute('src');
+      a.load();
+    }
+  };
 }
 
 /** Live overlay state fed by the Castwright WebSocket. Reconnects forever. */
@@ -81,6 +104,23 @@ export class OverlayRuntime {
   }
 
   #creditsLoading = false;
+  /** Soundboard sounds playing here, by sound id. */
+  #sounds = new Map<string, Map<number, SoundHandle>>();
+
+  /** Sounds play from overlays that show alerts, so a scene with several
+   *  Castwright overlays doesn't play the same sound more than once. */
+  #playsSounds(): boolean {
+    const scene = currentScene(this.state.vars);
+    return this.state.overlay?.layers.some((l) => l.kind.type === 'alerts' && baseVisible(l, this.state.visibility) && sceneAllows(l.scenes, scene)) ?? false;
+  }
+
+  #stopSounds(id: string | null): void {
+    for (const [soundId, plays] of this.#sounds) {
+      if (id !== null && soundId !== id) continue;
+      for (const h of plays.values()) h.stop();
+      this.#sounds.delete(soundId);
+    }
+  }
 
   /** Fetch fresh names for credits layers. */
   loadCredits = (): void => {
@@ -113,15 +153,28 @@ export class OverlayRuntime {
         (this.#opts.onReload ?? (() => location.reload()))();
         return;
       case 'play_sound': {
-        // Sounds play from overlays that show alerts, so a scene with several
-        // Castwright overlays doesn't play the same sound more than once.
-        const scene = currentScene(this.state.vars);
-        const hasAlerts =
-          this.state.overlay?.layers.some((l) => l.kind.type === 'alerts' && baseVisible(l, this.state.visibility) && sceneAllows(l.scenes, scene)) ?? false;
         const url = this.assetUrl(msg.src ?? '');
-        if (url && hasAlerts) (this.#opts.playSound ?? defaultPlaySound)(url, Math.min(1, Math.max(0, (msg.volume ?? 100) / 100)));
+        if (url && this.#playsSounds()) (this.#opts.playSound ?? defaultPlaySound)(url, Math.min(1, Math.max(0, (msg.volume ?? 100) / 100)));
         break;
       }
+      case 'sound_play': {
+        const url = this.assetUrl(msg.src ?? '');
+        if (!url || typeof msg.sound_id !== 'string' || !this.#playsSounds()) break;
+        // A new play of the same button replaces the one still going.
+        this.#stopSounds(msg.sound_id);
+        const plays = new Map<number, SoundHandle>();
+        this.#sounds.set(msg.sound_id, plays);
+        const playId = Number(msg.play_id) || 0;
+        const handle = (this.#opts.playSoundboard ?? defaultPlaySoundboard)(url, Math.min(1, Math.max(0, (msg.volume ?? 100) / 100)), () => {
+          plays.delete(playId);
+          if (!plays.size && this.#sounds.get(msg.sound_id) === plays) this.#sounds.delete(msg.sound_id);
+        });
+        plays.set(playId, handle);
+        break;
+      }
+      case 'sound_stop':
+        this.#stopSounds(typeof msg.sound_id === 'string' ? msg.sound_id : null);
+        break;
       case 'hello': {
         this.#attempt = 0;
         let next = reduce(this.state, msg);

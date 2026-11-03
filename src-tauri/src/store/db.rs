@@ -85,6 +85,19 @@ const MIGRATIONS: &[&str] = &[
         due_at INTEGER NOT NULL
     );
     "#,
+    // 3: giveaway history.
+    r#"
+    CREATE TABLE giveaways (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        opened_at INTEGER NOT NULL,
+        ended_at INTEGER NOT NULL DEFAULT 0,
+        entrants INTEGER NOT NULL DEFAULT 0,
+        entries INTEGER NOT NULL DEFAULT 0,
+        winners TEXT NOT NULL DEFAULT '[]'
+    );
+    CREATE INDEX giveaways_opened ON giveaways(opened_at DESC);
+    "#,
 ];
 
 /// Most history rows kept; the oldest are trimmed beyond this.

@@ -13,6 +13,7 @@
   import Row from './Row.svelte';
   import ThemeEditor from './ThemeEditor.svelte';
   import { updateAppearance, updateWindowEffect } from './theme-settings.svelte';
+  import { OPTIONAL_ITEMS, statusPrefs } from '$lib/shell/statusbar-prefs.svelte';
   import { Plus, Pencil, Upload, Copy } from '@lucide/svelte';
 
   const appearance = $derived(app.settings!.appearance);
@@ -206,6 +207,13 @@
     <Row label="Reduce motion" hint="Turns off animations in the app. Overlays aren't affected.">
       <Switch label="Reduce motion" checked={appearance.reduce_motion} onchange={(v) => updateAppearance({ reduce_motion: v })} />
     </Row>
+    <Row label="Status bar" hint="What shows at the bottom. Anything that doesn't fit goes under More.">
+      <div class="checks" role="group" aria-label="Status bar items">
+        {#each OPTIONAL_ITEMS as item (item.id)}
+          <label><input type="checkbox" checked={statusPrefs.shows(item.id)} onchange={(e) => statusPrefs.set(item.id, e.currentTarget.checked)} />{item.label}</label>
+        {/each}
+      </div>
+    </Row>
   </div>
 {/if}
 
@@ -349,6 +357,20 @@
   }
   .scale {
     width: 220px;
+  }
+  .checks {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px 14px;
+    max-width: 360px;
+  }
+  .checks label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    white-space: nowrap;
   }
   .edit-wrap {
     max-width: 1000px;

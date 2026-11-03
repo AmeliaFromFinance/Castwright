@@ -65,6 +65,17 @@ import type { UpdateSettings } from '$lib/bindings/UpdateSettings';
 import type { ChatRules } from '$lib/bindings/ChatRules';
 import type { MusicSettings } from '$lib/bindings/MusicSettings';
 import type { MusicStatus } from '$lib/bindings/MusicStatus';
+import type { PlayOutcome } from '$lib/bindings/PlayOutcome';
+import type { SoundCue } from '$lib/bindings/SoundCue';
+import type { Soundboard } from '$lib/bindings/Soundboard';
+import type { SoundboardStatus } from '$lib/bindings/SoundboardStatus';
+import type { Giveaway } from '$lib/bindings/Giveaway';
+import type { GiveawayRecord } from '$lib/bindings/GiveawayRecord';
+import type { GiveawaySettings } from '$lib/bindings/GiveawaySettings';
+import type { PlayState } from '$lib/bindings/PlayState';
+import type { QueueEntry } from '$lib/bindings/QueueEntry';
+import type { QueueSettings } from '$lib/bindings/QueueSettings';
+import type { ViewerQueue } from '$lib/bindings/ViewerQueue';
 
 let backend: Backend | null = null;
 
@@ -117,7 +128,9 @@ export const events = {
   moment: 'cw://moment',
   updateProgress: 'cw://update-progress',
   updateAsk: 'cw://update-ask',
-  music: 'cw://music'
+  music: 'cw://music',
+  sound: 'cw://sound',
+  soundboard: 'cw://soundboard'
 } as const;
 
 export interface PushPayloads {
@@ -143,6 +156,9 @@ export interface PushPayloads {
   'cw://update-progress': UpdateProgress;
   'cw://update-ask': Record<string, never>;
   'cw://music': MusicStatus;
+  'cw://sound': SoundCue;
+  'cw://soundboard': SoundboardStatus;
+  'cw://play': PlayState;
 }
 
 export function on<K extends keyof PushPayloads>(name: K, cb: (p: PushPayloads[K]) => void): Promise<Unlisten> {
@@ -342,6 +358,38 @@ export const api = {
   spotifyLogin: () => call<string>('spotify_login'),
   spotifyCancelLogin: () => call<void>('spotify_cancel_login'),
   spotifyLogout: () => call<void>('spotify_logout'),
+
+  // soundboard
+  soundboardStatus: () => call<SoundboardStatus>('soundboard_status'),
+  /** The mute isn't changed here; use soundboardMute. */
+  saveSoundboard: (board: Soundboard) => call<Soundboard>('save_soundboard', { board }),
+  soundPlay: (id: string) => call<PlayOutcome>('sound_play', { id }),
+  /** `id` null stops every sound. */
+  soundStop: (id: string | null = null) => call<void>('sound_stop', { id }),
+  soundboardMute: (muted: boolean) => call<SoundboardStatus>('soundboard_mute', { muted }),
+  // giveaways and the viewer queue
+  playState: () => call<PlayState>('play_state'),
+  saveGiveawaySettings: (settings: GiveawaySettings) => call<GiveawaySettings>('save_giveaway_settings', { settings }),
+  giveawayOpen: (settings: GiveawaySettings) => call<Giveaway>('giveaway_open', { settings }),
+  /** Open or close entries. */
+  giveawaySetOpen: (open: boolean) => call<Giveaway>('giveaway_set_open', { open }),
+  giveawayDraw: (count: number) => call<Giveaway>('giveaway_draw', { count }),
+  giveawayReroll: (userId: string) => call<Giveaway>('giveaway_reroll', { userId }),
+  giveawayClaim: (userId: string) => call<Giveaway>('giveaway_claim', { userId }),
+  giveawayRemove: (userId: string) => call<Giveaway>('giveaway_remove', { userId }),
+  /** Saves it to history and clears it. */
+  giveawayFinish: () => call<GiveawayRecord | null>('giveaway_finish'),
+  giveawayHistory: (limit = 200) => call<GiveawayRecord[]>('giveaway_history', { limit }),
+  giveawayDeleteRecord: (id: string) => call<void>('giveaway_delete_record', { id }),
+  saveQueueSettings: (settings: QueueSettings) => call<QueueSettings>('save_queue_settings', { settings }),
+  queueSetOpen: (open: boolean) => call<ViewerQueue>('queue_set_open', { open }),
+  /** `count` 0 = the party size. */
+  queueNext: (count: number, random: boolean) => call<QueueEntry[]>('queue_next', { count, random }),
+  queueRemove: (userId: string) => call<ViewerQueue>('queue_remove', { userId }),
+  queueClear: () => call<ViewerQueue>('queue_clear'),
+  /** Moves `userId` in front of `before`, or to the end when null. */
+  queueMove: (userId: string, before: string | null) => call<ViewerQueue>('queue_move', { userId, before }),
+  queueNote: (userId: string, note: string) => call<ViewerQueue>('queue_note', { userId, note }),
 
   // chat rules
   saveChatRules: (rules: ChatRules) => call<ChatRules>('save_chat_rules', { rules }),

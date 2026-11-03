@@ -3,10 +3,12 @@ import type { AdSettings } from "./AdSettings";
 import type { AppearanceSettings } from "./AppearanceSettings";
 import type { BackupSettings } from "./BackupSettings";
 import type { DiscordSettings } from "./DiscordSettings";
+import type { GiveawaySettings } from "./GiveawaySettings";
 import type { GoLiveSettings } from "./GoLiveSettings";
 import type { HotkeySettings } from "./HotkeySettings";
 import type { MusicSettings } from "./MusicSettings";
 import type { ObsSettings } from "./ObsSettings";
+import type { QueueSettings } from "./QueueSettings";
 import type { ServerSettings } from "./ServerSettings";
 import type { SummarySettings } from "./SummarySettings";
 import type { TwitchSettings } from "./TwitchSettings";
@@ -24,4 +26,8 @@ alerts_muted: boolean, golive: GoLiveSettings, backups: BackupSettings,
 /**
  * Global hotkeys. Kept per computer, not in the project.
  */
-hotkeys: HotkeySettings, summary: SummarySettings, ads: AdSettings, discord: DiscordSettings, updates: UpdateSettings, music: MusicSettings, };
+hotkeys: HotkeySettings, summary: SummarySettings, ads: AdSettings, discord: DiscordSettings, updates: UpdateSettings, music: MusicSettings, 
+/**
+ * The last giveaway set up, used for the next one.
+ */
+giveaway: GiveawaySettings, queue: QueueSettings, };

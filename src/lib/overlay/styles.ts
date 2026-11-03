@@ -603,7 +603,7 @@ export function alternator(): (id: string) => boolean {
 
 type Align = 'left' | 'center' | 'right';
 
-/** Item cards for chat, event lists, poll choices, the ad break message and the song, scoped to one layer. */
+/** Item cards for chat, event lists, poll choices, the ad break, the song, the hype train, the giveaway and queue rows, scoped to one layer. */
 export function itemCardCss(kind: LayerKind, scope: string): string {
   const s = `:where(.${scope})`;
   if (kind.type === 'chat') {
@@ -637,6 +637,22 @@ export function itemCardCss(kind: LayerKind, scope: string): string {
   if (kind.type === 'now_playing') {
     const card = resolveItemCard(kind.item_card);
     return frameCss(kind.item_box, `${s} .cw-np-item`, { item: { ...card, around: 'message', alternate: false, width: 'full' }, align: 'left', room: true });
+  }
+  if (kind.type === 'hype_train') {
+    const card = resolveItemCard(kind.item_card);
+    return frameCss(kind.item_box, `${s} .cw-hype-item`, { item: { ...card, around: 'message', alternate: false, width: 'full' }, align: 'left', room: true });
+  }
+  if (kind.type === 'giveaway') {
+    const card = resolveItemCard(kind.item_card);
+    const align = (kind.style?.align ?? 'left') as Align;
+    return frameCss(kind.item_box, `${s} .cw-gw-card`, { item: { ...card, around: 'message', alternate: false, width: 'full' }, align, room: true });
+  }
+  if (kind.type === 'queue') {
+    const card = resolveItemCard(kind.item_card);
+    const align = (kind.style?.align ?? 'left') as Align;
+    const rules = [frameCss(kind.item_box, `${s} .cw-q-item`, { item: { ...card, around: 'message' }, align, room: true })];
+    if (card.gap !== DEFAULT_ITEM_CARD.gap) rules.push(`${s} .cw-q-list{gap:${px(Math.max(0, card.gap))}}`);
+    return rules.filter(Boolean).join('\n');
   }
   return '';
 }

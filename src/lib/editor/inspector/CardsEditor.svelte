@@ -14,7 +14,7 @@
   import NumberInput from '../ui/NumberInput.svelte';
   import Prop from '../ui/Prop.svelte';
 
-  type CardKind = Extract<LayerKind, { type: 'chat' | 'event_list' | 'poll' | 'ad_break' | 'now_playing' }>;
+  type CardKind = Extract<LayerKind, { type: 'chat' | 'event_list' | 'poll' | 'ad_break' | 'now_playing' | 'hype_train' | 'giveaway' | 'queue' }>;
 
   interface Props {
     kind: CardKind;
@@ -30,7 +30,7 @@
 
   function setCard(fn: (c: ItemCard) => void, key: string) {
     set((x) => {
-      if (x.type !== 'chat' && x.type !== 'event_list' && x.type !== 'poll' && x.type !== 'ad_break' && x.type !== 'now_playing') return;
+      if (x.type !== 'chat' && x.type !== 'event_list' && x.type !== 'poll' && x.type !== 'ad_break' && x.type !== 'now_playing' && x.type !== 'hype_train' && x.type !== 'giveaway' && x.type !== 'queue') return;
       const c = resolveItemCard(x.item_card);
       fn(c);
       x.item_card = c;
@@ -40,19 +40,23 @@
   function setBox(fn: (b: BoxStyle) => void, key: string) {
     set((x) => {
       if (x.type === 'chat') fn((x.bubble ??= defaultBoxStyle()));
-      else if (x.type === 'event_list' || x.type === 'poll' || x.type === 'ad_break' || x.type === 'now_playing') fn((x.item_box ??= defaultBoxStyle()));
+      else if (x.type === 'event_list' || x.type === 'poll' || x.type === 'ad_break' || x.type === 'now_playing' || x.type === 'hype_train' || x.type === 'giveaway' || x.type === 'queue') fn((x.item_box ??= defaultBoxStyle()));
     }, `cardbox:${key}`);
   }
 
   function apply(p: BoxPreset) {
     set((x) => {
       if (x.type === 'chat') x.bubble = presetBox(p, 'chat');
-      else if (x.type === 'event_list' || x.type === 'ad_break') x.item_box = presetBox(p, 'events');
-      else if (x.type === 'poll' || x.type === 'now_playing') {
+      else if (x.type === 'event_list' || x.type === 'ad_break' || x.type === 'queue') x.item_box = presetBox(p, 'events');
+      else if (x.type === 'giveaway') {
+        x.item_box = presetBox(p, 'events');
+        if (p.accent) x.accent_color = p.accent;
+      }
+      else if (x.type === 'poll' || x.type === 'now_playing' || x.type === 'hype_train') {
         x.item_box = presetBox(p, 'events');
         if (p.accent) x.bar_color = p.accent;
       } else return;
-      x.item_card = x.type === 'ad_break' || x.type === 'now_playing' ? { ...presetCard(p), width: resolveItemCard(x.item_card).width } : presetCard(p);
+      x.item_card = x.type === 'ad_break' || x.type === 'now_playing' || x.type === 'hype_train' || x.type === 'giveaway' ? { ...presetCard(p), width: resolveItemCard(x.item_card).width } : presetCard(p);
       x.style = presetText(x.style, p.text);
     }, `preset:${p.id}`);
   }
@@ -80,7 +84,7 @@
         />
       </Prop>
     {/if}
-    {#if kind.type !== 'poll' && kind.type !== 'now_playing'}
+    {#if kind.type !== 'poll' && kind.type !== 'now_playing' && kind.type !== 'hype_train' && kind.type !== 'giveaway'}
     <Prop label="Width">
       <Segmented
         label="Card width"
@@ -93,7 +97,7 @@
       />
     </Prop>
     {/if}
-    {#if kind.type !== 'ad_break' && kind.type !== 'now_playing'}
+    {#if kind.type !== 'ad_break' && kind.type !== 'now_playing' && kind.type !== 'hype_train' && kind.type !== 'giveaway'}
     <Prop label="Gap">
       <NumberInput label="Space between cards" unit="px" min={0} max={200} value={card.gap} oninput={(v) => setCard((c) => (c.gap = v), 'gap')} />
     </Prop>
@@ -107,7 +111,7 @@
   </div>
 </Collapse>
 
-<BoxStyleEditor box={box ?? {}} uid="{uid}-card" set={setBox} group="card" nameColor={kind.type !== 'poll' && kind.type !== 'ad_break' && kind.type !== 'now_playing'} />
+<BoxStyleEditor box={box ?? {}} uid="{uid}-card" set={setBox} group="card" nameColor={kind.type !== 'poll' && kind.type !== 'ad_break' && kind.type !== 'now_playing' && kind.type !== 'hype_train'} />
 
 <style>
   .gallery,

@@ -3,6 +3,7 @@ import type { Step } from '$lib/bindings/Step';
 import type { Trigger } from '$lib/bindings/Trigger';
 import { KIND_LABELS } from '$lib/format';
 import type { Overlay } from '$lib/bindings/Overlay';
+import type { SoundButton } from '$lib/bindings/SoundButton';
 import type { Toggle } from '$lib/bindings/Toggle';
 import { describeConditions } from '$lib/editors/conditions';
 import type { Token } from '$lib/editors/tokens';
@@ -103,9 +104,44 @@ const AD_TOKENS: Token[] = [
   { token: 'ad.length_s', label: 'Ad length in seconds' }
 ];
 
-/** Extra values redemption, poll, prediction and ad triggers give an action. */
+const HYPE_TOKENS: Token[] = [
+  { token: 'level', label: 'Level' },
+  { token: 'total', label: 'Total points' },
+  { token: 'progress', label: 'Points toward the next level' },
+  { token: 'goal', label: 'Points the level needs' },
+  { token: 'train_type', label: 'regular, golden_kappa or treasure' },
+  { token: 'top_bits_name', label: 'Top bits contributor' },
+  { token: 'top_sub_name', label: 'Top sub contributor' }
+];
+
+/** Extra values redemption, poll, prediction, ad and hype train triggers give an action. */
+const GIVEAWAY_TOKENS: Token[] = [
+  { token: 'title', label: 'The prize' },
+  { token: 'entries', label: 'People who entered' }
+];
+
+const WINNER_TOKENS: Token[] = [
+  ...GIVEAWAY_TOKENS,
+  { token: 'winner', label: 'Who won' },
+  { token: 'winner_login', label: 'Their login' },
+  { token: 'winner_entries', label: 'Their entries' }
+];
+
+const PLAYER_TOKENS: Token[] = [
+  { token: 'player', label: 'Who was picked' },
+  { token: 'player_login', label: 'Their login' },
+  { token: 'note', label: 'Their note, like an in-game name' },
+  { token: 'players', label: 'Everyone picked with them' }
+];
+
+/** Extra values redemption, poll, prediction, ad, giveaway and queue triggers give an action. */
 function interactTokens(kind: string): Token[] {
+  if (kind === 'giveaway_winner') return WINNER_TOKENS;
+  if (kind.startsWith('giveaway_')) return GIVEAWAY_TOKENS;
+  if (kind === 'player_picked') return PLAYER_TOKENS;
   if (kind === 'redemption') return REDEMPTION_TOKENS;
+  if (kind === 'hype_train_level_up') return [...HYPE_TOKENS, { token: 'previous_level', label: 'Level before' }];
+  if (kind.startsWith('hype_train_')) return HYPE_TOKENS;
   if (kind.startsWith('ad_')) return AD_TOKENS;
   if (kind.startsWith('poll_')) return POLL_TOKENS;
   if (kind.startsWith('prediction_')) return PREDICTION_TOKENS;
@@ -152,7 +188,7 @@ const quote = (s: string) => (s.trim() ? `“${s.trim()}”` : '');
 const seconds = (ms: number) => `${Math.round(ms / 100) / 10} s`;
 
 /** One plain line about what a step does. Empty when it isn't set up yet. */
-export function describeStep(s: Step, ctx: { actions?: readonly Action[]; overlays?: readonly Overlay[] } = {}): string {
+export function describeStep(s: Step, ctx: { actions?: readonly Action[]; overlays?: readonly Overlay[]; sounds?: readonly SoundButton[] } = {}): string {
   switch (s.type) {
     case 'chat_send':
     case 'chat_announce':
@@ -214,6 +250,10 @@ export function describeStep(s: Step, ctx: { actions?: readonly Action[]; overla
       return 'End the alert on screen';
     case 'play_sound':
       return s.src ? `${s.src.split('/').pop()} at ${s.volume}%` : '';
+    case 'play_soundboard_sound': {
+      const b = ctx.sounds?.find((x) => x.id === s.sound_id);
+      return b ? `${b.emoji ? `${b.emoji} ` : ''}${b.label}` : '';
+    }
     case 'http_request':
       return s.url.trim() ? `${s.method.toUpperCase()} ${s.url.trim()}` : '';
     case 'run_script':
@@ -248,5 +288,19 @@ export function describeStep(s: Step, ctx: { actions?: readonly Action[]; overla
       return 'Push the next ad back 5 minutes';
     case 'post_to_discord':
       return s.message.trim();
+    case 'open_giveaway':
+      return s.title.trim() ? `Giveaway for ${quote(s.title)}` : 'Start the giveaway set up on Interact';
+    case 'close_giveaway':
+      return 'Stop taking entries';
+    case 'draw_giveaway':
+      return s.count > 1 ? `Draw ${s.count} winners` : 'Draw a winner';
+    case 'set_queue_open':
+      return { on: 'Open the queue', off: 'Close the queue', toggle: 'Open or close the queue' }[s.state];
+    case 'queue_next': {
+      const who = s.count > 0 ? `${s.count} player${s.count === 1 ? '' : 's'}` : 'a party';
+      return s.random ? `Pick ${who} at random` : `Pull in the next ${who}`;
+    }
+    case 'clear_queue':
+      return 'Empty the queue';
   }
 }

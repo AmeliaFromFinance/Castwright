@@ -101,6 +101,21 @@ test('update download', async ({ page }) => {
   await shot(page, 'update-download');
 });
 
+test('status bar more', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await open(page, 'demo=static&busy');
+  const status = page.getByRole('contentinfo', { name: 'Status' });
+  await status.locator('[data-key="update:full"] button[aria-label="Downloading update, 45%"]').waitFor({ state: 'attached' });
+  // Everything fits at 1280 and 100%, so zoom to 125%.
+  await page.keyboard.press('Control+Equal');
+  await page.keyboard.press('Control+Equal');
+  await page.waitForTimeout(1800);
+  await status.getByRole('button', { name: /^\d+ more$/ }).click();
+  await page.getByRole('dialog', { name: 'More status items' }).waitFor();
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: out('status-bar-more') });
+});
+
 test('settings', async ({ page }) => {
   await open(page);
   await nav(page, 'Settings');
@@ -497,4 +512,79 @@ test('music settings', async ({ page }) => {
   await page.locator('#music').getByText('Signed in as Demo listener').waitFor();
   await page.waitForTimeout(800);
   await shot(page, 'music-settings');
+});
+
+test('hype train layer', async ({ page }) => {
+  await open(page, 'demo=static&hype');
+  await nav(page, 'Overlays');
+  await page.locator('[data-overlay-card]').first().getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.getByRole('button', { name: 'Add hype train layer' }).click();
+  await page.getByRole('spinbutton', { name: 'Width', exact: true }).fill('760');
+  await page.getByRole('spinbutton', { name: 'Height', exact: true }).fill('200');
+  await page.getByRole('spinbutton', { name: 'X position' }).fill('48');
+  await page.getByRole('spinbutton', { name: 'Y position' }).fill('620');
+  await page.getByRole('spinbutton', { name: 'Font size' }).fill('34');
+  await page.locator('.cw-stage .cw-hype-card .cw-hype-timer').waitFor();
+  await page.getByRole('radio', { name: 'Bar' }).scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1200);
+  await shot(page, 'hype-train-layer');
+});
+
+test('soundboard', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Interact');
+  await page.getByRole('radio', { name: 'Soundboard', exact: true }).click();
+  const board = page.getByRole('region', { name: 'Soundboard' });
+  // One sound cooling down, one playing.
+  await board.getByRole('button', { name: 'Play Airhorn' }).click();
+  await board.getByRole('button', { name: 'Play Airhorn' }).getByLabel(/Cooldown/).waitFor({ timeout: 6000 });
+  await board.getByRole('button', { name: 'Play Drum roll' }).click();
+  await board.getByRole('button', { name: 'Stop Drum roll' }).waitFor();
+  await page.waitForTimeout(600);
+  await board.locator('li[data-sound="Applause"]').hover();
+  await board.getByRole('button', { name: 'Edit Applause' }).click();
+  await page.getByRole('dialog', { name: 'Edit sound' }).getByText('Stream Deck').waitFor();
+  await shot(page, 'soundboard');
+});
+
+test('giveaway panel', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Interact');
+  await page.getByRole('radio', { name: 'Giveaways' }).click();
+  const form = page.getByRole('form', { name: 'New giveaway' });
+  await form.getByLabel('Prize').fill('Mechanical keyboard');
+  await form.getByLabel('Entries per sub').fill('2');
+  await form.getByRole('switch', { name: 'Tier 2 and 3 subs get 2× and 3× that' }).click();
+  await form.getByRole('button', { name: 'Open giveaway' }).click();
+  const live = page.getByRole('region', { name: 'Running giveaway' });
+  await page.waitForTimeout(9000);
+  await live.getByRole('button', { name: 'Draw winner' }).click();
+  await page.waitForTimeout(4500);
+  await shot(page, 'giveaway-panel');
+});
+
+test('giveaway layer', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Overlays');
+  await page.locator('[data-overlay-card]').first().getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.getByRole('button', { name: 'Add giveaway layer' }).click();
+  await page.getByLabel('X position').fill('140');
+  await page.getByLabel('Y position').fill('420');
+  await page.getByLabel('X position').press('Enter');
+  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Zoom in' }).click();
+  await page.getByRole('button', { name: 'Spin the sample' }).click();
+  await page.locator('.cw-stage .cw-gw-window[data-phase="landed"]').waitFor({ timeout: 15_000 });
+  await page.waitForTimeout(1500);
+  await shot(page, 'giveaway-layer');
+});
+
+test('queue panel', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Interact');
+  await page.getByRole('radio', { name: 'Queue' }).click();
+  await page.getByRole('switch', { name: 'Queue open' }).click();
+  await page.waitForTimeout(12_000);
+  await page.getByRole('button', { name: /^Next/ }).click();
+  await page.waitForTimeout(1000);
+  await shot(page, 'queue-panel');
 });

@@ -135,6 +135,8 @@ export function reduce(state: OverlayState, msg: OverlayMsg, now: number = Date.
     case 'chat_rules':
       return isObj(msg.rules) ? { ...state, chatRules: msg.rules } : state;
     case 'play_sound':
+    case 'sound_play':
+    case 'sound_stop':
     case 'reload':
       return state;
     default:

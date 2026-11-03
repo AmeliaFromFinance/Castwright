@@ -333,6 +333,17 @@
           <Slider id="{uid}-vol" label="Volume" min={0} max={100} value={step.volume} format={(n) => `${n}%`} oninput={(n) => set('volume', n)} />
         </div>
       </div>
+    {:else if step.type === 'play_soundboard_sound'}
+      {@const buttons = app.project?.soundboard?.buttons ?? []}
+      <div class="f">
+        <label for="{uid}-sound">Button</label>
+        <select id="{uid}-sound" class="input" value={step.sound_id} onchange={(e) => set('sound_id', e.currentTarget.value)}>
+          <option value="">Pick a button</option>
+          {#each buttons as b (b.id)}<option value={b.id}>{b.emoji ? `${b.emoji} ` : ''}{b.label}</option>{/each}
+          {#if step.sound_id && !buttons.some((b) => b.id === step.sound_id)}<option value={step.sound_id}>Deleted button</option>{/if}
+        </select>
+      </div>
+      <p class="hint">Uses the button's volume, output and cooldown. Nothing plays while the soundboard is muted.</p>
     {:else if step.type === 'http_request'}
       <div class="url-row">
         <div class="f method">
@@ -466,6 +477,23 @@
       <p class="hint">Ends the running poll early. Viewers see the result.</p>
     {:else if step.type === 'snooze_ad'}
       <p class="hint">Pushes the next ad back 5 minutes. Twitch gives a few snoozes and adds one back each hour.</p>
+    {:else if step.type === 'open_giveaway'}
+      {@render text('Prize (blank uses the one on Interact)', 'title', step.title)}
+      <p class="hint">Opens the giveaway set up on Interact → Giveaways, with its entry rules and chat messages.</p>
+    {:else if step.type === 'close_giveaway'}
+      <p class="hint">Stops taking entries. Draw a winner after.</p>
+    {:else if step.type === 'draw_giveaway'}
+      <div class="grid3">{@render number('Winners', 'count', step.count, 1, 50)}</div>
+      <p class="hint">Closes entries first. Each winner runs the "Giveaway winner drawn" trigger.</p>
+    {:else if step.type === 'set_queue_open'}
+      <div class="grid3">{@render toggle('Queue', step.state, toggleText('Open', 'Close'))}</div>
+    {:else if step.type === 'queue_next'}
+      <div class="grid3">
+        {@render number('Players (0 = party size)', 'count', step.count, 0, 50)}
+        <div class="f pick"><Switch label="Pick at random" showLabel checked={step.random} onchange={(v) => set('random', v)} /></div>
+      </div>
+    {:else if step.type === 'clear_queue'}
+      <p class="hint">Removes everyone, waiting and playing.</p>
     {:else if step.type === 'post_to_discord'}
       {@const hooks = app.settings?.discord.webhooks ?? []}
       <div class="grid2">
@@ -576,6 +604,10 @@
   }
   .grid3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .pick {
+    min-height: var(--row-h);
+    justify-content: center;
   }
   .grid2 > :global(.tpl),
   .grid3 > :global(.tpl) {

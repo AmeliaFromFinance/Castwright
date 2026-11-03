@@ -49,7 +49,16 @@ import {
   Volume2,
   Workflow,
   Zap,
-  Film
+  Film,
+  AudioLines,
+  TrainFront,
+  Ticket,
+  TicketX,
+  PartyPopper,
+  ListOrdered,
+  ListX,
+  UserCheck,
+  DoorOpen
 } from '@lucide/svelte';
 import type { Component } from 'svelte';
 import { STEP_GROUPS, type StepType, type TriggerType } from './defaults';
@@ -94,6 +103,13 @@ export const STEP_ICONS: Record<StepType, Icon> = {
   end_prediction: Lock,
   snooze_ad: AlarmClockOff,
   post_to_discord: Send,
+  play_soundboard_sound: AudioLines,
+  open_giveaway: Ticket,
+  close_giveaway: TicketX,
+  draw_giveaway: PartyPopper,
+  set_queue_open: DoorOpen,
+  queue_next: ListOrdered,
+  clear_queue: ListX,
   stop: OctagonX,
   log: ScrollText
 };
@@ -114,7 +130,14 @@ export const TRIGGER_ICONS: Record<TriggerType, Icon> = {
   ad_soon: Timer,
   ad_begin: TvMinimalPlay,
   ad_end: CircleStop,
-  song_changed: Music
+  song_changed: Music,
+  giveaway_opened: Ticket,
+  giveaway_closed: TicketX,
+  giveaway_winner: PartyPopper,
+  player_picked: UserCheck,
+  hype_train_begin: TrainFront,
+  hype_train_level_up: TrainFront,
+  hype_train_end: TrainFront
 };
 
 /** Colour family of a step, from its menu group. */
@@ -124,6 +147,7 @@ const TONES: Record<string, Tone> = {
   Chat: 'chat',
   Twitch: 'twitch',
   'Points & polls': 'twitch',
+  'Giveaways & queue': 'twitch',
   OBS: 'obs',
   'Overlays & alerts': 'media',
   Variables: 'vars',
@@ -141,6 +165,7 @@ export const GROUP_ICONS: Record<string, Icon> = {
   Chat: MessageSquare,
   Twitch: Tv,
   'Points & polls': Gift,
+  'Giveaways & queue': Ticket,
   OBS: Clapperboard,
   'Overlays & alerts': Layers,
   Variables: Variable,

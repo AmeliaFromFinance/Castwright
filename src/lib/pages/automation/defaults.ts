@@ -32,6 +32,9 @@ export function newTrigger(type: TriggerType): Trigger {
     case 'ad_begin':
     case 'ad_end':
     case 'song_changed':
+    case 'hype_train_begin':
+    case 'hype_train_level_up':
+    case 'hype_train_end':
     case 'stream_online':
     case 'stream_offline':
     case 'manual':
@@ -39,6 +42,10 @@ export function newTrigger(type: TriggerType): Trigger {
     case 'poll_end':
     case 'prediction_begin':
     case 'prediction_end':
+    case 'giveaway_opened':
+    case 'giveaway_closed':
+    case 'giveaway_winner':
+    case 'player_picked':
       return { type };
   }
 }
@@ -57,7 +64,17 @@ export function newStep(type: StepType): Step {
     case 'stop':
     case 'end_poll':
     case 'snooze_ad':
+    case 'close_giveaway':
+    case 'clear_queue':
       return { type };
+    case 'open_giveaway':
+      return { type, title: '' };
+    case 'draw_giveaway':
+      return { type, count: 1 };
+    case 'set_queue_open':
+      return { type, state: 'on' };
+    case 'queue_next':
+      return { type, count: 0, random: false };
     case 'post_to_discord':
       return { type, webhook_id: '', message: '' };
     case 'finish_redemption':
@@ -108,6 +125,8 @@ export function newStep(type: StepType): Step {
       return { type, state: 'on' };
     case 'play_sound':
       return { type, src: '', volume: 70 };
+    case 'play_soundboard_sound':
+      return { type, sound_id: '' };
     case 'http_request':
       return { type, method: 'get', url: '', body: '', save_to: '' };
     case 'run_script':
@@ -151,7 +170,14 @@ export const TRIGGER_LABELS: Record<TriggerType, string> = {
   ad_soon: 'Ad starting soon',
   ad_begin: 'Ad break begins',
   ad_end: 'Ad break ends',
-  song_changed: 'Song changes'
+  song_changed: 'Song changes',
+  hype_train_begin: 'Hype train begins',
+  hype_train_level_up: 'Hype train levels up',
+  hype_train_end: 'Hype train ends',
+  giveaway_opened: 'Giveaway opens',
+  giveaway_closed: 'Giveaway closes',
+  giveaway_winner: 'Giveaway winner drawn',
+  player_picked: 'Player picked from queue'
 };
 
 export const TRIGGER_MENU: MenuGroup<TriggerType>[] = [
@@ -167,11 +193,18 @@ export const TRIGGER_MENU: MenuGroup<TriggerType>[] = [
       { value: 'ad_soon', label: 'Ad starting soon', hint: 'Some minutes before the next ad' },
       { value: 'ad_begin', label: 'Ad break begins' },
       { value: 'ad_end', label: 'Ad break ends' },
+      { value: 'hype_train_begin', label: 'Hype train begins' },
+      { value: 'hype_train_level_up', label: 'Hype train levels up', hint: 'Each new level' },
+      { value: 'hype_train_end', label: 'Hype train ends', hint: 'With the level reached' },
       { value: 'timer', label: 'Timer', hint: 'Every few minutes' },
       { value: 'stream_online', label: 'Stream goes live' },
       { value: 'stream_offline', label: 'Stream ends' },
       { value: 'scene_changed', label: 'Scene changes', hint: 'In OBS' },
       { value: 'song_changed', label: 'Song changes', hint: 'From Settings → Music' },
+      { value: 'giveaway_opened', label: 'Giveaway opens' },
+      { value: 'giveaway_closed', label: 'Giveaway closes', hint: 'Entries stop' },
+      { value: 'giveaway_winner', label: 'Giveaway winner drawn', hint: 'Once per winner, re-rolls too' },
+      { value: 'player_picked', label: 'Player picked from queue', hint: 'Once per player' },
       { value: 'manual', label: 'Button or Stream Deck', hint: 'Run from the app or a web request' }
     ]
   }
@@ -203,6 +236,7 @@ export const STEP_LABELS: Record<StepType, string> = {
   pause_alerts: 'Pause alerts',
   skip_alert: 'Skip alert',
   play_sound: 'Play sound',
+  play_soundboard_sound: 'Play soundboard sound',
   http_request: 'Web request',
   run_script: 'Run script',
   if: 'If',
@@ -216,6 +250,12 @@ export const STEP_LABELS: Record<StepType, string> = {
   end_prediction: 'Lock or resolve prediction',
   snooze_ad: 'Snooze ad',
   post_to_discord: 'Post to Discord',
+  open_giveaway: 'Open giveaway',
+  close_giveaway: 'Close giveaway',
+  draw_giveaway: 'Draw winner',
+  set_queue_open: 'Open or close queue',
+  queue_next: 'Next in queue',
+  clear_queue: 'Clear queue',
   stop: 'Stop',
   log: 'Log'
 };
@@ -249,6 +289,17 @@ export const STEP_GROUPS: Array<{ label: string; items: Array<[StepType, string?
     ]
   },
   {
+    label: 'Giveaways & queue',
+    items: [
+      ['open_giveaway', 'Uses the giveaway set up on Interact'],
+      ['close_giveaway', 'Stop taking entries'],
+      ['draw_giveaway', 'Pick winners'],
+      ['set_queue_open', 'Let viewers join or not'],
+      ['queue_next', 'Pull the next players in'],
+      ['clear_queue', 'Empty the queue']
+    ]
+  },
+  {
     label: 'OBS',
     items: [['switch_scene'], ['set_source_visible'], ['set_input_mute'], ['recording', 'Start, stop or toggle'], ['save_replay']]
   },
@@ -260,7 +311,8 @@ export const STEP_GROUPS: Array<{ label: string; items: Array<[StepType, string?
       ['play_alert', 'Queue a custom alert'],
       ['pause_alerts', 'Pause or resume the queue'],
       ['skip_alert', 'End the alert on screen'],
-      ['play_sound']
+      ['play_sound', 'Any sound file'],
+      ['play_soundboard_sound', 'A button, with its cooldown and output']
     ]
   },
   { label: 'Variables', items: [['set_variable'], ['add_to_variable', 'Counters, totals']] },

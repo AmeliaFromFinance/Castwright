@@ -21,7 +21,7 @@ Open it from:
 | Yellow | At least one warning |
 | Red | At least one problem |
 
-Hover over it to see what's wrong.
+Hover over it to see what's wrong. When it's grey and the window is narrow, it can move under **More**. A warning or problem always shows.
 
 ## What it shows
 

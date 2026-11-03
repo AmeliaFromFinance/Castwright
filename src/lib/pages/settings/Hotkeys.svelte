@@ -11,7 +11,7 @@
   import { Info, Plus, Trash2, X } from '@lucide/svelte';
   import KeyRecorder from './KeyRecorder.svelte';
   import Row from './Row.svelte';
-  import { ACTION_LABELS, findConflict, formatCombo, isAppShortcut, rows, toSave } from './hotkeys';
+  import { ACTION_LABELS, findConflict, formatCombo, isAppShortcut, pickedId, rows, toSave } from './hotkeys';
 
   const mac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent);
 
@@ -20,6 +20,7 @@
   let list = $state<HotkeyBinding[]>(rows(app.settings?.hotkeys.bindings ?? []));
 
   const actions = $derived(app.project?.actions ?? []);
+  const sounds = $derived(app.project?.soundboard?.buttons ?? []);
 
   // Also ends a recording left open by a reload, so hotkeys listen again.
   onMount(() => {
@@ -30,6 +31,11 @@
   });
 
   function labelOf(b: HotkeyBinding): string {
+    if (b.action.type === 'play_sound_button') {
+      const id = b.action.sound_id;
+      const sound = sounds.find((x) => x.id === id);
+      return sound ? `Play "${sound.label}"` : 'Play sound button';
+    }
     if (b.action.type !== 'run_action') return ACTION_LABELS[b.action.type];
     const id = b.action.action_id;
     const name = actions.find((a) => a.id === id)?.name;
@@ -52,13 +58,13 @@
     return null;
   }
 
-  function pick(i: number, actionId: string) {
-    list[i]!.action = { type: 'run_action', action_id: actionId };
+  function pick(i: number, id: string) {
+    list[i]!.action = list[i]!.action.type === 'play_sound_button' ? { type: 'play_sound_button', sound_id: id } : { type: 'run_action', action_id: id };
     void save();
   }
 
   function remove(i: number) {
-    const had = list[i]!.action.type === 'run_action' && !!(list[i]!.action as { action_id: string }).action_id;
+    const had = !!pickedId(list[i]!.action);
     list.splice(i, 1);
     if (had) void save();
   }
@@ -84,6 +90,7 @@
 <div class="list" role="list" aria-label="Hotkeys" class:off={!enabled}>
   {#each list as b, i}
     {@const run = b.action.type === 'run_action' ? b.action : null}
+    {@const sound = b.action.type === 'play_sound_button' ? b.action : null}
     {@const error = refused(b.keys)}
     <div class="item" role="listitem">
       <div class="what">
@@ -97,13 +104,23 @@
               <option value={a.id}>{a.name}</option>
             {/each}
           </select>
+        {:else if sound}
+          <select class="input" aria-label="Sound to play" value={sound.sound_id} onchange={(e) => pick(i, e.currentTarget.value)}>
+            <option value="" disabled>Choose a sound…</option>
+            {#if sound.sound_id && !sounds.some((x) => x.id === sound.sound_id)}
+              <option value={sound.sound_id}>Deleted sound</option>
+            {/if}
+            {#each sounds as x (x.id)}
+              <option value={x.id}>Play {x.emoji ? `${x.emoji} ` : ''}{x.label}</option>
+            {/each}
+          </select>
         {:else}
           <span class="name">{labelOf(b)}</span>
         {/if}
       </div>
       <KeyRecorder value={b.keys} label={labelOf(b)} {mac} onrecord={(k) => record(i, k)} />
       <div class="tools">
-        {#if run}
+        {#if run || sound}
           <IconButton size="sm" tone="danger" label="Remove {labelOf(b)}" onclick={() => remove(i)}><Trash2 /></IconButton>
         {:else if b.keys}
           <IconButton size="sm" label="Clear hotkey for {labelOf(b)}" onclick={() => record(i, '')}><X /></IconButton>
@@ -114,13 +131,20 @@
   {/each}
 </div>
 
-<div>
+<div class="add">
   <Button size="sm" disabled={!actions.length} onclick={() => list.push({ action: { type: 'run_action', action_id: '' }, keys: '' })}>
     <Plus size={14} />Add action hotkey
+  </Button>
+  <Button size="sm" disabled={!sounds.length} onclick={() => list.push({ action: { type: 'play_sound_button', sound_id: '' }, keys: '' })}>
+    <Plus size={14} />Add sound hotkey
   </Button>
 </div>
 
 <style>
+  .add {
+    display: flex;
+    gap: 8px;
+  }
   .note {
     display: flex;
     gap: 8px;

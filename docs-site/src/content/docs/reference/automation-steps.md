@@ -37,6 +37,13 @@ An action is a set of trigger and step nodes joined by lines. A run starts at th
 | Ad break begins | `ad_begin` | None |
 | Ad break ends | `ad_end` | None |
 | Song changes | `song_changed` | None. Gives `title`, `artist`, `album` and `art_url`. See [Music](/guide/music/#song-changes-trigger). |
+| Hype train begins | `hype_train_begin` | None |
+| Hype train levels up | `hype_train_level_up` | None |
+| Hype train ends | `hype_train_end` | None |
+| Giveaway opens | `giveaway_opened` | None |
+| Giveaway closes | `giveaway_closed` | None. Fires when entries stop, by hand, on a timer or before a draw. |
+| Giveaway winner drawn | `giveaway_winner` | None. Once per winner, re-rolls too. |
+| Player picked from queue | `player_picked` | None. Once per player that **Next** or **Random** pulls in. |
 
 An alert variation can also run an action when its alert starts playing. That run gets the event fields, like an Event trigger.
 
@@ -111,6 +118,27 @@ These triggers add short values for templates and conditions. The same values ar
 | --- | --- |
 | Ad triggers | `ad.time` (like `1:00`: until the ad, or left of it), `ad.seconds_left`, `ad.length` (like `1:30`), `ad.length_s` |
 
+### Hype trains
+
+**Hype train begins** and **Hype train ends** fire once per train. **Hype train levels up** fires each time a running train reaches a higher level. When Castwright starts in the middle of a train, it picks the train up without firing **begins**.
+
+| Trigger | Values |
+| --- | --- |
+| Hype train triggers | `level`, `total`, `progress`, `goal`, `train_type` (`regular`, `golden_kappa` or `treasure`), `top_bits_name`, `top_sub_name` |
+| Levels up | Also `previous_level` |
+
+The live [`hype.*` variables](/reference/variables/#hype-train) have the same values and more.
+
+### Giveaways and queue
+
+See [Giveaways and queue](/guide/giveaways-queue/).
+
+| Trigger | Values |
+| --- | --- |
+| Giveaway opens, Giveaway closes | `title` (the prize), `entries` (people who entered) |
+| Giveaway winner drawn | `title`, `entries`, `winner`, `winner_login`, `winner_entries` |
+| Player picked from queue | `player`, `player_login`, `note`, `players` (everyone picked with them) |
+
 ### Manual
 
 Run from the app, a Stream Deck button or the [local HTTP API](/reference/http-api/). Any action can be run this way, with or without a Manual trigger. Manual runs ignore the Enabled switch and the cooldown. Where they start is explained under [Where a run starts](#where-a-run-starts).
@@ -150,6 +178,17 @@ Twitch only gives these to Affiliates and Partners. See the [guide](/guide/inter
 
 A reward is found by id, or by its title when the id isn't found.
 
+### Giveaways and queue
+
+| Step | Type | Options (default) | Notes |
+| --- | --- | --- | --- |
+| Open giveaway | `open_giveaway` | Prize (T, empty) | Uses the giveaway last set up on Interact → Giveaways. A prize here replaces its prize. Fails while another giveaway takes entries. |
+| Close giveaway | `close_giveaway` | None | Stops taking entries. Fails when no giveaway runs. |
+| Draw winner | `draw_giveaway` | Winners (1) | 1 to 50. Closes entries first. Fails when nobody entered or everyone already won. |
+| Open or close queue | `set_queue_open` | State (`on`) | `on` opens, `off` closes, `toggle` flips it. |
+| Next in queue | `queue_next` | Players (0), random (off) | 0 uses the party size. The last group playing is done. Fails when nobody waits. |
+| Clear queue | `clear_queue` | None | Removes everyone, waiting and playing. |
+
 ### Ads and Discord
 
 | Step | Type | Options (default) | Notes |
@@ -181,6 +220,7 @@ Every state option also takes `toggle`, which flips the current state.
 | Pause alerts | `pause_alerts` | State (`on`) | `on` pauses the queue, `off` resumes it. The alert on screen still finishes. |
 | Skip alert | `skip_alert` | None | Ends the alert on screen. Does nothing when no alert is playing. |
 | Play sound | `play_sound` | Sound (T), volume (70) | Volume 0 to 100. Plays where alerts play: each open overlay with a visible Alerts layer. Keep one such overlay per scene so it plays once. |
+| Play soundboard sound | `play_soundboard_sound` | Button | Plays a [soundboard](/guide/soundboard/) button with its own volume, output and cooldown. Fails while the soundboard is muted or the button is cooling down. |
 
 ### Variables and data
 

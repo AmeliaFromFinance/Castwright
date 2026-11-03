@@ -166,7 +166,11 @@ export function formatCombo(keys: string, mac = false): string {
   return comboParts(keys, mac).join(' + ');
 }
 
-export const ACTION_LABELS: Record<Exclude<HotkeyAction['type'], 'run_action'>, string> = {
+/** Actions that need something picked: an action to run or a soundboard button. */
+export type PickedType = 'run_action' | 'play_sound_button';
+const isPicked = (t: HotkeyAction['type']): t is PickedType => t === 'run_action' || t === 'play_sound_button';
+
+export const ACTION_LABELS: Record<Exclude<HotkeyAction['type'], PickedType>, string> = {
   replay_last_alert: 'Replay last alert',
   skip_alert: 'Skip alert',
   toggle_alert_pause: 'Pause or resume alerts',
@@ -178,9 +182,26 @@ export const ACTION_LABELS: Record<Exclude<HotkeyAction['type'], 'run_action'>, 
 
 export const FIXED_ACTIONS = Object.keys(ACTION_LABELS) as (keyof typeof ACTION_LABELS)[];
 
+/** The action or button id of a picked action, '' for the others. */
+export function pickedId(a: HotkeyAction): string {
+  if (a.type === 'run_action') return a.action_id;
+  if (a.type === 'play_sound_button') return a.sound_id;
+  return '';
+}
+
 export function sameAction(a: HotkeyAction, b: HotkeyAction): boolean {
-  if (a.type !== b.type) return false;
-  return a.type !== 'run_action' || a.action_id === (b as { action_id: string }).action_id;
+  return a.type === b.type && pickedId(a) === pickedId(b);
+}
+
+/** The combo set for a soundboard button, or ''. */
+export function soundHotkey(bindings: readonly HotkeyBinding[], soundId: string): string {
+  return bindings.find((b) => b.action.type === 'play_sound_button' && b.action.sound_id === soundId)?.keys ?? '';
+}
+
+/** Bindings with the button's combo set to `keys` ('' removes it). */
+export function withSoundHotkey(bindings: readonly HotkeyBinding[], soundId: string, keys: string): HotkeyBinding[] {
+  const others = bindings.filter((b) => !(b.action.type === 'play_sound_button' && b.action.sound_id === soundId));
+  return keys ? [...others, { action: { type: 'play_sound_button', sound_id: soundId }, keys }] : others;
 }
 
 /** Shortcuts the app window uses itself. A global hotkey would take them over. */
@@ -199,13 +220,13 @@ export function findConflict(bindings: HotkeyBinding[], keys: string, except: nu
   return bindings.findIndex((b, i) => i !== except && b.keys === keys);
 }
 
-/** Rows to show: one per built-in action (set or not), then every "run action" row. */
+/** Rows to show: one per built-in action (set or not), then "run action" and sound button rows. */
 export function rows(bindings: HotkeyBinding[]): HotkeyBinding[] {
   const fixed = FIXED_ACTIONS.map((type) => bindings.find((b) => b.action.type === type) ?? { action: { type } as HotkeyAction, keys: '' });
-  return [...fixed, ...bindings.filter((b) => b.action.type === 'run_action')];
+  return [...fixed, ...bindings.filter((b) => b.action.type === 'run_action'), ...bindings.filter((b) => b.action.type === 'play_sound_button')];
 }
 
-/** What gets saved: rows with keys, plus "run action" rows that have an action picked. */
+/** What gets saved: rows with keys, plus picked rows that have something picked. */
 export function toSave(list: HotkeyBinding[]): HotkeyBinding[] {
-  return list.filter((b) => (b.action.type === 'run_action' ? !!b.action.action_id : !!b.keys));
+  return list.filter((b) => (isPicked(b.action.type) ? !!pickedId(b.action) : !!b.keys));
 }

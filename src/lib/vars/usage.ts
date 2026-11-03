@@ -175,6 +175,9 @@ function slots(p: ProjectParts): Slot[] {
         case 'ad_break':
           implicit(['ads.next_at', 'ads.length_s', 'ads.ends_at', 'ads.running_length_s'], 'Ad schedule');
           break;
+        case 'hype_train':
+          implicit(['hype.active', 'hype.level', 'hype.progress', 'hype.goal', 'hype.ends_at', 'hype.total'], 'Hype train');
+          break;
       }
       conditionSlots(l.visible_when, where, 'vars', out);
     }

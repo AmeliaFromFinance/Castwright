@@ -1,4 +1,5 @@
 use super::music::MusicSettings;
+use super::play::{GiveawaySettings, QueueSettings};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -167,6 +168,9 @@ pub enum HotkeyAction {
     CreateClip,
     RunAction {
         action_id: String,
+    },
+    PlaySoundButton {
+        sound_id: String,
     },
 }
 
@@ -343,4 +347,7 @@ pub struct Settings {
     pub discord: DiscordSettings,
     pub updates: UpdateSettings,
     pub music: MusicSettings,
+    /// The last giveaway set up, used for the next one.
+    pub giveaway: GiveawaySettings,
+    pub queue: QueueSettings,
 }

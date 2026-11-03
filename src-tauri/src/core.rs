@@ -10,8 +10,10 @@ use crate::model::runtime::{LogLevel, OverlayMsg};
 use crate::model::session::SessionChange;
 use crate::music::{Hooks, MusicService};
 use crate::obs::ObsService;
+use crate::play::PlayService;
 use crate::server::OverlayServer;
 use crate::sessions::LiveSignal;
+use crate::soundboard::SoundboardService;
 use crate::store::backup::{BackupContent, BackupInfo, BackupReason, Backups};
 use crate::store::db::Db;
 use crate::store::project::{LoadOutcome, ProjectStore};
@@ -55,6 +57,8 @@ pub struct Core {
     pub obs: Arc<ObsService>,
     pub discord: Arc<Discord>,
     pub music: Arc<MusicService>,
+    pub soundboard: Arc<SoundboardService>,
+    pub play: Arc<PlayService>,
     pub paths: Paths,
     /// ms since epoch.
     pub started_at: i64,
@@ -149,11 +153,21 @@ impl Core {
         let twitch = TwitchService::new(hub.clone(), secrets.clone(), settings.clone());
         automation.set_twitch(twitch.clone());
         twitch.start();
+        let play = PlayService::new(
+            hub.clone(),
+            settings.clone(),
+            Some(paths.config_dir.join("play.json")),
+        );
+        play.set_twitch(twitch.clone());
+        play.set_follows(twitch.clone());
+        automation.set_play(play.clone());
+        play.start();
         {
             // Keep automation in step with Twitch: the bot account never triggers
             // commands, and timers know whether the stream is live.
             let twitch = twitch.clone();
             let automation = automation.clone();
+            let play = play.clone();
             let hub_sync = hub.clone();
             crate::util::spawn(async move {
                 let mut tick = tokio::time::interval(Duration::from_secs(5));
@@ -169,8 +183,9 @@ impl Core {
                     hub_sync.set_var("twitch.display_name", name.into(), false);
                     hub_sync.set_var("twitch.user_id", id.into(), false);
                     let bot_login = st.bot.as_ref().map(|b| b.login.clone()).unwrap_or_default();
-                    hub_sync.set_var("twitch.bot_login", bot_login.into(), false);
+                    hub_sync.set_var("twitch.bot_login", bot_login.clone().into(), false);
                     let bot: Vec<String> = st.bot.map(|b| vec![b.id]).unwrap_or_default();
+                    play.set_bot(bot.clone(), bot_login);
                     hub_sync.sessions.set_ignored_users(bot.clone());
                     automation.set_ignored_users(bot);
                     automation.set_live(st.stream.live);
@@ -232,6 +247,28 @@ impl Core {
         }
         server.set_music(music.clone());
         music.start();
+        let soundboard = SoundboardService::new(hub.clone(), project.clone());
+        soundboard.set_twitch(twitch.clone());
+        {
+            let (srv, proj) = (server.clone(), project.clone());
+            soundboard.set_stream_pages(Box::new(move || {
+                let ids = proj.read(|p| {
+                    p.overlays
+                        .iter()
+                        .filter(|o| {
+                            o.layers.iter().any(|l| {
+                                matches!(l.kind, crate::model::overlay::LayerKind::Alerts {})
+                            })
+                        })
+                        .map(|o| o.id.clone())
+                        .collect::<Vec<_>>()
+                });
+                ids.iter().map(|id| srv.overlay_clients(id) as u32).sum()
+            }));
+        }
+        automation.set_sounds(soundboard.clone());
+        server.set_soundboard(soundboard.clone());
+        soundboard.start();
         match &info.error {
             Some(e) if info.running => hub.log(LogLevel::Warn, "server", e.clone()),
             Some(e) => hub.log(LogLevel::Error, "server", e.clone()),
@@ -273,6 +310,8 @@ impl Core {
             obs,
             discord,
             music,
+            soundboard,
+            play,
             paths,
             started_at,
             crash_notice: std::sync::Mutex::new(crash_notice),

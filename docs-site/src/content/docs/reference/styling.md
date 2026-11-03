@@ -233,7 +233,7 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `--cw-name` | Bar colour on each choice (set when tint or a name stripe is on) |
 | `--cw-tint` | Tint colour on each card |
 | `--cw-lean` | 1 or -1 when cards lean in turn |
-| `--cw-pct` | The choice’s share, e.g. 42%, on .cw-poll-choice |
+| `--cw-pct` | The choice’s share, e.g. 42%, on .cw-poll-choice. Progress to the next level on .cw-hype |
 | `--cw-stroke-w` | Outline width, on .cw-stroked |
 | `--cw-stroke-c` | Outline colour, on .cw-stroked |
 
@@ -324,6 +324,121 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 
 | Variable | What it is |
 | --- | --- |
+| `--cw-stroke-w` | Outline width, on .cw-stroked |
+| `--cw-stroke-c` | Outline colour, on .cw-stroked |
+
+## Hype train
+
+| Selector | What it is |
+| --- | --- |
+| `:scope` | This layer’s box |
+| `.cw-text` | A piece of styled text |
+| `.cw-stroked` | Text with an outline |
+| `.cw-hype` | The whole layer |
+| `.cw-hype-bar` | Added to .cw-hype in the bar layout |
+| `.cw-hype-card` | Added to .cw-hype in the card layout |
+| `.cw-hype-running` | Added to .cw-hype while the train runs |
+| `.cw-hype-ended` | Added to .cw-hype while the end text shows |
+| `.cw-hype-golden` | Added to .cw-hype on a golden Kappa train |
+| `.cw-hype-treasure` | Added to .cw-hype on a treasure train |
+| `.cw-hype-shared` | Added to .cw-hype on a shared train |
+| `.cw-hype-levelling` | Added to .cw-hype while "Level up!" shows |
+| `.cw-hype-still` | Added to .cw-hype when motion is reduced (no pop or flash) |
+| `.cw-hype[data-type="treasure"]` | Train type: regular, golden_kappa or treasure |
+| `.cw-hype[data-level="5"]` | The level the train is on |
+| `.cw-hype-item` | The card around the train |
+| `.cw-hype-head` | Icon, level, percent and time left (the whole row in the bar layout) |
+| `.cw-hype-icon` | The train icon |
+| `.cw-hype-titles` | Train kind and level, stacked (card layout) |
+| `.cw-hype-title` | The kind of train, like "Golden Kappa train" (card layout) |
+| `.cw-hype-level` | "Level 3" ("Lv 3" in the bar layout) |
+| `.cw-hype-nums` | Percent and time left |
+| `.cw-hype-pct` | Percent to the next level |
+| `.cw-hype-timer` | Time left |
+| `.cw-hype-track` | The bar background |
+| `.cw-hype-fill` | The filled part of the bar |
+| `.cw-hype-smooth` | Added to .cw-hype-fill while it moves smoothly |
+| `.cw-hype-foot` | Total and top contributors |
+| `.cw-hype-total` | "Total 4,820" |
+| `.cw-hype-top` | The top contributors (card layout) |
+| `.cw-hype-top-item` | One top contributor, bits or sub |
+| `.cw-hype-levelup` | The "Level up!" banner over the card |
+| `.cw-hype-levelup-text` | The words "Level up!" |
+| `.cw-hype-end` | The end text |
+
+| Variable | What it is |
+| --- | --- |
+| `--cw-pct` | The choice’s share, e.g. 42%, on .cw-poll-choice. Progress to the next level on .cw-hype |
+| `--cw-hype-color` | Bar colour, on .cw-hype |
+| `--cw-stroke-w` | Outline width, on .cw-stroked |
+| `--cw-stroke-c` | Outline colour, on .cw-stroked |
+
+## Giveaway
+
+| Selector | What it is |
+| --- | --- |
+| `:scope` | This layer’s box |
+| `.cw-text` | A piece of styled text |
+| `.cw-stroked` | Text with an outline |
+| `.cw-chat-badge` | Any badge |
+| `.cw-badge-twitch` | A Twitch badge (moderator, subscriber…) |
+| `.cw-badge-7tv` | A 7TV badge |
+| `.cw-badge-role` | A built-in role icon, used when a badge image is missing |
+| `.cw-paint` | A name with a 7TV paint |
+| `.cw-gw` | The whole layer |
+| `.cw-gw[data-status="open"]` | While entries are open (closed after, idle with no giveaway) |
+| `.cw-gw-open` | Added to .cw-gw while entries are open |
+| `.cw-gw-drawn` | Added to .cw-gw once a winner is drawn |
+| `.cw-gw-still` | Added to .cw-gw when motion is reduced (no spin) |
+| `.cw-gw-card` | The card |
+| `.cw-gw-head` | The "Giveaway" label and entry count row |
+| `.cw-gw-label` | The "Giveaway" label |
+| `.cw-gw-entries` | How many entered |
+| `.cw-gw-title` | The prize |
+| `.cw-gw-join` | How to enter, while open |
+| `.cw-gw-window` | The window the names spin in and the winner shows in |
+| `.cw-gw-window[data-phase="spinning"]` | The window while it spins (landed after) |
+| `.cw-gw-reel` | The spinning names, with the marker lines |
+| `.cw-gw-strip` | The column of names that moves |
+| `.cw-gw-name` | One name in the spin |
+| `.cw-gw-winner` | The winner: badges and name |
+| `.cw-gw-winner-name` | The winner’s name |
+| `.cw-gw-fade` | Added to .cw-gw-winner as it appears |
+
+| Variable | What it is |
+| --- | --- |
+| `--cw-tint` | Tint colour on each card |
+| `--cw-accent` | Accent colour, on .cw-gw-window |
+| `--cw-stroke-w` | Outline width, on .cw-stroked |
+| `--cw-stroke-c` | Outline colour, on .cw-stroked |
+
+## Viewer queue
+
+| Selector | What it is |
+| --- | --- |
+| `:scope` | This layer’s box |
+| `.cw-text` | A piece of styled text |
+| `.cw-stroked` | Text with an outline |
+| `.cw-q` | The whole layer |
+| `.cw-q[data-open="true"]` | While the queue takes people |
+| `.cw-q-section` | Each group: playing now or up next |
+| `.cw-q-playing` | The playing now group |
+| `.cw-q-next` | The up next group |
+| `.cw-q-label` | A group heading |
+| `.cw-q-list` | The people in a group |
+| `.cw-q-item` | One person |
+| `.cw-q-player` | Added to .cw-q-item for someone playing now |
+| `.cw-q-sub` | Added to .cw-q-item for a subscriber |
+| `.cw-q-item[data-user-id]` | One viewer (by Twitch user id) |
+| `.cw-q-pos` | Place in line, like #3 |
+| `.cw-q-name` | The name |
+| `.cw-q-note` | The note, like an in-game name |
+
+| Variable | What it is |
+| --- | --- |
+| `--cw-name` | Name colour on each person (set when tint or a name stripe is on) |
+| `--cw-tint` | Tint colour on each card |
+| `--cw-lean` | 1 or -1 when cards lean in turn |
 | `--cw-stroke-w` | Outline width, on .cw-stroked |
 | `--cw-stroke-c` | Outline colour, on .cw-stroked |
 

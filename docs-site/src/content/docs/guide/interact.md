@@ -3,10 +3,10 @@ title: Channel points, polls and predictions
 description: Make and manage channel point rewards, work through redemptions, and run polls and predictions.
 ---
 
-Open **Interact** in the left bar, or press **Ctrl + 5** (**⌘ + 5** on Mac). It has two tabs: **Channel points** and **Polls & predictions**.
+Open **Interact** in the left bar, or press **Ctrl + 5** (**⌘ + 5** on Mac). It has five tabs: **Channel points**, **Polls & predictions**, **[Soundboard](/guide/soundboard/)**, **Giveaways** and **Queue**. Giveaways and the queue have their own page: [Giveaways and queue](/guide/giveaways-queue/).
 
 :::note[Affiliate or Partner only]
-Twitch only gives channel points, polls and predictions to Affiliates and Partners. On other channels the page says so, and everything else in Castwright works as usual.
+Twitch only gives channel points, polls and predictions to Affiliates and Partners. On other channels the page says so, and everything else in Castwright works as usual. The soundboard works for everyone, signed in or not.
 :::
 
 ## Channel points

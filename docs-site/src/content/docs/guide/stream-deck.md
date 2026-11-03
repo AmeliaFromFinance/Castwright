@@ -1,6 +1,6 @@
 ---
 title: Stream Deck and hotkeys
-description: Run automation actions from a Stream Deck, Companion, Touch Portal or a script.
+description: Run automation actions and play soundboard sounds from a Stream Deck, Companion, Touch Portal or a script.
 ---
 
 Every automation action can be run over HTTP. Anything that can send a web request can trigger it: a Stream Deck plugin, Bitfocus Companion, Touch Portal, a hotkey tool or a script.
@@ -54,6 +54,16 @@ http://127.0.0.1:7470/api/alerts/toggle-pause?token=YOUR_SECRET
 ```
 
 Swap `toggle-pause` for `skip`, `replay` or `toggle-mute`. See [Alert controls](/reference/http-api/#alert-controls) for the full list.
+
+## Sound buttons
+
+Play or stop a [soundboard](/guide/soundboard/) sound without an action. Open the sound's editor and copy its **Play** or **Stop** link under **Stream Deck**. Send it as a **POST**, the same as the run link.
+
+```
+http://127.0.0.1:7470/api/sounds/SOUND_ID/play?token=YOUR_SECRET
+```
+
+Use `all` as the sound ID with `/stop` to stop every sound. See [Soundboard routes](/reference/http-api/#soundboard).
 
 ## From another device
 

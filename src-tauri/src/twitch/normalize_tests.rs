@@ -161,17 +161,43 @@ fn hype_train() {
     assert_eq!(b.data["progress"], 137);
     assert_eq!(b.data["is_golden_kappa"], false);
     assert_eq!(b.data["top_contributions"][1]["name"], "Kappa");
+    assert_eq!(b.data["train_type"], "regular");
+    assert_eq!(b.data["is_shared"], false);
+    assert_eq!(b.data["expires_at"], 1_594_833_371_171_i64);
+    assert!(!b.data.contains_key("record_level"));
 
     let p = ev("hype_train_progress_v2");
     assert_eq!(p.kind, EventKind::HypeTrainProgress);
     assert_eq!(p.data["goal"], 1000);
     assert_eq!(p.data["progress"], 200);
     assert_eq!(p.data["is_golden_kappa"], true);
+    assert_eq!(p.data["train_type"], "golden_kappa");
+    assert_eq!(p.data["shared_with"], json!([]), "null participants");
 
     let end = ev("hype_train_end");
     assert_eq!(end.kind, EventKind::HypeTrainEnd);
     assert_eq!(end.data["level"], 2);
     assert!(!end.data.contains_key("goal"));
+    assert!(end.data["ended_at"].is_i64());
+    assert!(end.data["cooldown_ends_at"].is_i64());
+}
+
+#[test]
+fn hype_train_v2_types_and_shared_trains() {
+    let b = ev("hype_train_begin_v2");
+    assert_eq!(b.kind, EventKind::HypeTrainBegin);
+    assert_eq!(b.data["train_type"], "treasure");
+    assert_eq!(b.data["is_golden_kappa"], false);
+    assert_eq!(b.data["is_shared"], true);
+    assert_eq!(b.data["shared_with"], json!(["Cool_User", "Pal_User"]));
+    assert_eq!(b.data["record_level"], 4);
+    assert!(b.data["expires_at"].as_i64().unwrap() > b.data["started_at"].as_i64().unwrap());
+
+    let end = ev("hype_train_end_v2");
+    assert_eq!(end.kind, EventKind::HypeTrainEnd);
+    assert_eq!(end.data["train_type"], "regular");
+    assert_eq!(end.data["level"], 3);
+    assert_eq!(end.data["top_contributions"][0]["total"], 1500);
 }
 
 #[test]
@@ -295,6 +321,17 @@ fn chat_message() {
     );
     assert_eq!(e.data["reply_parent_message_id"], "aaaa-bbbb");
     assert_eq!(e.data["cheer_bits"], 100);
+    assert_eq!(e.data["sub_tier"], 1);
+}
+
+#[test]
+fn sub_tier_from_badge() {
+    let tier = |badges: Value| crate::twitch::normalize::sub_tier(&json!({ "badges": badges }));
+    assert_eq!(tier(json!([])), 0);
+    assert_eq!(tier(json!([{ "set_id": "subscriber", "id": "12" }])), 1);
+    assert_eq!(tier(json!([{ "set_id": "subscriber", "id": "2006" }])), 2);
+    assert_eq!(tier(json!([{ "set_id": "subscriber", "id": "3024" }])), 3);
+    assert_eq!(tier(json!([{ "set_id": "founder", "id": "0" }])), 1);
 }
 
 #[test]

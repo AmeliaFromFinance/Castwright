@@ -142,6 +142,36 @@ describe('OverlayRuntime', () => {
     expect(seen).toEqual(['hello', 'play_sound', 'hello', 'play_sound', 'chat_clear']);
   });
 
+  it('plays and stops soundboard sounds', () => {
+    const stops: string[] = [];
+    const ends: Array<() => void> = [];
+    const playSoundboard = vi.fn((url: string, _volume: number, onEnd: () => void) => {
+      ends.push(onEnd);
+      return { stop: () => stops.push(url) };
+    });
+    const rt = make({ playSoundboard });
+    const play = (sound_id: string, play_id: number) => rt.dispatch({ type: 'sound_play', play_id, sound_id, src: `assets/${sound_id}.wav`, volume: 50 });
+    rt.dispatch(hello as never);
+    play('horn', 1);
+    expect(playSoundboard).not.toHaveBeenCalled();
+    rt.dispatch({ ...hello, overlay: { ...hello.overlay, layers: [{ id: 'a', name: 'Alerts', visible: true, kind: { type: 'alerts' } }] } } as never);
+    play('horn', 2);
+    expect(playSoundboard).toHaveBeenCalledWith('http://127.0.0.1:7474/assets/horn.wav?token=t', 0.5, expect.any(Function));
+    play('horn', 3);
+    expect(stops, 'a replay replaces the one playing').toEqual(['http://127.0.0.1:7474/assets/horn.wav?token=t']);
+    play('drum', 4);
+    rt.dispatch({ type: 'sound_stop', sound_id: 'drum' });
+    expect(stops).toHaveLength(2);
+    ends[1]!();
+    rt.dispatch({ type: 'sound_stop', sound_id: null });
+    expect(stops, 'ended sounds have nothing to stop').toHaveLength(2);
+    play('horn', 5);
+    play('drum', 6);
+    rt.dispatch({ type: 'sound_stop', sound_id: null });
+    expect(stops).toHaveLength(4);
+    expect(rt.state.overlay).not.toBeNull();
+  });
+
   it('stays quiet when the scene hides the alerts layer', () => {
     const playSound = vi.fn();
     const rt = make({ playSound });

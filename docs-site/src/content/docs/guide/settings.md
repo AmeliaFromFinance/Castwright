@@ -107,6 +107,7 @@ Global hotkeys work even while a game or another app has focus.
 | **Add stream marker** | Adds a Twitch stream marker, like "Marker 3 · 1:23:45". A message lets you add a note for 10 seconds. |
 | **Create clip** | Makes a Twitch clip of what just happened. A message shows the link when it's ready. |
 | **Add action hotkey** | Runs an [automation action](/guide/automation/) you pick |
+| **Add sound hotkey** | Plays a [soundboard](/guide/soundboard/) button you pick. You can also set it from the sound's editor. |
 
 To set one:
 
@@ -163,6 +164,22 @@ Also here:
 - **Window background** (Windows only): Mica, Acrylic or Solid. Auto uses Mica on Windows 11.
 - **Interface size**: 50% to 250%. <kbd>Ctrl</kbd> + <kbd>+</kbd> and <kbd>Ctrl</kbd> + <kbd>-</kbd> change it from anywhere, <kbd>Ctrl</kbd> + <kbd>0</kbd> resets it. On large screens (like 2560 × 1440) Castwright starts at 125%.
 - **Reduce motion**: turns off animations in the app. Overlays keep theirs.
+- **Status bar**: pick which extras show at the bottom: CPU, FPS, Bitrate, Dropped frames, Overlay server and Version.
+
+### Status bar
+
+The bar at the bottom shows your stream on the left (OBS, Twitch, live time, stats) and the app on the right (ads, health, go-live check, alerts, overlay server, updates).
+
+When the window gets narrow or you zoom in:
+
+1. Numbers shorten first, like **6.0 Mb/s** instead of **Bitrate 6,020 kb/s**. Hover for the full text.
+2. Then less important items move into **More** (**3 more**). Click it to see them. They still work from there.
+
+These never move into More: live and recording time, OBS and Twitch, health when it isn't green, an ad that's running or less than a minute away, paused or muted alerts, and **Restart to update**.
+
+Use the arrow keys to move between items once one has focus.
+
+![The More list in the status bar](../../../assets/screens/status-bar-more.png)
 
 ## Backups and data
 

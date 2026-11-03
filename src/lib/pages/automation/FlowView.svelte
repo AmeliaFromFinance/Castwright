@@ -134,7 +134,7 @@
   const issues = $derived(ed.issues[action.id] ?? []);
   const issuesOf = (id: string) => issues.filter((i) => i.key === `node.${id}`);
   const loose = $derived(new Set(unreachable(g)));
-  const ctx = $derived({ actions: ed.actions ?? [], overlays: app.project?.overlays ?? [] });
+  const ctx = $derived({ actions: ed.actions ?? [], overlays: app.project?.overlays ?? [], sounds: app.project?.soundboard?.buttons ?? [] });
   const selected = $derived(new Set(flow.selected));
 
   // Run trace: the latest run, live while it runs, or a past run picked from the history.

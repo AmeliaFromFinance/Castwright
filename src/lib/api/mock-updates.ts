@@ -1,6 +1,6 @@
 // Updates for the browser demo: a made-up next version that downloads in a few
 // seconds. `?update` offers it at start, `?update=downloading` stops the download
-// halfway (for screenshots).
+// halfway (for screenshots). `?busy` does both.
 
 import type { UpdateSettings } from '$lib/bindings/UpdateSettings';
 
@@ -38,7 +38,7 @@ interface Deps {
 }
 
 export function createUpdatesMock({ emit, live, settings, query }: Deps): Record<string, (a: Record<string, unknown>) => unknown> {
-  const hold = query.get('update') === 'downloading';
+  const hold = query.get('update') === 'downloading' || query.has('busy');
   let downloaded = false;
   return {
     update_prepare: () => ({ version: null, can_install: true, reason: null }),

@@ -421,6 +421,25 @@ impl TwitchActions for TwitchService {
     }
 }
 
+#[async_trait]
+impl crate::play::FollowLookup for TwitchService {
+    async fn followed_at(&self, user_id: &str) -> AppResult<Option<i64>> {
+        let me = self.require_broadcaster()?;
+        let v = self
+            .helix(
+                AccountRole::Broadcaster,
+                Method::GET,
+                "/channels/followers",
+                &[("broadcaster_id", me), ("user_id", user_id.to_string())],
+                None,
+            )
+            .await
+            .map_err(|e| e.into_app("read follows"))?;
+        Ok(Self::first(&v)
+            .map(|f| super::normalize::parse_rfc3339(&str_of(f, "followed_at")).unwrap_or(0)))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

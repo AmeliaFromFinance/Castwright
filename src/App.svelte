@@ -27,6 +27,7 @@
   import HealthDialog from '$lib/health/HealthDialog.svelte';
   import BugReportDialog from '$lib/health/BugReportDialog.svelte';
   import { health } from '$lib/health/store.svelte';
+  import { sounds } from '$lib/soundboard/player.svelte';
   import { golive } from '$lib/state/golive.svelte';
   import { loadPref, savePref } from '$lib/state/persist';
 
@@ -58,6 +59,11 @@
     if (!app.ready) return;
     untrack(() => health.start());
     return () => health.stop();
+  });
+
+  // Soundboard sounds can start from hotkeys, chat or a Stream Deck on any page.
+  $effect(() => {
+    if (app.ready) untrack(() => void sounds.start());
   });
 
   // A global hotkey can open the go-live check while another app has focus.

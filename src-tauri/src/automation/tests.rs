@@ -33,6 +33,7 @@ fn rig(actions: Vec<Action>) -> Rig {
     let rec = Arc::new(Recorder::default());
     auto.set_twitch(rec.clone());
     auto.set_obs(rec.clone());
+    auto.set_sounds(rec.clone());
     Rig {
         auto,
         hub,
@@ -587,6 +588,161 @@ async fn song_change_trigger() {
         vec!["chat bot=false reply=false Now playing Nightcall by Kavinsky"]
     );
     assert!(!rig(vec![]).auto.wants_songs());
+}
+
+#[tokio::test]
+async fn soundboard_step() {
+    let a = Action {
+        triggers: vec![Trigger::Manual],
+        steps: vec![Step::PlaySoundboardSound {
+            sound_id: "airhorn".into(),
+        }],
+        ..Action::default()
+    };
+    let id = a.id.clone();
+    let r = rig(vec![a]);
+    r.auto.run_manual(&id).unwrap();
+    assert_eq!(wait_calls(&r.rec, 1).await, vec!["sound airhorn"]);
+}
+
+#[tokio::test]
+async fn hype_train_triggers() {
+    let action = |t: Trigger, text: &str| Action {
+        triggers: vec![t],
+        steps: vec![say(text)],
+        ..Action::default()
+    };
+    let r = rig(vec![
+        action(Trigger::HypeTrainBegin, "Choo choo, level {{level}}"),
+        action(
+            Trigger::HypeTrainLevelUp,
+            "Level {{previous_level}} to {{level}}, top bits {{top_bits_name}}",
+        ),
+        action(Trigger::HypeTrainEnd, "Ended at level {{level}}"),
+    ]);
+    let mut e = Event::new(EventKind::HypeTrainBegin);
+    e.data.insert("level".into(), json!(1));
+    r.auto.on_event(&e);
+    assert_eq!(
+        wait_calls(&r.rec, 1).await,
+        vec!["chat bot=false reply=false Choo choo, level 1"]
+    );
+
+    let mut up = Event::new(EventKind::HypeTrainProgress);
+    up.data.insert("level".into(), json!(3));
+    up.data.insert(
+        "top_contributions".into(),
+        json!([{"name": "PogChamp", "type": "bits", "total": 900}]),
+    );
+    r.auto.on_event(&up);
+    r.auto.on_signal(&Signal::HypeLevelUp {
+        from: 2,
+        event: Box::new(up),
+    });
+    assert_eq!(
+        wait_calls(&r.rec, 1).await,
+        vec!["chat bot=false reply=false Level 2 to 3, top bits PogChamp"],
+        "progress alone runs nothing"
+    );
+
+    let mut end = Event::new(EventKind::HypeTrainEnd);
+    end.data.insert("level".into(), json!(3));
+    r.auto.on_event(&end);
+    assert_eq!(
+        wait_calls(&r.rec, 1).await,
+        vec!["chat bot=false reply=false Ended at level 3"]
+    );
+}
+
+#[tokio::test]
+async fn giveaway_and_queue_triggers() {
+    let mk = |t: Trigger, msg: &str| Action {
+        triggers: vec![t],
+        steps: vec![say(msg)],
+        ..Action::default()
+    };
+    let r = rig(vec![
+        mk(Trigger::GiveawayOpened, "open {{title}}"),
+        mk(Trigger::GiveawayWinner, "won {{winner}}"),
+        mk(Trigger::PlayerPicked, "up {{player}} ({{note}})"),
+    ]);
+    let args = |pairs: &[(&str, &str)]| {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), json!(v)))
+            .collect::<Map<String, Value>>()
+    };
+    r.auto.on_signal(&Signal::Play {
+        trigger: PlayTrigger::GiveawayOpened,
+        args: args(&[("title", "Key")]),
+    });
+    assert_eq!(
+        wait_calls(&r.rec, 1).await,
+        ["chat bot=false reply=false open Key"]
+    );
+    r.auto.on_signal(&Signal::Play {
+        trigger: PlayTrigger::GiveawayClosed,
+        args: Map::new(),
+    });
+    r.auto.on_signal(&Signal::Play {
+        trigger: PlayTrigger::GiveawayWinner,
+        args: args(&[("winner", "Kat")]),
+    });
+    assert_eq!(
+        wait_calls(&r.rec, 1).await,
+        ["chat bot=false reply=false won Kat"]
+    );
+    r.auto.on_signal(&Signal::Play {
+        trigger: PlayTrigger::PlayerPicked,
+        args: args(&[("player", "Rudy"), ("note", "Rudy#2")]),
+    });
+    assert_eq!(
+        wait_calls(&r.rec, 1).await,
+        ["chat bot=false reply=false up Rudy (Rudy#2)"]
+    );
+}
+
+#[tokio::test]
+async fn giveaway_and_queue_steps() {
+    let r = rig(vec![]);
+    let a = Action {
+        steps: vec![
+            Step::OpenGiveaway {
+                title: "{{prize}}".into(),
+            },
+            Step::CloseGiveaway,
+            Step::DrawGiveaway { count: 2 },
+            Step::SetQueueOpen { state: Toggle::On },
+            Step::SetQueueOpen {
+                state: Toggle::Toggle,
+            },
+            Step::QueueNext {
+                count: 0,
+                random: true,
+            },
+            Step::ClearQueue,
+        ],
+        ..Action::default()
+    };
+    let run = r.auto.execute(&a, "test", Map::new(), None).await;
+    assert!(!run.ok, "nothing set up yet");
+    r.auto.set_play(r.rec.clone());
+    let mut args = Map::new();
+    args.insert("prize".into(), json!("Mouse"));
+    let run = r.auto.execute(&a, "test", args, None).await;
+    assert!(run.ok, "{:?}", run.errors);
+    assert_eq!(
+        r.rec.take(),
+        [
+            "giveaway open Mouse",
+            "giveaway close",
+            "giveaway draw 2",
+            "queue open Some(true)",
+            "queue open None",
+            "queue next 0 random=true",
+            "queue clear"
+        ]
+    );
 }
 
 #[tokio::test]

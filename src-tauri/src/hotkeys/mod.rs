@@ -200,6 +200,16 @@ pub fn perform(core: &Arc<Core>, action: &HotkeyAction) -> AppResult<()> {
             Ok(())
         }
         HotkeyAction::RunAction { action_id } => core.automation.run_manual(action_id),
+        HotkeyAction::PlaySoundButton { sound_id } => {
+            match core
+                .soundboard
+                .play(sound_id, crate::soundboard::Source::Hotkey)
+                .reason()
+            {
+                None => Ok(()),
+                Some(reason) => crate::error::user_err(reason),
+            }
+        }
     }
 }
 
@@ -284,6 +294,40 @@ mod tests {
             )
             .is_err()
         );
+        core.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn play_sound_button() {
+        use crate::model::soundboard::{SoundButton, Soundboard};
+        let dir = tempfile::tempdir().unwrap();
+        let (core, ui) = core(dir.path()).await;
+        core.soundboard.save(Soundboard {
+            buttons: vec![SoundButton {
+                id: "horn".into(),
+                src: "assets/horn.wav".into(),
+                cooldown_s: 30,
+                ..SoundButton::default()
+            }],
+            ..Soundboard::default()
+        });
+        let action = HotkeyAction::PlaySoundButton {
+            sound_id: "horn".into(),
+        };
+        perform(&core, &action).unwrap();
+        assert!(
+            ui.0.lock()
+                .unwrap()
+                .iter()
+                .any(|(n, v)| n == crate::hub::ui::SOUND && v["sound_id"] == "horn")
+        );
+        let err = perform(&core, &action).unwrap_err().to_string();
+        assert!(err.contains("cooldown"), "{err}");
+        let missing = HotkeyAction::PlaySoundButton {
+            sound_id: "gone".into(),
+        };
+        assert!(perform(&core, &missing).is_err());
+        assert_eq!(keys::action_label(&action), "Play sound button");
         core.shutdown().await;
     }
 }

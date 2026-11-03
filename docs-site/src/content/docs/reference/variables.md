@@ -31,7 +31,7 @@ The "Set variable" step stores anything that reads as a number as a number. See 
 
 Steps that set variables have a **Save** option. Changes are written to disk within a second.
 
-Names starting with `stream.`, `obs.`, `twitch.`, `ads.` or `music.` describe live state and are never saved, even with Save on.
+Names starting with `stream.`, `obs.`, `twitch.`, `ads.`, `music.`, `hype.`, `giveaway.` or `queue.` describe live state and are never saved, even with Save on.
 
 ## Built-in variables
 
@@ -136,6 +136,35 @@ Session-only. Set from [Settings → Music](/guide/music/).
 | `music.progress_ms` | Position in milliseconds |
 | `music.duration_ms` | Length in milliseconds, `0` when unknown |
 
+### Hype train
+
+Session-only. Set from Twitch's hype train events. Nothing is set until the first train after Castwright starts.
+
+| Variable | Value |
+| --- | --- |
+| `hype.active` | `true` while a hype train runs |
+| `hype.id` | Twitch's id for the train |
+| `hype.level` | Current level. After the end, the level reached. |
+| `hype.progress` | Points toward the next level |
+| `hype.goal` | Points the level needs |
+| `hype.percent` | `progress` out of `goal`, `0` to `100` |
+| `hype.total` | All points so far |
+| `hype.started_at` | When it started (Unix time in milliseconds) |
+| `hype.ends_at` | When it runs out (Unix time in milliseconds), `0` after the end |
+| `hype.type` | `regular`, `golden_kappa` or `treasure` |
+| `hype.shared` | `true` for a shared train with other channels |
+| `hype.shared_with` | Channels on a shared train, joined with commas |
+| `hype.top` | Top contributors as a list (name, type, total) |
+| `hype.top_bits_name` | Top bits contributor |
+| `hype.top_bits` | Their bits |
+| `hype.top_sub_name` | Top sub contributor |
+| `hype.top_subs` | Their sub points (Twitch counts 500 for a Tier 1 sub) |
+| `hype.record_level` | Your highest level ever, when Twitch sends it |
+| `hype.last_level` | Level the last train reached |
+| `hype.ended_at` | When the last train ended (Unix time in milliseconds) |
+
+Types and shared trains need Twitch's newer hype train events. Castwright asks for them and falls back to the older ones, which only know golden Kappa trains.
+
 ### Ads
 
 Set while you're live, from Twitch's ad schedule.
@@ -148,6 +177,33 @@ Set while you're live, from Twitch's ad schedule.
 | `ads.ends_at` | When the running ad ends (Unix time in milliseconds), `0` when none runs |
 | `ads.running_length_s` | Length of the running ad in seconds |
 | `ads.snoozes` | Snoozes left |
+
+### Giveaways
+
+Session-only. Set from [Interact → Giveaways](/guide/giveaways-queue/).
+
+| Variable | Value |
+| --- | --- |
+| `giveaway.title` | The prize, empty when no giveaway runs |
+| `giveaway.status` | `open`, `closed` (entries stopped) or `idle` (none running) |
+| `giveaway.open` | `true` while entries are open |
+| `giveaway.entries` | People who entered |
+| `giveaway.keyword` | The chat word to enter, like `!join` |
+| `giveaway.winner` | The latest winner, empty before the draw |
+| `giveaway.draw` | The last draw, for Giveaway layers: names to spin through and the winner |
+
+### Viewer queue
+
+Session-only. Set from [Interact → Queue](/guide/giveaways-queue/#viewer-queue).
+
+| Variable | Value |
+| --- | --- |
+| `queue.size` | People waiting |
+| `queue.open` | `true` while viewers can join |
+| `queue.next` | Who's next in line, empty when nobody waits |
+| `queue.playing` | Who's playing now, joined with commas |
+| `queue.lineup` | The first 20 in line, for Viewer queue layers |
+| `queue.party` | Who's playing now, for Viewer queue layers |
 
 ## Changing variables
 
@@ -189,7 +245,7 @@ What counts as using a variable:
 | "Create clip" step (`last.clip.url`) | Text, goal and credits layer texts |
 | `set("name", ...)` and `save("name", ...)` in scripts | Counter, goal and timer layer variables |
 | Castwright itself, for built-in variables | `get("name")` in scripts |
-| | Ad break layers (`ads.*`) and timers in uptime mode (`stream.started_at`) |
+| | Ad break layers (`ads.*`), hype train layers (`hype.*`), Giveaway layers (`giveaway.*`), Viewer queue layers (`queue.*`) and timers in uptime mode (`stream.started_at`) |
 
 Scripts only count when the name is written as plain text, like `get("counter.deaths")`. Custom widgets and the [local API](/reference/http-api/) aren't checked.
 

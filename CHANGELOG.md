@@ -2,6 +2,20 @@
 
 What changed in each version of Castwright. The newest version is at the top.
 
+## 0.9.0 (2026-11-03)
+
+### New
+
+- **Giveaways.** People enter with a chat keyword or a channel point reward. Set who can enter, give subs extra entries, draw winners, re-roll and set a time to claim. A **Giveaway** layer spins through names and lands on the winner.
+- **Viewer queue.** `!join`, `!leave` and `!position`, sub priority, drag to reorder and **Next** for a whole party. A **Viewer queue** layer shows who's playing and who's next.
+- **Hype train layer.** Level, progress, time left and top contributors, with a "Level up!" moment. Adds `hype.*` variables and hype train triggers.
+- **Soundboard.** Sounds on stream, just for you or both, with cooldowns, pages, hotkeys, channel point rewards, `!sound` and Stream Deck links.
+- Automation: giveaway and queue triggers and steps, and a **Play soundboard sound** step.
+
+### Improved
+
+- The status bar fits any window width. Less important items shorten, then move into a **More** menu. Pick which stats show in Settings → Appearance.
+
 ## 0.8.0 (2026-11-03)
 
 ### New

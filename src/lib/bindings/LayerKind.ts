@@ -6,6 +6,7 @@ import type { CreditNames } from "./CreditNames";
 import type { CreditSection } from "./CreditSection";
 import type { CreditStart } from "./CreditStart";
 import type { EventKind } from "./EventKind";
+import type { HypeTrainLayout } from "./HypeTrainLayout";
 import type { ItemCard } from "./ItemCard";
 import type { ListDirection } from "./ListDirection";
 import type { MediaFit } from "./MediaFit";
@@ -162,6 +163,66 @@ animate: boolean, bar_color: string, track_color: string,
 style: TextStyle, 
 /**
  * The card around the song.
+ */
+item_box: BoxStyle, item_card: ItemCard, } | { "type": "hype_train", layout: HypeTrainLayout, show_timer: boolean, show_total: boolean, 
+/**
+ * Top bits and sub contributors.
+ */
+show_top: boolean, 
+/**
+ * "Level up!" with an animation when a level is reached.
+ */
+celebrate: boolean, 
+/**
+ * Seconds the end text stays after the train ends (0 = hide right away).
+ */
+after_s: number, 
+/**
+ * Shown after the end. `{{level}}` is the level reached.
+ */
+end_text: string, bar_color: string, track_color: string, 
+/**
+ * The level line. Everything else is drawn smaller.
+ */
+style: TextStyle, 
+/**
+ * The card around the train.
+ */
+item_box: BoxStyle, item_card: ItemCard, } | { "type": "giveaway", 
+/**
+ * Hide while no giveaway runs.
+ */
+hide_idle: boolean, 
+/**
+ * Shown under the prize while entries are open. Templates: `{{keyword}}`, `{{entries}}`.
+ */
+open_text: string, show_entries: boolean, 
+/**
+ * Seconds the spin takes.
+ */
+spin_s: number, show_badges: boolean, seventv_paints: boolean, 
+/**
+ * Highlight on the winner and the spin window.
+ */
+accent_color: string, style: TextStyle, 
+/**
+ * The card.
+ */
+item_box: BoxStyle, item_card: ItemCard, } | { "type": "queue", show_playing: boolean, 
+/**
+ * People in line to list.
+ */
+next_count: number, show_positions: boolean, 
+/**
+ * Notes like in-game names.
+ */
+show_notes: boolean, 
+/**
+ * Hide while nobody is playing or waiting.
+ */
+hide_empty: boolean, playing_label: string, next_label: string, style: TextStyle, 
+/**
+ * The card around each person.
  */
 item_box: BoxStyle, item_card: ItemCard, } | { "type": "custom", html: string, css: string, js: string, 
 /**

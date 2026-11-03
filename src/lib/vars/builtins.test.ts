@@ -22,7 +22,10 @@ const SOURCES: Record<string, string[]> = {
   'twitch.': ['src-tauri/src/core.rs'],
   'obs.': ['src-tauri/src/obs/mod.rs'],
   'ads.': ['src-tauri/src/twitch/ads.rs'],
-  'music.': ['src-tauri/src/music/mod.rs']
+  'music.': ['src-tauri/src/music/mod.rs'],
+  'hype.': ['src-tauri/src/hype.rs'],
+  'giveaway.': ['src-tauri/src/play/mod.rs'],
+  'queue.': ['src-tauri/src/play/mod.rs']
 };
 const CLIP: Partial<Record<BuiltInSource, string[]>> = { 'Create clip step': ['src-tauri/src/automation/mod.rs'] };
 

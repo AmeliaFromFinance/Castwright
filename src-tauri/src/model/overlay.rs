@@ -422,6 +422,16 @@ pub enum NowPlayingLayout {
     Vinyl,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum HypeTrainLayout {
+    /// A thin strip, made for the top of the screen.
+    Bar,
+    #[default]
+    Card,
+}
+
 /// A group of names in the credits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
@@ -776,6 +786,94 @@ pub enum LayerKind {
         #[serde(default)]
         item_card: ItemCard,
     },
+    /// The running hype train: level, progress, time left and top contributors.
+    HypeTrain {
+        #[serde(default)]
+        layout: HypeTrainLayout,
+        #[serde(default = "yes")]
+        show_timer: bool,
+        #[serde(default = "yes")]
+        show_total: bool,
+        /// Top bits and sub contributors.
+        #[serde(default = "yes")]
+        show_top: bool,
+        /// "Level up!" with an animation when a level is reached.
+        #[serde(default = "yes")]
+        celebrate: bool,
+        /// Seconds the end text stays after the train ends (0 = hide right away).
+        #[serde(default = "default_hype_after_s")]
+        after_s: u32,
+        /// Shown after the end. `{{level}}` is the level reached.
+        #[serde(default = "default_hype_end_text")]
+        end_text: String,
+        #[serde(default)]
+        bar_color: String,
+        #[serde(default)]
+        track_color: String,
+        /// The level line. Everything else is drawn smaller.
+        #[serde(default)]
+        style: TextStyle,
+        /// The card around the train.
+        #[serde(default)]
+        item_box: BoxStyle,
+        #[serde(default)]
+        item_card: ItemCard,
+    },
+    /// The running giveaway: prize and entries, then a spin that lands on the winner.
+    Giveaway {
+        /// Hide while no giveaway runs.
+        #[serde(default = "yes")]
+        hide_idle: bool,
+        /// Shown under the prize while entries are open. Templates: `{{keyword}}`, `{{entries}}`.
+        #[serde(default = "default_giveaway_text")]
+        open_text: String,
+        #[serde(default = "yes")]
+        show_entries: bool,
+        /// Seconds the spin takes.
+        #[serde(default = "default_spin_s")]
+        spin_s: u32,
+        #[serde(default = "yes")]
+        show_badges: bool,
+        #[serde(default = "yes")]
+        seventv_paints: bool,
+        /// Highlight on the winner and the spin window.
+        #[serde(default)]
+        accent_color: String,
+        #[serde(default)]
+        style: TextStyle,
+        /// The card.
+        #[serde(default)]
+        item_box: BoxStyle,
+        #[serde(default)]
+        item_card: ItemCard,
+    },
+    /// Who's playing now and who's next in the viewer queue.
+    Queue {
+        #[serde(default = "yes")]
+        show_playing: bool,
+        /// People in line to list.
+        #[serde(default = "default_list_max")]
+        next_count: u32,
+        #[serde(default = "yes")]
+        show_positions: bool,
+        /// Notes like in-game names.
+        #[serde(default = "yes")]
+        show_notes: bool,
+        /// Hide while nobody is playing or waiting.
+        #[serde(default = "yes")]
+        hide_empty: bool,
+        #[serde(default = "default_playing_label")]
+        playing_label: String,
+        #[serde(default = "default_next_label")]
+        next_label: String,
+        #[serde(default)]
+        style: TextStyle,
+        /// The card around each person.
+        #[serde(default)]
+        item_box: BoxStyle,
+        #[serde(default)]
+        item_card: ItemCard,
+    },
     /// HTML/CSS/JS widget with a StreamElements-compatible API.
     Custom {
         #[serde(default)]
@@ -825,6 +923,13 @@ fn default_credit_page_s() -> u32 {
 fn default_np_hide_s() -> u32 {
     5
 }
+fn default_hype_after_s() -> u32 {
+    10
+}
+pub const DEFAULT_HYPE_END_TEXT: &str = "Hype train reached level {{level}}!";
+fn default_hype_end_text() -> String {
+    DEFAULT_HYPE_END_TEXT.into()
+}
 fn default_ad_soon_s() -> u32 {
     30
 }
@@ -835,6 +940,18 @@ fn default_ad_soon_text() -> String {
 }
 fn default_ad_running_text() -> String {
     DEFAULT_AD_RUNNING_TEXT.into()
+}
+fn default_giveaway_text() -> String {
+    "Type {{keyword}} to enter".into()
+}
+fn default_spin_s() -> u32 {
+    6
+}
+fn default_playing_label() -> String {
+    "Playing now".into()
+}
+fn default_next_label() -> String {
+    "Up next".into()
 }
 
 impl LayerKind {
@@ -854,6 +971,9 @@ impl LayerKind {
             LayerKind::Credits { .. } => "credits",
             LayerKind::AdBreak { .. } => "ad_break",
             LayerKind::NowPlaying { .. } => "now_playing",
+            LayerKind::HypeTrain { .. } => "hype_train",
+            LayerKind::Giveaway { .. } => "giveaway",
+            LayerKind::Queue { .. } => "queue",
             LayerKind::Custom { .. } => "custom",
         }
     }
@@ -1157,6 +1277,27 @@ mod tests {
         assert!(o.layers[0].visible);
         assert_eq!(o.layers[0].opacity, 1.0);
         assert_eq!(o.layers[0].scenes, SceneRule::default());
+    }
+
+    #[test]
+    fn hype_train_layer_defaults() {
+        let kind: LayerKind = serde_json::from_str(r#"{"type":"hype_train"}"#).unwrap();
+        match kind {
+            LayerKind::HypeTrain {
+                layout,
+                show_top,
+                celebrate,
+                after_s,
+                end_text,
+                ..
+            } => {
+                assert_eq!(layout, HypeTrainLayout::Card);
+                assert!(show_top && celebrate);
+                assert_eq!(after_s, 10);
+                assert_eq!(end_text, DEFAULT_HYPE_END_TEXT);
+            }
+            other => panic!("unexpected {other:?}"),
+        }
     }
 
     #[test]

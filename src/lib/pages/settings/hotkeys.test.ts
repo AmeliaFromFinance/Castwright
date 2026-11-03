@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import type { HotkeyBinding } from '$lib/bindings/HotkeyBinding';
-import { comboParts, findConflict, formatCombo, isAppShortcut, keyFromCode, readKey, rows, toSave, type KeyLike } from './hotkeys';
+import {
+  comboParts,
+  findConflict,
+  formatCombo,
+  isAppShortcut,
+  keyFromCode,
+  pickedId,
+  readKey,
+  rows,
+  sameAction,
+  soundHotkey,
+  toSave,
+  withSoundHotkey,
+  type KeyLike
+} from './hotkeys';
 
 const key = (code: string, mods: Partial<KeyLike> = {}): KeyLike => ({
   code,
@@ -104,5 +118,18 @@ describe('bindings', () => {
       { action: { type: 'run_action', action_id: 'a2' }, keys: '' }
     ]);
     expect(saved.map((b) => b.action.type)).toEqual(['skip_alert', 'run_action', 'run_action']);
+  });
+
+  it('keeps one combo per soundboard button', () => {
+    let b = withSoundHotkey(list, 'horn', 'Ctrl+Alt+H');
+    b = withSoundHotkey(b, 'drum', 'Ctrl+Alt+D');
+    b = withSoundHotkey(b, 'horn', 'Ctrl+Alt+J');
+    expect(soundHotkey(b, 'horn')).toBe('Ctrl+Alt+J');
+    expect(b.filter((x) => x.action.type === 'play_sound_button')).toHaveLength(2);
+    expect(rows(b).slice(-2).map((x) => pickedId(x.action))).toEqual(['drum', 'horn']);
+    b = withSoundHotkey(b, 'horn', '');
+    expect(soundHotkey(b, 'horn')).toBe('');
+    expect(toSave([...b, { action: { type: 'play_sound_button', sound_id: '' }, keys: 'Ctrl+Alt+9' }])).toEqual(b);
+    expect(sameAction({ type: 'play_sound_button', sound_id: 'a' }, { type: 'play_sound_button', sound_id: 'b' })).toBe(false);
   });
 });

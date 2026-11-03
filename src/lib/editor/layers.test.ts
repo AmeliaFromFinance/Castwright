@@ -128,6 +128,22 @@ const KIND_KEYS: Record<LayerType, string[]> = {
     'item_box',
     'item_card'
   ],
+  hype_train: [
+    'layout',
+    'show_timer',
+    'show_total',
+    'show_top',
+    'celebrate',
+    'after_s',
+    'end_text',
+    'bar_color',
+    'track_color',
+    'style',
+    'item_box',
+    'item_card'
+  ],
+  giveaway: ['hide_idle', 'open_text', 'show_entries', 'spin_s', 'show_badges', 'seventv_paints', 'accent_color', 'style', 'item_box', 'item_card'],
+  queue: ['show_playing', 'next_count', 'show_positions', 'show_notes', 'hide_empty', 'playing_label', 'next_label', 'style', 'item_box', 'item_card'],
   custom: ['html', 'css', 'js', 'fields', 'values']
 };
 

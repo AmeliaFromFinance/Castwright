@@ -60,6 +60,23 @@ pub trait ObsActions: Send + Sync {
     async fn save_replay(&self) -> AppResult<()>;
 }
 
+pub trait SoundActions: Send + Sync {
+    /// Play a soundboard button. The error says why it didn't play.
+    fn play_sound(&self, sound_id: &str) -> AppResult<()>;
+}
+/// Giveaways and the viewer queue.
+pub trait PlayActions: Send + Sync {
+    /// Uses the giveaway set up on the Interact page; a title replaces its prize.
+    fn open_giveaway(&self, title: &str) -> AppResult<()>;
+    fn close_giveaway(&self) -> AppResult<()>;
+    fn draw_giveaway(&self, count: u32) -> AppResult<()>;
+    /// None flips it.
+    fn set_queue_open(&self, open: Option<bool>) -> AppResult<()>;
+    /// `count` 0 = the party size.
+    fn queue_next(&self, count: u32, random: bool) -> AppResult<()>;
+    fn clear_queue(&self) -> AppResult<()>;
+}
+
 /// Records calls instead of doing them.
 #[derive(Default)]
 pub struct Recorder {
@@ -162,6 +179,32 @@ impl TwitchActions for Recorder {
     }
     async fn snooze_next_ad(&self) -> AppResult<()> {
         self.push("snooze ad".into())
+    }
+}
+
+impl SoundActions for Recorder {
+    fn play_sound(&self, sound_id: &str) -> AppResult<()> {
+        self.push(format!("sound {sound_id}"))
+    }
+}
+impl PlayActions for Recorder {
+    fn open_giveaway(&self, title: &str) -> AppResult<()> {
+        self.push(format!("giveaway open {title}"))
+    }
+    fn close_giveaway(&self) -> AppResult<()> {
+        self.push("giveaway close".into())
+    }
+    fn draw_giveaway(&self, count: u32) -> AppResult<()> {
+        self.push(format!("giveaway draw {count}"))
+    }
+    fn set_queue_open(&self, open: Option<bool>) -> AppResult<()> {
+        self.push(format!("queue open {open:?}"))
+    }
+    fn queue_next(&self, count: u32, random: bool) -> AppResult<()> {
+        self.push(format!("queue next {count} random={random}"))
+    }
+    fn clear_queue(&self) -> AppResult<()> {
+        self.push("queue clear".into())
     }
 }
 

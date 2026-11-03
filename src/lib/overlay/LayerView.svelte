@@ -14,6 +14,13 @@
   import CreditsLayer from './layers/CreditsLayer.svelte';
   import AdBreakLayer from './layers/AdBreakLayer.svelte';
   import NowPlayingLayer from './layers/NowPlayingLayer.svelte';
+  import HypeTrainLayer from './layers/HypeTrainLayer.svelte';
+  import { hypeFromVars, hypePhase, sampleHype } from './hype';
+  import { hypePreview } from './hype-preview.svelte';
+  import GiveawayLayer from './layers/GiveawayLayer.svelte';
+  import QueueLayer from './layers/QueueLayer.svelte';
+  import { giveawayPreview } from './play-preview.svelte';
+  import { giveawayFromVars, giveawayVisible, queueFromVars, queueVisible, sampleGiveaway, sampleQueue } from './play';
   import { npVisible, SAMPLE_TRACK, trackFromVars } from './music';
   import { adPhase, sampleAdPhase, scheduleFromVars } from './ads';
   import { adPreview } from './ad-preview.svelte';
@@ -40,8 +47,27 @@
   const isPoll = $derived(kind.type === 'poll');
   const isAd = $derived(kind.type === 'ad_break');
   const isNp = $derived(kind.type === 'now_playing');
+  const isHype = $derived(kind.type === 'hype_train');
   $effect(() => {
-    if (isPoll || isAd || isNp) return useClock();
+    if (isPoll || isAd || isNp || isHype) return useClock();
+  });
+  const isGw = $derived(kind.type === 'giveaway');
+  const isQ = $derived(kind.type === 'queue');
+  $effect(() => {
+    if (isPoll || isAd || isNp || isGw) return useClock();
+  });
+  // Giveaway and queue layers can hide while there's nothing to show; the editor shows a sample then.
+  const gwView = $derived.by(() => {
+    if (kind.type !== 'giveaway') return null;
+    const v = giveawayFromVars(ctx.vars);
+    if (ctx.mode === 'editor' && v.status === 'idle') return sampleGiveaway(clock.now, giveawayPreview.spinAt);
+    return giveawayVisible(v, kind.hide_idle) ? v : null;
+  });
+  const qView = $derived.by(() => {
+    if (kind.type !== 'queue') return null;
+    const v = queueFromVars(ctx.vars);
+    if (ctx.mode === 'editor' && !v.playing.length && !v.lineup.length) return sampleQueue();
+    return queueVisible(v, kind.hide_empty, kind.show_playing, kind.next_count) ? v : null;
   });
   // Poll layers hide themselves while nothing runs; the editor shows a sample instead.
   const pollLive = $derived(
@@ -67,7 +93,15 @@
   const npShown = $derived(
     kind.type === 'now_playing' ? npVisible(npTrack, kind.only_playing && ctx.mode !== 'editor', pausedSince, kind.hide_after_s, clock.now) : false
   );
-  const present = $derived((shown && (!isPoll || !!pollLive) && (!isAd || !!adNow) && (!isNp || npShown)) || ghost);
+  // Hype train layers show while a train runs and for a while after; the editor shows a sample train.
+  const hypeNow = $derived.by(() => {
+    if (kind.type !== 'hype_train') return null;
+    const real = hypePhase(hypeFromVars(ctx.vars), clock.now, kind.after_s);
+    if (real || ctx.mode !== 'editor') return real;
+    const train = sampleHype(clock.now, hypePreview.bumps);
+    return hypePreview.ended ? { phase: 'ended' as const, train: { ...train, active: false, lastLevel: train.level } } : { phase: 'running' as const, train };
+  });
+  const present = $derived((shown && (!isPoll || !!pollLive) && (!isAd || !!adNow) && (!isNp || npShown) && (!isHype || !!hypeNow) && (!isGw || !!gwView) && (!isQ || !!qView)) || ghost);
   let rendered = $state(untrack(() => present));
   let animEl = $state<HTMLDivElement>();
   let idleEl = $state<HTMLDivElement>();
@@ -227,6 +261,12 @@
             <AdBreakLayer {kind} phase={adNow} />
           {:else if kind.type === 'now_playing'}
             <NowPlayingLayer {kind} track={npShown ? npTrack : null} now={clock.now} />
+          {:else if kind.type === 'hype_train'}
+            <HypeTrainLayer {kind} phase={hypeNow} now={clock.now} />
+          {:else if kind.type === 'giveaway'}
+            <GiveawayLayer {kind} view={gwView} now={clock.now} />
+          {:else if kind.type === 'queue'}
+            <QueueLayer {kind} view={qView} />
           {:else if kind.type === 'custom'}
             <CustomLayer layerId={layer.id} {kind} />
           {/if}

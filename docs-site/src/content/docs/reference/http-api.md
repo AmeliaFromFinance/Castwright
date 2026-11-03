@@ -54,6 +54,8 @@ A new secret also disconnects every open overlay page within a few seconds.
 | `POST` | `/api/actions/{id}/run` | Runs an action | `202` `ok`, `404` if there's no such action |
 | `GET` | `/api/alerts` | Alert queue state as JSON | `200` JSON |
 | `POST` | `/api/alerts/{command}` | Controls the alert queue. See [Alert controls](#alert-controls). | `200` JSON, `404`, `409` |
+| `POST` | `/api/sounds/{id}/play` | Plays a soundboard sound. See [Soundboard](#soundboard). | `200` JSON, `404`, `409` |
+| `POST` | `/api/sounds/{id}/stop` | Stops a soundboard sound. `all` as the id stops every sound. | `200` JSON, `404` |
 | `GET` | `/ws?overlay={id}` | WebSocket used by overlay pages | See [WebSocket](#websocket) |
 
 Using the wrong method, for example `GET` on the run route, gets `405 Method Not Allowed`.
@@ -97,6 +99,27 @@ Both routes answer with the queue state:
 
 An unknown command gets `404`.
 
+### Soundboard
+
+```bash
+curl -X POST "http://127.0.0.1:7470/api/sounds/SOUND_ID/play?token=YOUR_SECRET"
+curl -X POST "http://127.0.0.1:7470/api/sounds/SOUND_ID/stop?token=YOUR_SECRET"
+curl -X POST "http://127.0.0.1:7470/api/sounds/all/stop?token=YOUR_SECRET"
+```
+
+- Copy both links from the sound's editor on the [soundboard](/guide/soundboard/#stream-deck). `SOUND_ID` is the button's `id` in `project.json`.
+- The sound's own volume, output and cooldown apply, and so does the soundboard mute.
+
+`play` answers with what happened:
+
+| Status | Body |
+| --- | --- |
+| `200` | `{ "result": "played", "play_id": 12 }` |
+| `409` | `{ "result": "cooldown", "seconds_left": 8 }`, `{ "result": "muted" }` or `{ "result": "no_file" }` |
+| `404` | `{ "result": "not_found" }` |
+
+`stop` answers `{ "result": "stopped" }`, or `404` for an unknown sound. Any other command after the id gets `404`.
+
 ### Overlay JSON
 
 ```bash
@@ -117,7 +140,7 @@ Overlay pages connect to `/ws?token=YOUR_SECRET&overlay=OVERLAY_ID` for live dat
 
 | Direction | Messages |
 | --- | --- |
-| Castwright to page | `hello` (the overlay, variables, recent events, chat and widget storage), `overlay`, `vars`, `event`, `chat_delete`, `chat_clear_user`, `chat_clear`, `alert_play`, `alert_stop`, `play_sound`, `layer_visible`, `reload` |
+| Castwright to page | `hello` (the overlay, variables, recent events, chat and widget storage), `overlay`, `vars`, `event`, `chat_delete`, `chat_clear_user`, `chat_clear`, `alert_play`, `alert_stop`, `play_sound`, `sound_play`, `sound_stop`, `layer_visible`, `credits_roll`, `chat_rules`, `reload` |
 | Page to Castwright | `store_set`, `store_delete`, `ping` (every 25 seconds) |
 
 Every message is JSON with a `type` field. Without an `overlay` parameter the server answers `400`. For an unknown overlay it closes the connection. Messages from the page can be up to 512 KB.
@@ -129,7 +152,7 @@ Turn on **Settings → Overlay server → Allow other devices** to use overlays 
 - The server then listens on all network connections, not just this computer.
 - Use this computer's local IP address instead of `127.0.0.1`, for example `http://192.168.1.20:7470/...`.
 - Your firewall may ask whether to allow Castwright.
-- Anyone on the network who has the link secret can open overlays and run actions. Leave this off unless you need it.
+- Anyone on the network who has the link secret can open overlays, run actions and play sounds. Leave this off unless you need it.
 
 ## Stream Deck and other tools
 

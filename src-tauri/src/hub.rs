@@ -1,6 +1,7 @@
 //! The hub connects every part of the app. Twitch publishes events here; alerts,
 //! automation, overlays and the app window all listen.
 
+use crate::hype::{HypeChange, HypeTracker};
 use crate::model::ads::AdSchedule;
 use crate::model::event::{Event, EventKind};
 use crate::model::music::NowPlaying;
@@ -37,6 +38,9 @@ pub mod ui {
     pub const UPDATE_PROGRESS: &str = "cw://update-progress";
     pub const UPDATE_ASK: &str = "cw://update-ask";
     pub const MUSIC: &str = "cw://music";
+    pub const SOUND: &str = "cw://sound";
+    pub const SOUNDBOARD: &str = "cw://soundboard";
+    pub const PLAY: &str = "cw://play";
 }
 
 /// Where window events go. The real app uses the Tauri handle; tests use a recorder.
@@ -61,13 +65,37 @@ impl UiSink for RecordingUi {
 /// Things that happen inside the app (not Twitch events) that automation can react to.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Signal {
-    SceneChanged { scene: String },
+    SceneChanged {
+        scene: String,
+    },
     ObsConnected,
     ObsDisconnected,
     AdSchedule(AdSchedule),
-    AdBegin { length_s: u32 },
-    AdEnd { length_s: u32 },
+    AdBegin {
+        length_s: u32,
+    },
+    AdEnd {
+        length_s: u32,
+    },
     SongChanged(NowPlaying),
+    /// A running hype train reached a higher level.
+    HypeLevelUp {
+        from: u64,
+        event: Box<Event>,
+    },
+    /// Giveaway and queue moments, with the values the trigger gives an action.
+    Play {
+        trigger: PlayTrigger,
+        args: serde_json::Map<String, serde_json::Value>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlayTrigger {
+    GiveawayOpened,
+    GiveawayClosed,
+    GiveawayWinner,
+    PlayerPicked,
 }
 
 /// A message for overlays. `target` = one overlay id, or None for all.
@@ -92,6 +120,7 @@ pub struct Hub {
     chat: Mutex<VecDeque<Event>>,
     recent: Mutex<VecDeque<Event>>,
     log: Mutex<VecDeque<LogEntry>>,
+    hype: Mutex<HypeTracker>,
 }
 
 impl Hub {
@@ -116,6 +145,7 @@ impl Hub {
             chat: Mutex::new(VecDeque::new()),
             recent: Mutex::new(recent),
             log: Mutex::new(VecDeque::new()),
+            hype: Mutex::new(HypeTracker::new()),
         })
     }
 
@@ -160,7 +190,23 @@ impl Hub {
                 ),
             }
             if !event.test {
-                let changes = self.vars.apply_event(&event);
+                let mut changes = self.vars.apply_event(&event);
+                let hype = self
+                    .hype
+                    .lock()
+                    .unwrap()
+                    .apply(&event, crate::util::now_ms());
+                if let Some(update) = hype {
+                    for (key, value) in update.vars {
+                        changes.extend(self.vars.set(key, value, false));
+                    }
+                    if let HypeChange::LevelUp { from, .. } = update.change {
+                        self.signal(Signal::HypeLevelUp {
+                            from,
+                            event: Box::new(event.clone()),
+                        });
+                    }
+                }
                 self.broadcast_vars(changes);
             }
             let mut recent = self.recent.lock().unwrap();
@@ -333,6 +379,45 @@ mod tests {
         e.test = true;
         hub.publish(e);
         assert!(hub.vars.get("session.subs").is_none());
+    }
+
+    #[tokio::test]
+    async fn hype_trains_set_live_vars_and_signal_level_ups() {
+        let hub = Hub::test();
+        let mut signals = hub.subscribe_signals();
+        let train = |kind: EventKind, level: u64, test: bool| {
+            let mut e = Event::new(kind);
+            e.data.insert("hype_train_id".into(), "t1".into());
+            e.data.insert("level".into(), level.into());
+            e.data.insert("progress".into(), 50.into());
+            e.data.insert("goal".into(), 200.into());
+            e.data.insert("expires_at".into(), 9_000.into());
+            e.test = test;
+            e
+        };
+        hub.publish(train(EventKind::HypeTrainBegin, 1, false));
+        assert_eq!(hub.vars.get("hype.active"), Some(true.into()));
+        assert_eq!(hub.vars.get("hype.level"), Some(1.into()));
+        assert_eq!(hub.vars.get("hype.percent"), Some(25.into()));
+        assert_eq!(hub.vars.get("hype.ends_at"), Some(9_000.into()));
+
+        hub.publish(train(EventKind::HypeTrainProgress, 2, true));
+        assert_eq!(hub.vars.get("hype.level"), Some(1.into()), "test events");
+        hub.publish(train(EventKind::HypeTrainProgress, 2, false));
+        assert_eq!(hub.vars.get("hype.level"), Some(2.into()));
+        match signals.recv().await.unwrap() {
+            Signal::HypeLevelUp { from, event } => {
+                assert_eq!(from, 1);
+                assert_eq!(event.data["level"], 2);
+            }
+            other => panic!("expected a level up, got {other:?}"),
+        }
+
+        hub.publish(train(EventKind::HypeTrainEnd, 2, false));
+        assert_eq!(hub.vars.get("hype.active"), Some(false.into()));
+        assert_eq!(hub.vars.get("hype.last_level"), Some(2.into()));
+        assert!(signals.try_recv().is_err());
+        assert!(hub.vars.saved().keys().all(|k| !k.starts_with("hype.")));
     }
 
     #[test]

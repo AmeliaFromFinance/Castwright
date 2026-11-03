@@ -4,7 +4,9 @@
 use crate::automation::Automation;
 use crate::hub::{Hub, OverlayOut};
 use crate::model::runtime::{OverlayClientMsg, OverlayMsg, ServerInfo};
+use crate::model::soundboard::PlayOutcome;
 use crate::music::MusicService;
+use crate::soundboard::{SoundboardService, Source as SoundSource};
 use crate::store::project::ProjectStore;
 use crate::util::secure_eq;
 use axum::Router;
@@ -41,6 +43,7 @@ struct Ctx {
     token: Arc<RwLock<String>>,
     clients: Arc<Mutex<Connections>>,
     music: Arc<std::sync::OnceLock<Arc<MusicService>>>,
+    soundboard: Arc<std::sync::OnceLock<Arc<SoundboardService>>>,
 }
 
 /// One open overlay page.
@@ -230,6 +233,7 @@ impl OverlayServer {
                 token: Arc::new(RwLock::new(token)),
                 clients: Arc::new(Mutex::new(Connections::default())),
                 music: Arc::new(std::sync::OnceLock::new()),
+                soundboard: Arc::new(std::sync::OnceLock::new()),
             },
             info: RwLock::new(ServerInfo::default()),
             stop: std::sync::Mutex::new(None),
@@ -239,6 +243,11 @@ impl OverlayServer {
     /// Lets the server answer Spotify sign-ins and serve song covers.
     pub fn set_music(&self, music: Arc<MusicService>) {
         let _ = self.ctx.music.set(music);
+    }
+
+    /// Lets Stream Deck buttons play and stop soundboard sounds.
+    pub fn set_soundboard(&self, soundboard: Arc<SoundboardService>) {
+        let _ = self.ctx.soundboard.set(soundboard);
     }
 
     pub fn info(&self) -> ServerInfo {
@@ -378,6 +387,7 @@ fn router(ctx: Ctx) -> Router {
         .route("/api/credits", get(credits_json))
         .route("/api/alerts", get(alerts_status))
         .route("/api/alerts/{command}", post(alerts_command))
+        .route("/api/sounds/{id}/{command}", post(sound_command))
         .route("/spotify/callback", get(spotify_callback))
         .route("/music/art/{version}", get(music_art))
         .route("/_app/{*path}", get(static_file))
@@ -737,6 +747,46 @@ async fn alerts_command(
     match result {
         Ok(()) => alerts_json(&ctx),
         Err(e) => (StatusCode::CONFLICT, e.to_string()).into_response(),
+    }
+}
+
+/// `play` or `stop` one sound. `all` as the id stops every sound.
+async fn sound_command(
+    State(ctx): State<Ctx>,
+    Path((id, command)): Path<(String, String)>,
+    Query(q): Query<TokenQuery>,
+    headers: HeaderMap,
+) -> Response {
+    if !origin_ok(&headers) {
+        return wrong_origin();
+    }
+    if !authorized(&ctx, q.token.as_deref(), &headers) {
+        return forbidden();
+    }
+    let Some(sb) = ctx.soundboard.get() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "The soundboard isn't ready.",
+        )
+            .into_response();
+    };
+    let exists = sb.board().buttons.iter().any(|b| b.id == id);
+    match command.as_str() {
+        "play" => {
+            let outcome = sb.play(&id, SoundSource::Api);
+            let code = match outcome {
+                PlayOutcome::Played { .. } => StatusCode::OK,
+                PlayOutcome::NotFound => StatusCode::NOT_FOUND,
+                _ => StatusCode::CONFLICT,
+            };
+            (code, axum::Json(outcome)).into_response()
+        }
+        "stop" if id == "all" || exists => {
+            sb.stop((id != "all").then_some(id.as_str()));
+            axum::Json(serde_json::json!({ "result": "stopped" })).into_response()
+        }
+        "stop" => (StatusCode::NOT_FOUND, axum::Json(PlayOutcome::NotFound)).into_response(),
+        _ => (StatusCode::NOT_FOUND, "Unknown sound command.").into_response(),
     }
 }
 

@@ -26,6 +26,13 @@ export function sectionOf(a: Action): string {
     case 'ad_begin':
     case 'ad_end':
     case 'song_changed':
+    case 'hype_train_begin':
+    case 'hype_train_level_up':
+    case 'hype_train_end':
+    case 'giveaway_opened':
+    case 'giveaway_closed':
+    case 'giveaway_winner':
+    case 'player_picked':
       return 'Stream events';
     default:
       return 'Buttons and Stream Deck';
