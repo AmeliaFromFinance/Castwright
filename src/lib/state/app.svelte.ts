@@ -13,10 +13,11 @@ import { applyTheme, watchSystemTheme } from '$lib/theme/apply';
 import { toasts } from './toast.svelte';
 import { loadPref, savePref } from './persist';
 import { updates } from './updates.svelte';
+import { whatsNew } from '$lib/whatsnew/whatsnew.svelte';
 import { sessions } from '$lib/sessions/store.svelte';
 import type { Theme } from '$lib/theme/themes';
 
-export type Page = 'overlays' | 'alerts' | 'automation' | 'activity' | 'settings';
+export type Page = 'overlays' | 'alerts' | 'automation' | 'activity' | 'interact' | 'settings';
 export type ActivityTab = 'events' | 'chat' | 'sessions' | 'log';
 
 const CHAT_KEEP = 300;
@@ -54,6 +55,12 @@ export function emptyObs(): ObsSnapshot {
     base_width: 1920,
     base_height: 1080
   };
+}
+
+/** Deleted chat stays in the panel, marked as deleted. */
+export function markDeleted(chat: Event[], d: { message_id?: string; user_id?: string; all?: boolean }): Event[] {
+  const hit = (c: Event) => !!d.all || (!!d.message_id && c.id === d.message_id) || (!!d.user_id && c.user?.id === d.user_id);
+  return chat.map((c) => (hit(c) && c.data.deleted !== true ? { ...c, data: { ...c.data, deleted: true } } : c));
 }
 
 class AppState {
@@ -109,6 +116,8 @@ class AppState {
       }
       this.ready = true;
       this.fitToScreenOnce();
+      // The browser demo starts fresh each time, so it counts as a new install.
+      whatsNew.start(info.version, !settings.first_run_done || (this.demo && loadPref<string | null>('whatsnew-seen', null) === null));
       void updates.check(info.version);
       if (server.error) toasts.show(server.error, 'error', 12_000);
     } catch (e) {
@@ -164,11 +173,7 @@ class AppState {
       on('cw://twitch', (s) => (this.twitch = s)),
       on('cw://queue', (q) => (this.queue = q)),
       on('cw://server', (s) => (this.server = s)),
-      on('cw://chat-delete', (d) => {
-        if (d.all) this.chat = [];
-        else if (d.message_id) this.chat = this.chat.filter((c) => c.id !== d.message_id);
-        else if (d.user_id) this.chat = this.chat.filter((c) => c.user?.id !== d.user_id);
-      }),
+      on('cw://chat-delete', (d) => (this.chat = markDeleted(this.chat, d))),
       on('cw://session', (c) => {
         if (c.type === 'ended') sessions.ended(c.session.id);
         else sessions.changed();

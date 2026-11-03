@@ -15,6 +15,9 @@ import type { AudioLevel } from '$lib/bindings/AudioLevel';
 import type { BackupInfo } from '$lib/bindings/BackupInfo';
 import type { BackupSettings } from '$lib/bindings/BackupSettings';
 import type { Category } from '$lib/bindings/Category';
+import type { ChatMode } from '$lib/bindings/ChatMode';
+import type { ChatModes } from '$lib/bindings/ChatModes';
+import type { ViewerCard } from '$lib/bindings/ViewerCard';
 import type { Check } from '$lib/bindings/Check';
 import type { CheckFix } from '$lib/bindings/CheckFix';
 import type { DeviceLogin } from '$lib/bindings/DeviceLogin';
@@ -37,6 +40,14 @@ import type { SummarySettings } from '$lib/bindings/SummarySettings';
 import type { Settings } from '$lib/bindings/Settings';
 import type { TwitchStatus } from '$lib/bindings/TwitchStatus';
 import type { WindowEffect } from '$lib/bindings/WindowEffect';
+import type { InteractState } from '$lib/bindings/InteractState';
+import type { PollDraft } from '$lib/bindings/PollDraft';
+import type { PredictionAction } from '$lib/bindings/PredictionAction';
+import type { PredictionDraft } from '$lib/bindings/PredictionDraft';
+import type { Redemption } from '$lib/bindings/Redemption';
+import type { RedemptionRef } from '$lib/bindings/RedemptionRef';
+import type { RedemptionUpdate } from '$lib/bindings/RedemptionUpdate';
+import type { Reward } from '$lib/bindings/Reward';
 
 let backend: Backend | null = null;
 
@@ -78,10 +89,12 @@ export const events = {
   project: 'cw://project',
   server: 'cw://server',
   chatDelete: 'cw://chat-delete',
+  chatModes: 'cw://chat-modes',
   actionRun: 'cw://action-run',
   actionProgress: 'cw://action-progress',
   goLiveOpen: 'cw://golive-open',
-  session: 'cw://session'
+  session: 'cw://session',
+  redemption: 'cw://redemption'
 } as const;
 
 export interface PushPayloads {
@@ -95,10 +108,12 @@ export interface PushPayloads {
   'cw://project': { overlay_id?: string };
   'cw://server': ServerInfo;
   'cw://chat-delete': { message_id?: string; user_id?: string; all?: boolean };
+  'cw://chat-modes': ChatModes;
   'cw://action-run': ActionRun;
   'cw://action-progress': RunProgress;
   'cw://golive-open': Record<string, never>;
   'cw://session': SessionChange;
+  'cw://redemption': RedemptionUpdate;
 }
 
 export function on<K extends keyof PushPayloads>(name: K, cb: (p: PushPayloads[K]) => void): Promise<Unlisten> {
@@ -217,7 +232,33 @@ export const api = {
   twitchSearchCategories: (query: string) => call<Category[]>('twitch_search_categories', { query }),
   twitchUpdateStreamInfo: (title: string, categoryId: string, tags: string[]) =>
     call<void>('twitch_update_stream_info', { title, categoryId, tags }),
-  twitchSendChat: (message: string, asBot: boolean) => call<void>('twitch_send_chat', { message, asBot }),
+  twitchSendChat: (message: string, asBot: boolean, replyTo: string | null = null) =>
+    call<void>('twitch_send_chat', { message, asBot, replyTo }),
+
+  // moderation
+  twitchDeleteMessage: (messageId: string) => call<void>('twitch_delete_message', { messageId }),
+  /** `durationS` null = permanent ban. */
+  twitchBan: (userId: string, durationS: number | null, reason: string) => call<void>('twitch_ban', { userId, durationS, reason }),
+  twitchUnban: (userId: string) => call<void>('twitch_unban', { userId }),
+  twitchShoutout: (login: string) => call<void>('twitch_shoutout', { login }),
+  twitchChatModes: () => call<ChatModes>('twitch_chat_modes'),
+  /** `value`: slow mode seconds or follower-only minutes. */
+  twitchSetChatMode: (mode: ChatMode, on: boolean, value: number | null = null) => call<ChatModes>('twitch_set_chat_mode', { mode, on, value }),
+  twitchViewer: (userId: string) => call<ViewerCard>('twitch_viewer', { userId }),
+
+  // channel points, polls and predictions
+  rewards: () => call<Reward[]>('twitch_rewards'),
+  saveReward: (reward: Reward) => call<Reward>('twitch_save_reward', { reward }),
+  deleteReward: (id: string) => call<void>('twitch_delete_reward', { id }),
+  redemptions: () => call<Redemption[]>('twitch_redemptions'),
+  /** Returns how many changed. */
+  finishRedemptions: (items: RedemptionRef[], refund: boolean) => call<number>('twitch_finish_redemptions', { items, refund }),
+  interactState: () => call<InteractState>('twitch_interact_state'),
+  startPoll: (draft: PollDraft) => call<Event>('twitch_start_poll', { draft }),
+  endPoll: () => call<Event>('twitch_end_poll'),
+  startPrediction: (draft: PredictionDraft) => call<Event>('twitch_start_prediction', { draft }),
+  /** `outcome` is the winning outcome id when resolving. */
+  endPrediction: (action: PredictionAction, outcome = '') => call<Event>('twitch_end_prediction', { action, outcome }),
 
   // obs
   obsSnapshot: () => call<ObsSnapshot>('obs_snapshot'),

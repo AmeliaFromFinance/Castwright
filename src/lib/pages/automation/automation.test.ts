@@ -37,6 +37,8 @@ const SERDE_DEFAULTS: Partial<Record<string, Record<string, unknown>>> = {
   create_marker: { description: '' },
   set_stream_info: { title: '', category: '' },
   timeout_user: { reason: '' },
+  delete_message: { message_id: '' },
+  set_chat_mode: { state: 'on', value: 0 },
   set_variable: { persist: false },
   add_to_variable: { persist: false },
   set_source_visible: { scene: '', state: 'on' },
@@ -47,7 +49,11 @@ const SERDE_DEFAULTS: Partial<Record<string, Record<string, unknown>>> = {
   pause_alerts: { state: 'on' },
   play_sound: { volume: 70 },
   http_request: { method: 'get', body: '', save_to: '' },
-  if: { then: [], else: [] }
+  if: { then: [], else: [] },
+  redemption: { reward_id: '', reward_title: '' },
+  finish_redemption: { refund: false },
+  start_poll: { points_per_vote: 0 },
+  end_prediction: { winner: '' }
 };
 
 describe('defaults', () => {
@@ -116,6 +122,24 @@ describe('validation', () => {
     const n = a.graph.nodes.find((x) => `node.${x.id}` === key);
     return n?.kind.type === 'trigger' ? n.kind.trigger.type : n?.kind.step.type;
   };
+
+  it('checks channel point, poll and prediction steps', () => {
+    const redeem: Trigger = { type: 'redemption', reward_id: '', reward_title: '' };
+    const finish: Step = { type: 'finish_redemption', refund: false };
+    expect(validateAction(base({ triggers: [redeem], steps: [finish] }), [])).toEqual([]);
+    expect(validateAction(base({ triggers: [{ type: 'manual' }], steps: [finish] }), [])[0]!.warn).toBe(true);
+
+    const poll = (choices: string[], duration_s = 60): Step => ({ type: 'start_poll', title: 'Q', choices, duration_s, points_per_vote: 0 });
+    expect(validateAction(base({ triggers: [{ type: 'manual' }], steps: [poll(['A', 'B'])] }), [])).toEqual([]);
+    expect(blocking(validateAction(base({ triggers: [{ type: 'manual' }], steps: [poll(['A', ''])] }), []))).toHaveLength(1);
+    expect(blocking(validateAction(base({ triggers: [{ type: 'manual' }], steps: [poll(['A', 'B'], 5)] }), []))).toHaveLength(1);
+
+    const cost = (c: string): Step => ({ type: 'set_reward_cost', reward_id: 'r', reward_title: 'Hydrate', cost: c });
+    expect(validateAction(base({ triggers: [{ type: 'manual' }], steps: [cost('{{counter.price}}')] }), [])).toEqual([]);
+    expect(validateAction(base({ triggers: [{ type: 'manual' }], steps: [cost('0')] }), [])).toHaveLength(1);
+    const resolve: Step = { type: 'end_prediction', action: 'resolve', winner: ' ' };
+    expect(validateAction(base({ triggers: [{ type: 'manual' }], steps: [resolve] }), [])).toHaveLength(1);
+  });
 
   it('needs a name', () => {
     expect(validateAction(base({ name: ' ' }), []).map((i) => i.key)).toEqual(['name']);

@@ -14,7 +14,7 @@
   import NumberInput from '../ui/NumberInput.svelte';
   import Prop from '../ui/Prop.svelte';
 
-  type CardKind = Extract<LayerKind, { type: 'chat' | 'event_list' }>;
+  type CardKind = Extract<LayerKind, { type: 'chat' | 'event_list' | 'poll' }>;
 
   interface Props {
     kind: CardKind;
@@ -30,7 +30,7 @@
 
   function setCard(fn: (c: ItemCard) => void, key: string) {
     set((x) => {
-      if (x.type !== 'chat' && x.type !== 'event_list') return;
+      if (x.type !== 'chat' && x.type !== 'event_list' && x.type !== 'poll') return;
       const c = resolveItemCard(x.item_card);
       fn(c);
       x.item_card = c;
@@ -40,7 +40,7 @@
   function setBox(fn: (b: BoxStyle) => void, key: string) {
     set((x) => {
       if (x.type === 'chat') fn((x.bubble ??= defaultBoxStyle()));
-      else if (x.type === 'event_list') fn((x.item_box ??= defaultBoxStyle()));
+      else if (x.type === 'event_list' || x.type === 'poll') fn((x.item_box ??= defaultBoxStyle()));
     }, `cardbox:${key}`);
   }
 
@@ -48,7 +48,10 @@
     set((x) => {
       if (x.type === 'chat') x.bubble = presetBox(p, 'chat');
       else if (x.type === 'event_list') x.item_box = presetBox(p, 'events');
-      else return;
+      else if (x.type === 'poll') {
+        x.item_box = presetBox(p, 'events');
+        if (p.accent) x.bar_color = p.accent;
+      } else return;
       x.item_card = presetCard(p);
       x.style = presetText(x.style, p.text);
     }, `preset:${p.id}`);
@@ -77,6 +80,7 @@
         />
       </Prop>
     {/if}
+    {#if kind.type !== 'poll'}
     <Prop label="Width">
       <Segmented
         label="Card width"
@@ -88,19 +92,20 @@
         onchange={(v) => setCard((c) => (c.width = v), 'width')}
       />
     </Prop>
+    {/if}
     <Prop label="Gap">
       <NumberInput label="Space between cards" unit="px" min={0} max={200} value={card.gap} oninput={(v) => setCard((c) => (c.gap = v), 'gap')} />
     </Prop>
     <Prop label="Lean in turn" hint="Every other card leans the other way, like stickers. Set the lean under Shape.">
       <Switch label="Lean in turn" checked={card.alternate} onchange={(v) => setCard((c) => (c.alternate = v), 'alt')} />
     </Prop>
-    <Prop label="Name tint" hint={chat ? 'A wash of each chatter’s name colour.' : 'A wash of the viewer’s name colour, when known.'}>
+    <Prop label={kind.type === 'poll' ? 'Bar tint' : 'Name tint'} hint={chat ? 'A wash of each chatter’s name colour.' : kind.type === 'poll' ? 'A wash of the bar colour over each card.' : 'A wash of the viewer’s name colour, when known.'}>
       <Slider label="Name colour tint" min={0} max={100} value={Math.round(card.tint * 100)} format={(v) => `${v}%`} oninput={(v) => setCard((c) => (c.tint = v / 100), 'tint')} />
     </Prop>
   </div>
 </Collapse>
 
-<BoxStyleEditor box={box ?? {}} uid="{uid}-card" set={setBox} group="card" nameColor />
+<BoxStyleEditor box={box ?? {}} uid="{uid}-card" set={setBox} group="card" nameColor={kind.type !== 'poll'} />
 
 <style>
   .gallery,

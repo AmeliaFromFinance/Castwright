@@ -8,6 +8,7 @@
   import type { OverlayFeed } from './feed';
   import { ensureFonts, fontsFor } from './fonts';
   import LayerView from './LayerView.svelte';
+  import { baseVisible, currentScene, sceneAllows } from './scenes';
   import type { ActiveAlert, WidgetState } from './state';
 
   interface Props {
@@ -32,6 +33,8 @@
     muted?: boolean;
     /** Editor: keep hidden layers on the canvas, faded. */
     showHidden?: boolean;
+    /** OBS program scene for scene rules. Defaults to `obs.scene`; '' ignores the rules. */
+    scene?: string;
     /** Clip layers to the stage bounds. */
     clip?: boolean;
     /** Live messages for custom widgets (event, chat deletes...). */
@@ -54,18 +57,23 @@
     paused = false,
     muted = false,
     showHidden = false,
+    scene,
     clip = true,
     feed,
     onWidgetStore
   }: Props = $props();
 
-  function isShown(l: Layer): boolean {
-    const base = Object.prototype.hasOwnProperty.call(visibility, l.id) ? visibility[l.id] : l.visible;
-    return !!base && evaluateGroup(l.visible_when, vars);
+  // A layer shows when its own visibility (manual or automation) is on, its conditions
+  // match, and its scene rule allows the current scene.
+  function baseShown(l: Layer): boolean {
+    return baseVisible(l, visibility) && evaluateGroup(l.visible_when, vars);
   }
 
   const layers = $derived(overlay?.layers ?? []);
-  const shownMap = $derived(Object.fromEntries(layers.map((l) => [l.id, isShown(l)])));
+  const sceneNow = $derived(scene ?? currentScene(vars));
+  const baseMap = $derived(Object.fromEntries(layers.map((l) => [l.id, baseShown(l)])));
+  const sceneMap = $derived(Object.fromEntries(layers.map((l) => [l.id, sceneAllows(l.scenes, sceneNow)])));
+  const shownMap = $derived(Object.fromEntries(layers.map((l) => [l.id, !!baseMap[l.id] && !!sceneMap[l.id]])));
   const audioLayerId = $derived(layers.find((l) => l.kind.type === 'alerts' && shownMap[l.id])?.id ?? null);
   const width = $derived(Math.max(1, overlay?.width || 1920));
   const height = $derived(Math.max(1, overlay?.height || 1080));
@@ -147,7 +155,7 @@
         bind:this={views[layer.id]}
         {layer}
         shown={shownMap[layer.id] ?? false}
-        ghost={mode === 'editor' && showHidden}
+        ghost={mode === 'editor' && (showHidden || (!!baseMap[layer.id] && !sceneMap[layer.id]))}
       />
     {/each}
   </div>

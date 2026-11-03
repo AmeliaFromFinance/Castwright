@@ -3,6 +3,7 @@ import type { Animation } from "./Animation";
 import type { BoxStyle } from "./BoxStyle";
 import type { ConditionGroup } from "./ConditionGroup";
 import type { LayerKind } from "./LayerKind";
+import type { SceneRule } from "./SceneRule";
 
 export type Layer = { id: string, name: string, kind: LayerKind, x: number, y: number, w: number, h: number, rotation: number, 
 /**
@@ -12,7 +13,11 @@ opacity: number, visible: boolean, locked: boolean,
 /**
  * Shown only while these conditions match the current variables.
  */
-visible_when: ConditionGroup, box_style: BoxStyle, enter: Animation, exit: Animation, idle: Animation, 
+visible_when: ConditionGroup, 
+/**
+ * Shown only in some OBS scenes. Applies on top of `visible` and `visible_when`.
+ */
+scenes: SceneRule, box_style: BoxStyle, enter: Animation, exit: Animation, idle: Animation, 
 /**
  * Extra CSS, scoped to this layer.
  */

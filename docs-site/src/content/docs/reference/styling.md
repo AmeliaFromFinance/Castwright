@@ -192,6 +192,43 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `--cw-stroke-w` | Outline width, on .cw-stroked |
 | `--cw-stroke-c` | Outline colour, on .cw-stroked |
 
+## Poll / prediction
+
+| Selector | What it is |
+| --- | --- |
+| `:scope` | This layer’s box |
+| `.cw-text` | A piece of styled text |
+| `.cw-stroked` | Text with an outline |
+| `.cw-poll` | The whole poll or prediction |
+| `.cw-poll[data-type="prediction"]` | Only while it shows a prediction (poll for polls) |
+| `.cw-open` | Added to .cw-poll while viewers can vote |
+| `.cw-ended` | Added to .cw-poll while it shows the result |
+| `.cw-poll-head` | The question row |
+| `.cw-poll-title` | The question |
+| `.cw-poll-choices` | The list of choices |
+| `.cw-poll-choice` | Each choice card |
+| `.cw-winner` | Added to the winning choice at the end |
+| `.cw-loser` | Added to the other choices once there is a winner |
+| `.cw-poll-row` | Name and numbers row of a choice |
+| `.cw-poll-label` | The choice name |
+| `.cw-poll-nums` | Count and percentage of a choice |
+| `.cw-poll-count` | Votes or points for a choice |
+| `.cw-poll-pct` | The percentage |
+| `.cw-poll-track` | The bar background |
+| `.cw-poll-fill` | The filled part of the bar |
+| `.cw-poll-foot` | Time left and total row |
+| `.cw-poll-timer` | Time left, or the result line |
+| `.cw-poll-total` | Votes or points in total |
+
+| Variable | What it is |
+| --- | --- |
+| `--cw-name` | Bar colour on each choice (set when tint or a name stripe is on) |
+| `--cw-tint` | Tint colour on each card |
+| `--cw-lean` | 1 or -1 when cards lean in turn |
+| `--cw-pct` | The choice’s share, e.g. 42%, on .cw-poll-choice |
+| `--cw-stroke-w` | Outline width, on .cw-stroked |
+| `--cw-stroke-c` | Outline colour, on .cw-stroked |
+
 ## Custom widget
 
 | Selector | What it is |

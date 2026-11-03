@@ -705,11 +705,52 @@ fn graph(name: &str, nodes: Vec<GraphNode>, edges: Vec<GraphEdge>) -> Action {
     let mut a = Action {
         id: name.into(),
         name: name.into(),
-        graph: Graph { nodes, edges },
+        graph: Graph {
+            nodes,
+            edges,
+            ..Graph::default()
+        },
         ..Action::default()
     };
     a.normalize();
     a
+}
+
+#[tokio::test]
+async fn notes_and_frames_do_not_change_runs() {
+    use crate::model::automation::{GraphFrame, GraphNote};
+    let r = rig(vec![]);
+    let mut a = graph(
+        "g",
+        vec![
+            trig("t", 0.0, Trigger::Manual),
+            step("a", 0.0, 200.0, say("a")),
+            step("b", 0.0, 400.0, say("b")),
+        ],
+        vec![next("t", "a"), next("a", "b")],
+    );
+    // A note above everything and a collapsed frame around the steps.
+    a.graph.notes.push(GraphNote {
+        id: "note".into(),
+        y: -500.0,
+        text: "Read me".into(),
+        ..GraphNote::default()
+    });
+    a.graph.frames.push(GraphFrame {
+        id: "frame".into(),
+        y: -400.0,
+        collapsed: true,
+        members: vec!["a".into(), "b".into(), "note".into()],
+        ..GraphFrame::default()
+    });
+    a.normalize();
+    assert_eq!(a.triggers, vec![Trigger::Manual]);
+    assert_eq!(a.graph.start_plan(None).first, vec!["a".to_string()]);
+    let run = r.auto.execute(&a, "test", Map::new(), None).await;
+    assert!(run.ok);
+    assert_eq!(chat_lines(r.rec.take()), vec!["a", "b"]);
+    let ids: Vec<&str> = run.nodes.iter().map(|n| n.node_id.as_str()).collect();
+    assert_eq!(ids, vec!["t", "a", "b"]);
 }
 
 fn amount_over(v: i64) -> Step {
@@ -1063,5 +1104,157 @@ async fn failed_steps_and_nested_actions_in_the_trace() {
             ("bad", NodeState::Error),
             ("call", NodeState::Ok)
         ]
+    );
+}
+
+fn redemption(reward_id: &str, title: &str) -> Event {
+    let mut e = Event::new(EventKind::Redemption).with_user("nova", "Nova");
+    e.amount = Some(250.0);
+    e.message = Some("lofi please".into());
+    e.data.insert("reward_id".into(), json!(reward_id));
+    e.data.insert("reward_title".into(), json!(title));
+    e.data.insert("redemption_id".into(), json!("red-1"));
+    e
+}
+
+fn on(trigger: Trigger, steps: Vec<Step>) -> Action {
+    Action {
+        name: "interact".into(),
+        triggers: vec![trigger],
+        steps,
+        ..Action::default()
+    }
+}
+
+#[tokio::test]
+async fn redemption_trigger_picks_its_reward_and_finishes_it() {
+    let r = rig(vec![on(
+        Trigger::Redemption {
+            reward_id: "r1".into(),
+            reward_title: String::new(),
+        },
+        vec![
+            say("{{user}} redeemed {{reward}} for {{cost}}: {{input}}"),
+            Step::FinishRedemption { refund: true },
+        ],
+    )]);
+    r.auto.on_event(&redemption("r2", "Other"));
+    assert!(wait_calls(&r.rec, 1).await.is_empty(), "other rewards");
+    r.auto.on_event(&redemption("r1", "Song"));
+    assert_eq!(
+        wait_calls(&r.rec, 2).await,
+        vec![
+            "chat bot=false reply=false Nova redeemed Song for 250: lofi please".to_string(),
+            "redemption r1/red-1 refund=true".to_string(),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn reward_poll_and_prediction_steps() {
+    let r = rig(vec![on(
+        Trigger::Manual,
+        vec![
+            Step::SetRewardState {
+                reward_id: "r1".into(),
+                reward_title: "Hydrate".into(),
+                state: crate::model::interact::RewardState::Pause,
+            },
+            Step::SetRewardCost {
+                reward_id: String::new(),
+                reward_title: "Hydrate".into(),
+                cost: "{{counter.price}}".into(),
+            },
+            Step::StartPoll {
+                title: "Next map?".into(),
+                choices: vec!["Dust".into(), " ".into(), "Mirage".into()],
+                duration_s: 60,
+                points_per_vote: 0,
+            },
+            Step::EndPoll,
+            Step::StartPrediction {
+                title: "Win?".into(),
+                outcomes: vec!["Yes".into(), "No".into()],
+                window_s: 90,
+            },
+            Step::EndPrediction {
+                action: PredictionAction::Resolve,
+                winner: "2".into(),
+            },
+        ],
+    )]);
+    r.hub.set_var("counter.price", json!(750), false);
+    let id = r.project.read(|p| p.actions[0].id.clone());
+    r.auto.run_manual(&id).unwrap();
+    assert_eq!(
+        wait_calls(&r.rec, 6).await,
+        vec![
+            "reward r1|Hydrate Pause".to_string(),
+            "reward |Hydrate cost=750".to_string(),
+            "poll Next map? [Dust,Mirage] 60s points=0".to_string(),
+            "end poll".to_string(),
+            "prediction Win? [Yes,No] 90s".to_string(),
+            "prediction Resolve 2".to_string(),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn finish_redemption_needs_a_redemption() {
+    let action = on(
+        Trigger::Manual,
+        vec![Step::FinishRedemption { refund: false }],
+    );
+    let r = rig(vec![action.clone()]);
+    let run = r.auto.execute(&action, "manual", Map::new(), None).await;
+    assert!(!run.ok);
+    assert!(run.errors[0].contains("needs a channel point redemption"));
+    let bad = on(
+        Trigger::Manual,
+        vec![Step::StartPoll {
+            title: "Q".into(),
+            choices: vec!["Only one".into()],
+            duration_s: 60,
+            points_per_vote: 0,
+        }],
+    );
+    let run = r.auto.execute(&bad, "manual", Map::new(), None).await;
+    assert!(run.errors[0].contains("2 to 5 choices"), "{:?}", run.errors);
+    assert!(r.rec.take().is_empty());
+}
+
+#[tokio::test]
+async fn poll_and_prediction_triggers() {
+    let r = rig(vec![
+        on(Trigger::PollEnd, vec![say("Winner: {{poll.winner}}")]),
+        on(
+            Trigger::PredictionBegin,
+            vec![say("Predict: {{prediction.title}}")],
+        ),
+    ]);
+    let mut end = Event::new(EventKind::PollEnd);
+    end.data.insert("status".into(), json!("completed"));
+    end.data.insert(
+        "choices".into(),
+        json!([{"title": "Dust", "votes": 4}, {"title": "Mirage", "votes": 1}]),
+    );
+    r.auto.on_event(&end);
+    assert_eq!(
+        wait_calls(&r.rec, 1).await,
+        vec!["chat bot=false reply=false Winner: Dust".to_string()]
+    );
+    end.id = "again".into();
+    end.data.insert("status".into(), json!("archived"));
+    r.auto.on_event(&end);
+    assert!(
+        wait_calls(&r.rec, 1).await.is_empty(),
+        "archiving isn't a new end"
+    );
+    let mut begin = Event::new(EventKind::PredictionBegin);
+    begin.data.insert("title".into(), json!("Win?"));
+    r.auto.on_event(&begin);
+    assert_eq!(
+        wait_calls(&r.rec, 1).await,
+        vec!["chat bot=false reply=false Predict: Win?".to_string()]
     );
 }

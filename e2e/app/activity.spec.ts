@@ -37,7 +37,7 @@ test('chat tab shows third-party emotes, paints and badges', async ({ page }) =>
   });
   await goTo(page, 'Activity');
   await page.getByRole('radio', { name: /Chat/ }).click();
-  const chat = page.getByRole('list', { name: 'Chat messages' });
+  const chat = page.getByRole('listbox', { name: 'Chat messages' });
   await expect(chat.locator('img.cw-emote-7tv[alt="peepoHappy"]').first()).toBeVisible();
   await expect(chat.locator('img.cw-emote-bttv[alt="monkaS"]').first()).toBeVisible();
   await expect(chat.locator('.cw-emote-stack img.cw-emote-zw[alt="RainTime"]').first()).toBeAttached();

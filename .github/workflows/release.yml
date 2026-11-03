@@ -18,10 +18,23 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-24.04
+    outputs:
+      notes: ${{ steps.notes.outputs.body }}
     steps:
       - name: Tag looks like a version
         run: |
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]] || { echo "Not a version tag: $TAG"; exit 1; }
+      - uses: actions/checkout@v7
+      - name: Release notes from CHANGELOG.md
+        id: notes
+        run: |
+          {
+            echo 'body<<CHANGELOG_END'
+            node scripts/changelog-section.mjs "$TAG"
+            echo
+            echo 'See the [guide](https://castwright.sinist3r.lol/guide/install/) for install steps.'
+            echo 'CHANGELOG_END'
+          } >> "$GITHUB_OUTPUT"
 
   build:
     needs: check
@@ -65,7 +78,7 @@ jobs:
         with:
           tagName: ${{ env.TAG }}
           releaseName: Castwright ${{ env.TAG }}
-          releaseBody: See the [guide](https://castwright.sinist3r.lol/guide/install/) for install steps.
+          releaseBody: ${{ needs.check.outputs.notes }}
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}

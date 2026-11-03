@@ -295,6 +295,39 @@
     }} />
   </Prop>
   {@render textGroup(k.style)}
+{:else if k.type === 'poll'}
+  <Prop label="Show">
+    <Segmented
+      label="What to show"
+      value={k.show}
+      options={[
+        { value: 'both', label: 'Both' },
+        { value: 'poll', label: 'Polls' },
+        { value: 'prediction', label: 'Predictions' }
+      ]}
+      onchange={(v) => set((x) => x.type === 'poll' && (x.show = v), 'show')}
+    />
+  </Prop>
+  <Prop label="Result" hint="Seconds the result stays after it ends. The layer hides while nothing runs.">
+    <NumberInput label="Seconds to show the result" unit="s" min={0} max={600} value={k.result_s} oninput={(v) => set((x) => x.type === 'poll' && (x.result_s = Math.round(v)), 'result')} />
+  </Prop>
+  <Prop label="Question">
+    <Switch label="Show the question" checked={k.show_title} onchange={(v) => set((x) => x.type === 'poll' && (x.show_title = v), 'title')} />
+  </Prop>
+  <Prop label="Time left">
+    <Switch label="Show time left" checked={k.show_timer} onchange={(v) => set((x) => x.type === 'poll' && (x.show_timer = v), 'timer')} />
+  </Prop>
+  <Prop label="Totals">
+    <Switch label="Show votes and points" checked={k.show_totals} onchange={(v) => set((x) => x.type === 'poll' && (x.show_totals = v), 'totals')} />
+  </Prop>
+  <Prop label="Bar" hint="Empty uses Twitch blue and pink for predictions.">
+    <ColorInput label="Bar colour" value={k.bar_color} onchange={(v) => set((x) => x.type === 'poll' && (x.bar_color = v), 'bar')} />
+  </Prop>
+  <Prop label="Track">
+    <ColorInput label="Track colour" value={k.track_color} onchange={(v) => set((x) => x.type === 'poll' && (x.track_color = v), 'track')} />
+  </Prop>
+  <p class="hint">The editor shows a sample poll. Start one on the Interact page to see it live.</p>
+  {@render textGroup(k.style)}
 {:else if k.type === 'custom'}
   <CustomWidgetEditor kind={k} {uid} {wide} {ontogglewide} set={(fn, key) => set((x) => x.type === 'custom' && fn(x), key)} />
 {/if}

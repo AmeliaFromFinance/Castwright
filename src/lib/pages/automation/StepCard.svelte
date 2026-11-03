@@ -10,7 +10,9 @@
   import Switch from '$lib/ui/Switch.svelte';
   import AssetPicker from '$lib/widgets/AssetPicker.svelte';
   import ConditionEditor from '$lib/widgets/ConditionEditor.svelte';
-  import { ANNOUNCE_COLORS, STEP_LABELS } from './defaults';
+  import { MODE_LABELS, MODE_ORDER } from '$lib/widgets/chat/moderation';
+  import { ANNOUNCE_COLORS, REWARD_STATES, STEP_LABELS } from './defaults';
+  import RewardPicker from './RewardPicker.svelte';
   import { fieldsForAction } from './describe';
   import { VAR_KEY_HELP, type Issue } from './validate';
 
@@ -175,6 +177,23 @@
         {@render text('Who', 'user', step.user, { placeholder: '{{arg1}}' })}
         {@render number('Seconds', 'duration_s', step.duration_s, 1, 1_209_600)}
         {@render text('Reason (optional)', 'reason', step.reason, { chips: false })}
+      </div>
+    {:else if step.type === 'delete_message'}
+      {@render text('Message id (blank = the one that started this)', 'message_id', step.message_id)}
+    {:else if step.type === 'set_chat_mode'}
+      <div class="grid3">
+        <div class="f">
+          <label for="{uid}-mode">Mode</label>
+          <select id="{uid}-mode" class="input" value={step.mode} onchange={(e) => set('mode', e.currentTarget.value)}>
+            {#each MODE_ORDER as m (m)}<option value={m}>{MODE_LABELS[m]}</option>{/each}
+          </select>
+        </div>
+        {@render toggle('Turn it', step.state, toggleText('On', 'Off'))}
+        {#if step.mode === 'slow'}
+          {@render number('Seconds between messages', 'value', step.value || 30, 3, 120)}
+        {:else if step.mode === 'followers'}
+          {@render number('Followed for (minutes)', 'value', step.value, 0, 129_600)}
+        {/if}
       </div>
     {:else if step.type === 'delay'}
       <div class="grid3">
@@ -356,6 +375,81 @@
         </div>
       </div>
       <p class="hint">Runs that action here, with this run's values, starting from its Button trigger (or all its triggers). Its cooldown is ignored.</p>
+    {:else if step.type === 'finish_redemption'}
+      <div class="grid2">
+        <div class="f">
+          <label for="{uid}-fin">Do</label>
+          <select id="{uid}-fin" class="input" value={step.refund ? 'refund' : 'complete'} onchange={(e) => set('refund', e.currentTarget.value === 'refund')}>
+            <option value="complete">Mark it complete</option>
+            <option value="refund">Refund the points</option>
+          </select>
+        </div>
+      </div>
+      <p class="hint">For the redemption that started this run. Only rewards made in Castwright can be completed or refunded.</p>
+    {:else if step.type === 'set_reward_state' || step.type === 'set_reward_cost'}
+      <div class="grid2">
+        <div class="f">
+          <label for="{uid}-rw">Reward</label>
+          <RewardPicker id="{uid}-rw" onlyMine rewardId={step.reward_id} rewardTitle={step.reward_title} onchange={(id, title) => onpatch({ reward_id: id, reward_title: title })} />
+        </div>
+        {#if step.type === 'set_reward_state'}
+          <div class="f">
+            <label for="{uid}-rs">Make it</label>
+            <select id="{uid}-rs" class="input" value={step.state} onchange={(e) => set('state', e.currentTarget.value)}>
+              {#each REWARD_STATES as [v, label] (v)}<option value={v}>{label}</option>{/each}
+            </select>
+          </div>
+        {:else}
+          {@render text('New cost', 'cost', step.cost, { placeholder: '500 or {{counter.price}}' })}
+        {/if}
+      </div>
+      <p class="hint">Paused rewards stay visible but can't be redeemed. Turned off rewards are hidden.</p>
+    {:else if step.type === 'start_poll' || step.type === 'start_prediction'}
+      {@const poll = step.type === 'start_poll'}
+      {@const list = step.type === 'start_poll' ? step.choices : step.outcomes}
+      {@const field = poll ? 'choices' : 'outcomes'}
+      {@render text('Question', 'title', step.title, { placeholder: poll ? 'Which map next?' : 'Will we win this round?' })}
+      <div class="f">
+        <span class="sub">{poll ? 'Choices' : 'Outcomes'}</span>
+        {#each list as c, i (i)}
+          <div class="opt-row">
+            <input
+              class="input"
+              aria-label="{poll ? 'Choice' : 'Outcome'} {i + 1}"
+              value={c}
+              oninput={(e) => set(field, list.map((x, j) => (j === i ? e.currentTarget.value : x)))}
+            />
+            <button type="button" class="mini" disabled={list.length <= 2} aria-label="Remove {i + 1}" onclick={() => set(field, list.filter((_, j) => j !== i))}>×</button>
+          </div>
+        {/each}
+        {#if list.length < (poll ? 5 : 10)}
+          <button type="button" class="add" onclick={() => set(field, [...list, ''])}>+ Add {poll ? 'choice' : 'outcome'}</button>
+        {/if}
+      </div>
+      <div class="grid3">
+        {#if step.type === 'start_poll'}
+          {@render number('Runs for (seconds)', 'duration_s', step.duration_s, 15, 1800)}
+          {@render number('Extra vote cost (0 = off)', 'points_per_vote', step.points_per_vote, 0, 1_000_000)}
+        {:else}
+          {@render number('Open for (seconds)', 'window_s', step.window_s, 30, 1800)}
+        {/if}
+      </div>
+    {:else if step.type === 'end_poll'}
+      <p class="hint">Ends the running poll early. Viewers see the result.</p>
+    {:else if step.type === 'end_prediction'}
+      <div class="grid2">
+        <div class="f">
+          <label for="{uid}-pa">Do</label>
+          <select id="{uid}-pa" class="input" value={step.action} onchange={(e) => set('action', e.currentTarget.value)}>
+            <option value="lock">Lock (stop new predictions)</option>
+            <option value="resolve">Pick the winner</option>
+            <option value="cancel">Cancel and refund</option>
+          </select>
+        </div>
+        {#if step.action === 'resolve'}
+          {@render text('Winning outcome', 'winner', step.winner, { placeholder: 'Yes, or 1 for the first' })}
+        {/if}
+      </div>
     {:else if step.type === 'stop'}
       <p class="hint">Ends the whole run. Nothing after it runs.</p>
     {:else if step.type === 'log'}
@@ -395,6 +489,32 @@
     gap: 8px;
     padding: 10px 12px 12px;
     container-type: inline-size;
+  }
+  .opt-row {
+    display: flex;
+    gap: 4px;
+  }
+  .mini,
+  .add {
+    color: var(--text-muted);
+    border-radius: var(--radius);
+  }
+  .mini {
+    width: 28px;
+    flex: none;
+  }
+  .mini:hover:not(:disabled),
+  .add:hover {
+    color: var(--text);
+    background: var(--bg-2);
+  }
+  .mini:disabled {
+    opacity: 0.35;
+  }
+  .add {
+    align-self: flex-start;
+    padding: 4px 6px;
+    font-size: 12px;
   }
   .grid2,
   .grid3 {

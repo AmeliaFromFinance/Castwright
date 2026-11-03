@@ -1,6 +1,7 @@
 //! Runs actions: graphs of steps started by triggers (events, chat commands,
 //! timers, OBS scene changes, buttons).
 
+pub mod interact;
 pub mod script;
 
 use crate::alerts::AlertEngine;
@@ -11,6 +12,7 @@ use crate::model::automation::{
 };
 use crate::model::condition::stringify;
 use crate::model::event::{Event, EventKind, UserRoles};
+use crate::model::interact::{PollDraft, PredictionAction, PredictionDraft};
 use crate::model::runtime::{LogLevel, OverlayMsg};
 use crate::services::{ObsActions, TwitchActions};
 use crate::store::project::ProjectStore;
@@ -302,6 +304,7 @@ impl Automation {
             _ => {}
         }
         let ctx = event.as_context();
+        let extra_args = interact::args(event);
         for action in self.actions() {
             let hit =
                 action
@@ -321,6 +324,28 @@ impl Automation {
                         }
                         Trigger::StreamOffline if event.kind == EventKind::StreamOffline => {
                             Some((index, "stream offline".to_string(), Map::new(), None))
+                        }
+                        Trigger::Redemption {
+                            reward_id,
+                            reward_title,
+                        } if event.kind == EventKind::Redemption
+                            && interact::reward_matches(event, reward_id, reward_title) =>
+                        {
+                            Some((index, "redemption".to_string(), Map::new(), None))
+                        }
+                        Trigger::PollBegin if event.kind == EventKind::PollBegin => {
+                            Some((index, "poll starts".to_string(), Map::new(), None))
+                        }
+                        Trigger::PollEnd
+                            if event.kind == EventKind::PollEnd && interact::is_real_end(event) =>
+                        {
+                            Some((index, "poll ends".to_string(), Map::new(), None))
+                        }
+                        Trigger::PredictionBegin if event.kind == EventKind::PredictionBegin => {
+                            Some((index, "prediction starts".to_string(), Map::new(), None))
+                        }
+                        Trigger::PredictionEnd if event.kind == EventKind::PredictionEnd => {
+                            Some((index, "prediction ends".to_string(), Map::new(), None))
                         }
                         Trigger::Command {
                             name,
@@ -351,6 +376,7 @@ impl Automation {
                     continue;
                 }
                 let mut c = ctx_from(&ctx);
+                c.extend(extra_args.clone());
                 c.extend(extra);
                 self.spawn_run(&action.id, Some(index), &label, c, reply_to);
             }
@@ -857,6 +883,26 @@ impl Automation {
                     .timeout_user(&login, (*duration_s).clamp(1, 1_209_600), &t(reason))
                     .await?
             }
+            Step::DeleteMessage { message_id } => {
+                let mut id = t(message_id).trim().to_string();
+                if id.is_empty() && run.ctx.get("kind").and_then(Value::as_str) == Some("chat") {
+                    id = run
+                        .ctx
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .into();
+                }
+                if id.is_empty() {
+                    return user_err(
+                        "No chat message to delete. Start this action from chat or a command.",
+                    );
+                }
+                self.twitch()?.delete_message(&id).await?
+            }
+            Step::SetChatMode { mode, state, value } => {
+                self.twitch()?.set_chat_mode(*mode, *state, *value).await?
+            }
             Step::Delay { ms } => {
                 tokio::time::sleep(Duration::from_millis((*ms).min(MAX_DELAY_MS) as u64)).await;
             }
@@ -994,6 +1040,84 @@ impl Automation {
                     return Ok(Flow::Stop);
                 }
             }
+            Step::FinishRedemption { refund } => {
+                let get = |k: &str| {
+                    run.ctx
+                        .get(k)
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string()
+                };
+                let (reward, id) = (get("reward_id"), get("redemption_id"));
+                if reward.is_empty() || id.is_empty() {
+                    return user_err(
+                        "This step needs a channel point redemption to start the action.",
+                    );
+                }
+                self.twitch()?
+                    .finish_redemption(&reward, &id, *refund)
+                    .await?
+            }
+            Step::SetRewardState {
+                reward_id,
+                reward_title,
+                state,
+            } => {
+                self.twitch()?
+                    .set_reward_state(reward_id, &t(reward_title), *state)
+                    .await?
+            }
+            Step::SetRewardCost {
+                reward_id,
+                reward_title,
+                cost,
+            } => {
+                let text = t(cost);
+                let Some(n) = crate::model::condition::parse_number(&text)
+                    .filter(|n| *n >= 1.0 && *n <= u32::MAX as f64)
+                else {
+                    return user_err(format!("\"{}\" isn't a cost in points.", text.trim()));
+                };
+                self.twitch()?
+                    .set_reward_cost(reward_id, &t(reward_title), n.round() as u32)
+                    .await?
+            }
+            Step::StartPoll {
+                title,
+                choices,
+                duration_s,
+                points_per_vote,
+            } => {
+                let draft = PollDraft {
+                    title: t(title),
+                    choices: rendered_list(choices, &t),
+                    duration_s: *duration_s,
+                    points_per_vote: *points_per_vote,
+                };
+                draft.check().map_err(crate::error::AppError::User)?;
+                self.twitch()?.start_poll(&draft).await?
+            }
+            Step::EndPoll => self.twitch()?.end_poll().await?,
+            Step::StartPrediction {
+                title,
+                outcomes,
+                window_s,
+            } => {
+                let draft = PredictionDraft {
+                    title: t(title),
+                    outcomes: rendered_list(outcomes, &t),
+                    window_s: *window_s,
+                };
+                draft.check().map_err(crate::error::AppError::User)?;
+                self.twitch()?.start_prediction(&draft).await?
+            }
+            Step::EndPrediction { action, winner } => {
+                let winner = t(winner);
+                if *action == PredictionAction::Resolve && winner.trim().is_empty() {
+                    return user_err("Say which outcome won.");
+                }
+                self.twitch()?.end_prediction(*action, &winner).await?
+            }
             Step::Stop => return Ok(Flow::Stop),
             Step::Log { message } => self.hub.log(LogLevel::Info, "automation", t(message)),
         }
@@ -1113,6 +1237,8 @@ pub fn step_label(step: &Step) -> &'static str {
         Step::RunAd { .. } => "Run ad",
         Step::SetStreamInfo { .. } => "Set stream info",
         Step::TimeoutUser { .. } => "Time out user",
+        Step::DeleteMessage { .. } => "Delete message",
+        Step::SetChatMode { .. } => "Set chat mode",
         Step::Delay { .. } => "Wait",
         Step::SetVariable { .. } => "Set variable",
         Step::AddToVariable { .. } => "Add to variable",
@@ -1130,9 +1256,24 @@ pub fn step_label(step: &Step) -> &'static str {
         Step::RunScript { .. } => "Run script",
         Step::If { .. } => "If",
         Step::RunAction { .. } => "Run action",
+        Step::FinishRedemption { .. } => "Complete or refund redemption",
+        Step::SetRewardState { .. } => "Enable or pause reward",
+        Step::SetRewardCost { .. } => "Change reward cost",
+        Step::StartPoll { .. } => "Start poll",
+        Step::EndPoll => "End poll",
+        Step::StartPrediction { .. } => "Start prediction",
+        Step::EndPrediction { .. } => "Lock or resolve prediction",
         Step::Stop => "Stop",
         Step::Log { .. } => "Log",
     }
+}
+
+/// Templates filled in; empty entries dropped.
+fn rendered_list(list: &[String], t: &impl Fn(&str) -> String) -> Vec<String> {
+    list.iter()
+        .map(|s| t(s).trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect()
 }
 
 pub fn value_text(v: &Value) -> String {

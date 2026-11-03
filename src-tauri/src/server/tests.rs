@@ -407,3 +407,23 @@ async fn open_overlay_pages_are_counted() {
     }
     assert_eq!(r.server.overlay_clients(&r.overlay_id), 0);
 }
+
+#[tokio::test]
+async fn overlays_hear_the_program_scene() {
+    let r = rig().await;
+    r.hub
+        .set_var("obs.scene", serde_json::Value::from("Gameplay"), false);
+    let mut ws = connect(&r, &r.overlay_id, TOKEN).await.unwrap();
+    match next_msg(&mut ws).await {
+        OverlayMsg::Hello { vars, .. } => assert_eq!(vars["obs.scene"], "Gameplay"),
+        other => panic!("expected hello, got {other:?}"),
+    }
+    r.hub
+        .set_var("obs.scene", serde_json::Value::from("BRB"), false);
+    loop {
+        if let OverlayMsg::Vars { changes } = next_msg(&mut ws).await {
+            assert_eq!(changes["obs.scene"], "BRB");
+            break;
+        }
+    }
+}

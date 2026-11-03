@@ -60,6 +60,8 @@ export function validateAction(a: Action, all: readonly Action[], overlays: read
         if (clash) out.push({ key, message: `"${clash.name}" also answers to !${name}; both will run.`, warn: true });
       }
       if (t.aliases.some((x) => /\s/.test(commandName(x)))) out.push({ key, message: 'Aliases are single words.' });
+    } else if (t.type === 'redemption' && t.reward_id && !t.reward_title.trim()) {
+      out.push({ key, message: 'Pick the reward again so its name is saved.', warn: true });
     } else if (t.type === 'timer') {
       if (!(t.interval_s >= MIN_TIMER_S))
         out.push({ key, message: `Timers can run at most every ${MIN_TIMER_S} seconds, so shorter intervals are raised to ${MIN_TIMER_S} s.` });
@@ -127,6 +129,35 @@ export function validateAction(a: Action, all: readonly Action[], overlays: read
         break;
       case 'log':
         if (!s.message.trim()) add('Type the text to log.');
+        break;
+      case 'finish_redemption':
+        if (!a.triggers.some((t) => t.type === 'redemption' || (t.type === 'event' && t.kind === 'redemption')))
+          add('Only works when a channel point redemption starts the action.', true);
+        break;
+      case 'set_reward_state':
+      case 'set_reward_cost':
+        if (!s.reward_id && !s.reward_title.trim()) add('Pick a reward.');
+        if (s.type === 'set_reward_cost') {
+          const c = s.cost.trim();
+          if (!c) add('Type the new cost.');
+          else if (!hasTemplate(c) && !(Number(c) >= 1 && Number.isInteger(Number(c)))) add('The cost is a whole number of points, 1 or more.');
+        }
+        break;
+      case 'start_poll':
+      case 'start_prediction': {
+        const list = s.type === 'start_poll' ? s.choices : s.outcomes;
+        const [min, max] = s.type === 'start_poll' ? [2, 5] : [2, 10];
+        const what = s.type === 'start_poll' ? 'choices' : 'outcomes';
+        if (!s.title.trim()) add('Type the question.');
+        const filled = list.filter((c) => c.trim()).length;
+        if (filled < min || filled > max) add(`Use ${min} to ${max} ${what}.`);
+        const secs = s.type === 'start_poll' ? s.duration_s : s.window_s;
+        const lo = s.type === 'start_poll' ? 15 : 30;
+        if (!(secs >= lo && secs <= 1800)) add(`From ${lo} seconds to 30 minutes.`);
+        break;
+      }
+      case 'end_prediction':
+        if (s.action === 'resolve' && !s.winner.trim()) add('Say which outcome won: its name or number.');
         break;
       default:
         break;

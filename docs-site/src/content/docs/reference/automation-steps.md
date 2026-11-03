@@ -28,6 +28,11 @@ An action is a set of trigger and step nodes joined by lines. A run starts at th
 | Stream ends | `stream_offline` | None |
 | Scene changed | `scene_changed` | Scene name (empty means any scene) |
 | Manual | `manual` | None |
+| Channel point redemption | `redemption` | Reward (empty means any reward) |
+| Poll starts | `poll_begin` | None |
+| Poll ends | `poll_end` | None |
+| Prediction starts | `prediction_begin` | None |
+| Prediction ends | `prediction_end` | None |
 
 An alert variation can also run an action when its alert starts playing. That run gets the event fields, like an Event trigger.
 
@@ -78,6 +83,20 @@ The first run comes one interval after Castwright starts (or after the trigger i
 
 Fires when the scene on air in OBS changes. The name match ignores capital letters. The run gets the new scene name as `scene`.
 
+### Channel points, polls and predictions
+
+**Channel point redemption** fires for redemptions of the picked reward, or of any reward when none is picked. The reward is matched by id, and by title too, so actions shared from another channel still find theirs. Rewards made on Twitch work as well.
+
+**Poll ends** doesn't fire again when a finished poll is hidden (`archived`). **Prediction ends** fires when it's resolved or canceled.
+
+These triggers add short values for templates and conditions. The same values are there when an Event trigger fires for these kinds.
+
+| Trigger | Values |
+| --- | --- |
+| Redemption | `user`, `reward`, `reward_id`, `redemption_id`, `cost`, `input` |
+| Poll | `poll.title`, `poll.choices`, `poll.status`, `poll.winner` (empty on a tie or before the end), `poll.winner_votes`, `poll.total_votes` |
+| Prediction | `prediction.title`, `prediction.outcomes`, `prediction.status`, `prediction.winner`, `prediction.total_points`, `prediction.total_users` |
+
 ### Manual
 
 Run from the app, a Stream Deck button or the [local HTTP API](/reference/http-api/). Any action can be run this way, with or without a Manual trigger. Manual runs ignore the Enabled switch and the cooldown. Where they start is explained under [Where a run starts](#where-a-run-starts).
@@ -98,6 +117,24 @@ Options marked "T" accept [templates](/reference/templates/).
 | Run ad | `run_ad` | Length in seconds | Rounded to the nearest of 30, 60, 90, 120, 150 or 180. |
 | Set stream info | `set_stream_info` | Title (T), category (T) | Empty leaves that part unchanged. Titles over 140 characters fail. The category is found by search: an exact name match, otherwise the first result. |
 | Time out user | `timeout_user` | User (T), duration in seconds, reason (T, empty) | Duration 1 second to 14 days (1,209,600 s). Reason up to 500 characters. |
+| Delete message | `delete_message` | Message id (T, empty) | Empty deletes the chat message that started the action, so it works with chat and command triggers. |
+| Set chat mode | `set_chat_mode` | Mode, state (`on`), value (0) | Modes: `shield`, `slow`, `followers`, `subscribers`, `emotes`, `unique`. Value is seconds for `slow` (3 to 120, 0 means 30) and minutes for `followers` (0 means any follower). `toggle` flips the current state. |
+
+### Channel points, polls and predictions
+
+Twitch only gives these to Affiliates and Partners. See the [guide](/guide/interact/).
+
+| Step | Type | Options (default) | Notes |
+| --- | --- | --- | --- |
+| Complete or refund redemption | `finish_redemption` | Refund (off) | Works on the redemption that started the run. Fails when no redemption started it. Only rewards made in Castwright. |
+| Enable or pause reward | `set_reward_state` | Reward, state (`pause`) | States: `enable`, `disable`, `pause`, `resume`. Only rewards made in Castwright. |
+| Change reward cost | `set_reward_cost` | Reward, cost (T) | The cost must come out as a whole number, 1 or more. |
+| Start poll | `start_poll` | Question (T), choices (T), length (120 s), points per extra vote (0) | 2 to 5 choices, up to 25 characters each. Question up to 60 characters. Length 15 s to 30 min. Empty choices are left out. Fails while another poll runs. |
+| End poll | `end_poll` | None | Ends the running poll and shows the result. Fails when none runs. |
+| Start prediction | `start_prediction` | Question (T), outcomes (T), window (120 s) | 2 to 10 outcomes, up to 25 characters each. Question up to 45 characters. Window 30 s to 30 min. |
+| Lock or resolve prediction | `end_prediction` | Action (`lock`), winner (T) | Actions: `lock`, `resolve`, `cancel`. For `resolve`, the winner is an outcome title (capitals don't matter) or its number from 1. Cancel refunds everyone. |
+
+A reward is found by id, or by its title when the id isn't found.
 
 ### OBS
 
@@ -115,7 +152,7 @@ Every state option also takes `toggle`, which flips the current state.
 
 | Step | Type | Options (default) | Notes |
 | --- | --- | --- | --- |
-| Show/hide overlay layer | `set_layer_visible` | Overlay, layer, state (`on`) | Changes the layer's visibility switch and saves it in the project. |
+| Show/hide overlay layer | `set_layer_visible` | Overlay, layer, state (`on`) | Changes the layer's visibility switch and saves it in the project. A [scene rule](/guide/overlay-editor/#scenes) can still hide it. |
 | Play alert | `play_alert` | Title (T), message (T, empty), image (empty), sound (empty), duration in ms (6000) | Joins the alert queue. Duration is kept between 500 and 120,000 ms. |
 | Pause alerts | `pause_alerts` | State (`on`) | `on` pauses the queue, `off` resumes it. The alert on screen still finishes. |
 | Skip alert | `skip_alert` | None | Ends the alert on screen. Does nothing when no alert is playing. |

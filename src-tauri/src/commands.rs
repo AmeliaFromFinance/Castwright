@@ -673,8 +673,130 @@ pub async fn twitch_update_stream_info(
 }
 
 #[tauri::command]
-pub async fn twitch_send_chat(core: Ctx<'_>, message: String, as_bot: bool) -> AppResult<()> {
-    core.twitch.send_chat(&message, as_bot, None).await
+pub async fn twitch_send_chat(
+    core: Ctx<'_>,
+    message: String,
+    as_bot: bool,
+    reply_to: Option<String>,
+) -> AppResult<()> {
+    core.twitch
+        .send_chat(&message, as_bot, reply_to.as_deref())
+        .await
+}
+
+// ---------- moderation ----------
+
+use crate::model::moderation::{ChatMode, ChatModes, ViewerCard};
+
+#[tauri::command]
+pub async fn twitch_delete_message(core: Ctx<'_>, message_id: String) -> AppResult<()> {
+    core.twitch.delete_chat_message(&message_id).await
+}
+
+/// `duration_s` None = permanent ban.
+#[tauri::command]
+pub async fn twitch_ban(
+    core: Ctx<'_>,
+    user_id: String,
+    duration_s: Option<u32>,
+    reason: String,
+) -> AppResult<()> {
+    core.twitch.ban(&user_id, duration_s, &reason).await
+}
+
+#[tauri::command]
+pub async fn twitch_unban(core: Ctx<'_>, user_id: String) -> AppResult<()> {
+    core.twitch.unban(&user_id).await
+}
+
+#[tauri::command]
+pub async fn twitch_shoutout(core: Ctx<'_>, login: String) -> AppResult<()> {
+    core.twitch.shoutout(&login).await
+}
+
+#[tauri::command]
+pub async fn twitch_chat_modes(core: Ctx<'_>) -> AppResult<ChatModes> {
+    core.twitch.chat_modes().await
+}
+
+#[tauri::command]
+pub async fn twitch_set_chat_mode(
+    core: Ctx<'_>,
+    mode: ChatMode,
+    on: bool,
+    value: Option<u32>,
+) -> AppResult<ChatModes> {
+    core.twitch.set_mode(mode, on, value.unwrap_or(0)).await
+}
+
+#[tauri::command]
+pub async fn twitch_viewer(core: Ctx<'_>, user_id: String) -> AppResult<ViewerCard> {
+    core.twitch.viewer(&user_id).await
+}
+
+// ---------- channel points, polls and predictions ----------
+
+use crate::model::interact::{
+    InteractState, PollDraft, PredictionAction, PredictionDraft, Redemption, RedemptionRef, Reward,
+};
+
+#[tauri::command]
+pub async fn twitch_rewards(core: Ctx<'_>) -> AppResult<Vec<Reward>> {
+    core.twitch.rewards().await
+}
+
+#[tauri::command]
+pub async fn twitch_save_reward(core: Ctx<'_>, reward: Reward) -> AppResult<Reward> {
+    core.twitch.save_reward(&reward).await
+}
+
+#[tauri::command]
+pub async fn twitch_delete_reward(core: Ctx<'_>, id: String) -> AppResult<()> {
+    core.twitch.delete_reward(&id).await
+}
+
+#[tauri::command]
+pub async fn twitch_redemptions(core: Ctx<'_>) -> AppResult<Vec<Redemption>> {
+    core.twitch.redemptions().await
+}
+
+#[tauri::command]
+pub async fn twitch_finish_redemptions(
+    core: Ctx<'_>,
+    items: Vec<RedemptionRef>,
+    refund: bool,
+) -> AppResult<u32> {
+    core.twitch.finish_redemptions(&items, refund).await
+}
+
+#[tauri::command]
+pub async fn twitch_interact_state(core: Ctx<'_>) -> AppResult<InteractState> {
+    core.twitch.interact_state().await
+}
+
+#[tauri::command]
+pub async fn twitch_start_poll(core: Ctx<'_>, draft: PollDraft) -> AppResult<Event> {
+    core.twitch.create_poll(&draft).await
+}
+
+#[tauri::command]
+pub async fn twitch_end_poll(core: Ctx<'_>) -> AppResult<Event> {
+    core.twitch.stop_poll().await
+}
+
+#[tauri::command]
+pub async fn twitch_start_prediction(core: Ctx<'_>, draft: PredictionDraft) -> AppResult<Event> {
+    core.twitch.create_prediction(&draft).await
+}
+
+/// `outcome` is the winning outcome id when resolving.
+#[tauri::command]
+pub async fn twitch_end_prediction(
+    core: Ctx<'_>,
+    action: PredictionAction,
+    outcome: String,
+) -> AppResult<Event> {
+    core.twitch.finish_prediction(action, &outcome).await
 }
 
 // ---------- obs ----------

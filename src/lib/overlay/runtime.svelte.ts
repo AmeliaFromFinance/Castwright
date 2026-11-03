@@ -3,6 +3,7 @@ import type { OverlayMsg } from '$lib/bindings/OverlayMsg';
 import { assetResolver } from './assets';
 import { backoffDelay, type Endpoint } from './connection';
 import { Feed } from './feed';
+import { baseVisible, currentScene, sceneAllows } from './scenes';
 import { emptyState, parseMsg, reduce, setWidgetValue, type OverlayState } from './state';
 
 export interface RuntimeOptions {
@@ -97,7 +98,9 @@ export class OverlayRuntime {
       case 'play_sound': {
         // Sounds play from overlays that show alerts, so a scene with several
         // Castwright overlays doesn't play the same sound more than once.
-        const hasAlerts = this.state.overlay?.layers.some((l) => l.kind.type === 'alerts' && l.visible) ?? false;
+        const scene = currentScene(this.state.vars);
+        const hasAlerts =
+          this.state.overlay?.layers.some((l) => l.kind.type === 'alerts' && baseVisible(l, this.state.visibility) && sceneAllows(l.scenes, scene)) ?? false;
         const url = this.assetUrl(msg.src ?? '');
         if (url && hasAlerts) (this.#opts.playSound ?? defaultPlaySound)(url, Math.min(1, Math.max(0, (msg.volume ?? 100) / 100)));
         break;

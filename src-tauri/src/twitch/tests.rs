@@ -17,16 +17,22 @@ use tokio::sync::mpsc;
 use tokio_tungstenite::WebSocketStream;
 use tokio_tungstenite::tungstenite::Message;
 
+mod moderation_tests;
+
 #[derive(Debug, Clone)]
 struct Rec {
     method: String,
     path: String,
     query: HashMap<String, String>,
+    raw_query: String,
     body: String,
     auth: String,
 }
 
 impl Rec {
+    fn query_raw(&self) -> &str {
+        &self.raw_query
+    }
     fn json(&self) -> Value {
         serde_json::from_str(&self.body).unwrap_or(Value::Null)
     }
@@ -50,6 +56,9 @@ struct Mock {
     streams: Value,
     shoutout_status: u16,
     rate_limit_next: bool,
+    not_affiliate: bool,
+    poll: Value,
+    prediction: Value,
 }
 
 type Shared = Arc<Mutex<Mock>>;
@@ -76,6 +85,7 @@ async fn handler(
         query: url::form_urlencoded::parse(uri.query().unwrap_or("").as_bytes())
             .into_owned()
             .collect(),
+        raw_query: uri.query().unwrap_or("").to_string(),
         body: String::from_utf8_lossy(&body).into_owned(),
         auth: headers
             .get("authorization")
@@ -165,9 +175,76 @@ async fn handler(
     }
 }
 
+fn reward(id: &str, title: &str) -> Value {
+    json!({"id": id, "title": title, "cost": 100, "prompt": "", "is_enabled": true,
+           "is_paused": false, "background_color": "#9147FF",
+           "max_per_stream_setting": {"is_enabled": false, "max_per_stream": 0},
+           "global_cooldown_setting": {"is_enabled": true, "global_cooldown_seconds": 30}})
+}
+
 fn helix(m: &mut Mock, rec: &Rec, token: &str) -> Response {
     let path = rec.path.trim_start_matches("/helix");
+    if let Some(r) = moderation_tests::reply_for(rec, path) {
+        return r;
+    }
+    let interactive =
+        path.starts_with("/channel_points") || path == "/polls" || path == "/predictions";
+    if interactive && m.not_affiliate {
+        return reply(
+            403,
+            json!({"error": "Forbidden", "status": 403,
+                   "message": "The broadcaster must have partner or affiliate status."}),
+        );
+    }
     match (rec.method.as_str(), path) {
+        ("GET", "/channel_points/custom_rewards") => {
+            if rec.query.contains_key("only_manageable_rewards") {
+                reply(200, json!({"data": [reward("r1", "Hydrate")]}))
+            } else {
+                reply(200, json!({"data": [reward("r1", "Hydrate"), reward("tw", "Highlight my message")]}))
+            }
+        }
+        ("POST" | "PATCH", "/channel_points/custom_rewards") => {
+            let mut r = rec.json();
+            r["id"] = json!(rec.query.get("id").cloned().unwrap_or("new-r".into()));
+            reply(200, json!({"data": [r]}))
+        }
+        ("GET", "/channel_points/custom_rewards/redemptions") => reply(
+            200,
+            json!({"data": [{"id": "red-1", "user_id": "5", "user_login": "nova", "user_name": "Nova",
+                             "user_input": "", "status": "UNFULFILLED",
+                             "redeemed_at": "2024-01-01T00:00:00Z",
+                             "reward": {"id": rec.query["reward_id"], "title": "Hydrate", "cost": 100}}]}),
+        ),
+        ("PATCH", "/channel_points/custom_rewards/redemptions") => {
+            let status = rec.json()["status"].clone();
+            let ids: Vec<Value> = url::form_urlencoded::parse(
+                rec.query_raw().as_bytes(),
+            )
+            .filter(|(k, _)| k == "id")
+            .map(|(_, v)| json!({"id": v, "status": status, "reward": {"id": rec.query["reward_id"]}}))
+            .collect();
+            reply(200, json!({"data": ids}))
+        }
+        ("GET", "/polls") => reply(200, json!({"data": [m.poll.clone()]})),
+        ("POST", "/polls") => {
+            let b = rec.json();
+            reply(200, json!({"data": [{"id": "p-new", "title": b["title"], "status": "ACTIVE",
+                                        "duration": b["duration"], "choices": b["choices"],
+                                        "started_at": "2024-01-01T00:00:00Z"}]}))
+        }
+        ("PATCH", "/polls") => {
+            let mut p = m.poll.clone();
+            p["status"] = rec.json()["status"].clone();
+            reply(200, json!({"data": [p]}))
+        }
+        ("GET", "/predictions") => reply(200, json!({"data": [m.prediction.clone()]})),
+        ("PATCH", "/predictions") => {
+            let mut p = m.prediction.clone();
+            p["status"] = rec.json()["status"].clone();
+            p["winning_outcome_id"] = rec.json()["winning_outcome_id"].clone();
+            reply(200, json!({"data": [p]}))
+        }
         ("GET", "/users") => match rec.query.get("login").map(String::as_str) {
             Some("nobody") => reply(200, json!({"data": []})),
             Some(login) => reply(
@@ -983,4 +1060,249 @@ async fn chat_messages_carry_badge_images() {
 
     s.svc.logout(AccountRole::Broadcaster).await.unwrap();
     assert!(s.svc.badges.lock().unwrap().is_empty());
+}
+
+// ---- channel points, polls and predictions ----
+
+#[tokio::test]
+async fn rewards_and_redemptions_send_the_right_requests() {
+    let mock = MockServer::start().await;
+    let s = setup(&mock, "ws://127.0.0.1:1", broadcaster);
+
+    let list = s.svc.rewards().await.unwrap();
+    assert_eq!(list.len(), 2);
+    assert!(
+        list[0].manageable && !list[1].manageable,
+        "Twitch-made rewards are read-only"
+    );
+    assert_eq!(list[0].cooldown_s, 30);
+
+    let mut r = crate::model::interact::Reward {
+        title: "Stretch".into(),
+        cost: 300,
+        max_per_user: 2,
+        ..Default::default()
+    };
+    let saved = s.svc.save_reward(&r).await.unwrap();
+    assert_eq!(saved.id, "new-r");
+    let post = mock
+        .requests("POST", "/helix/channel_points/custom_rewards")
+        .pop()
+        .unwrap();
+    assert_eq!(post.query["broadcaster_id"], "1337");
+    assert_eq!(post.json()["is_max_per_user_per_stream_enabled"], true);
+    assert_eq!(post.json()["max_per_user_per_stream"], 2);
+    assert_eq!(post.json()["is_global_cooldown_enabled"], false);
+
+    r.id = "r1".into();
+    r.paused = true;
+    s.svc.save_reward(&r).await.unwrap();
+    let patch = mock
+        .requests("PATCH", "/helix/channel_points/custom_rewards")
+        .pop()
+        .unwrap();
+    assert_eq!(patch.query["id"], "r1");
+    assert_eq!(patch.json()["is_paused"], true);
+
+    r.title = String::new();
+    assert!(
+        s.svc.save_reward(&r).await.is_err(),
+        "checked before asking Twitch"
+    );
+
+    let waiting = s.svc.redemptions().await.unwrap();
+    assert_eq!(waiting.len(), 1, "only rewards Castwright made");
+    assert_eq!(waiting[0].reward_id, "r1");
+    let get = mock
+        .requests("GET", "/helix/channel_points/custom_rewards/redemptions")
+        .pop()
+        .unwrap();
+    assert_eq!(get.query["status"], "UNFULFILLED");
+
+    let items: Vec<_> = (0..51)
+        .map(|i| crate::model::interact::RedemptionRef {
+            id: format!("x{i}"),
+            reward_id: "r1".into(),
+        })
+        .collect();
+    assert_eq!(s.svc.finish_redemptions(&items, true).await.unwrap(), 51);
+    let patches = mock.requests("PATCH", "/helix/channel_points/custom_rewards/redemptions");
+    assert_eq!(patches.len(), 2, "50 per request");
+    assert_eq!(patches[0].json()["status"], "CANCELED");
+    assert_eq!(patches[0].raw_query.matches("id=x").count(), 50);
+
+    s.svc
+        .set_reward_state(
+            "gone",
+            "hydrate",
+            crate::model::interact::RewardState::Disable,
+        )
+        .await
+        .unwrap();
+    let p = mock
+        .requests("PATCH", "/helix/channel_points/custom_rewards")
+        .pop()
+        .unwrap();
+    assert_eq!(p.query["id"], "r1", "found by title");
+    assert_eq!(p.json(), json!({"is_enabled": false}));
+    let err = s
+        .svc
+        .set_reward_cost("", "Highlight my message", 5)
+        .await
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("Only rewards made in Castwright"),
+        "{err}"
+    );
+}
+
+#[tokio::test]
+async fn polls_and_predictions_send_the_right_requests() {
+    let mock = MockServer::start().await;
+    mock.set(|m| {
+        m.poll = json!({"id": "p1", "title": "Map?", "status": "ACTIVE", "duration": 60,
+                        "started_at": "2024-01-01T00:00:00Z",
+                        "choices": [{"id": "a", "title": "Dust", "votes": 2}]});
+        m.prediction = json!({"id": "pr1", "title": "Win?", "status": "ACTIVE", "prediction_window": 60,
+                              "created_at": "2024-01-01T00:00:00Z",
+                              "outcomes": [{"id": "y", "title": "Yes"}, {"id": "n", "title": "No"}]});
+    });
+    let s = setup(&mock, "ws://127.0.0.1:1", broadcaster);
+
+    let state = s.svc.interact_state().await.unwrap();
+    assert_eq!(state.poll.unwrap().kind, EventKind::PollProgress);
+    assert_eq!(state.prediction.unwrap().data["status"], "active");
+
+    let draft = crate::model::interact::PollDraft {
+        title: " Map? ".into(),
+        choices: vec!["Dust".into(), "Mirage".into()],
+        duration_s: 90,
+        points_per_vote: 10,
+    };
+    s.svc.start_poll(&draft).await.unwrap();
+    let b = mock.requests("POST", "/helix/polls").pop().unwrap().json();
+    assert_eq!(b["title"], "Map?");
+    assert_eq!(
+        b["choices"],
+        json!([{"title": "Dust"}, {"title": "Mirage"}])
+    );
+    assert_eq!(b["channel_points_voting_enabled"], true);
+    assert_eq!(b["channel_points_per_vote"], 10);
+
+    let ended = s.svc.stop_poll().await.unwrap();
+    assert_eq!(ended.kind, EventKind::PollEnd);
+    assert_eq!(
+        mock.requests("PATCH", "/helix/polls")[0].json()["status"],
+        "TERMINATED"
+    );
+
+    use crate::model::interact::PredictionAction;
+    s.svc
+        .end_prediction(PredictionAction::Lock, "")
+        .await
+        .unwrap();
+    assert_eq!(
+        mock.requests("PATCH", "/helix/predictions")[0].json()["status"],
+        "LOCKED"
+    );
+    let err = s
+        .svc
+        .end_prediction(PredictionAction::Resolve, "maybe")
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("Yes, No"), "{err}");
+    s.svc
+        .end_prediction(PredictionAction::Resolve, "no")
+        .await
+        .unwrap();
+    let b = mock
+        .requests("PATCH", "/helix/predictions")
+        .pop()
+        .unwrap()
+        .json();
+    assert_eq!(b["status"], "RESOLVED");
+    assert_eq!(b["winning_outcome_id"], "n");
+
+    mock.set(|m| m.poll["status"] = json!("COMPLETED"));
+    assert!(
+        s.svc
+            .stop_poll()
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("No poll")
+    );
+}
+
+#[tokio::test]
+async fn not_affiliate_is_explained() {
+    let mock = MockServer::start().await;
+    mock.set(|m| m.not_affiliate = true);
+    let s = setup(&mock, "ws://127.0.0.1:1", broadcaster);
+    let err = s.svc.rewards().await.unwrap_err().to_string();
+    assert!(
+        err.contains("Channel points need Affiliate or Partner"),
+        "{err}"
+    );
+    let err = s.svc.interact_state().await.unwrap_err().to_string();
+    assert!(err.contains("need Affiliate or Partner"), "{err}");
+}
+
+#[tokio::test]
+async fn redemption_events_reach_the_app() {
+    let mock = MockServer::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let settings = Arc::new(SettingsStore::open(dir.path().join("settings.json")));
+    let secrets = Arc::new(Secrets::in_memory());
+    broadcaster(&secrets);
+    let ui = Arc::new(crate::hub::RecordingUi::default());
+    let hub = Hub::new(
+        ui.clone(),
+        Arc::new(crate::vars::Vars::new()),
+        Arc::new(crate::store::db::Db::open_in_memory()),
+    );
+    let endpoints = TwitchEndpoints {
+        id_base: mock.base.clone(),
+        helix_base: format!("{}/helix", mock.base),
+        eventsub_url: "ws://127.0.0.1:1".into(),
+    };
+    let svc = TwitchService::build(hub.clone(), secrets, settings, endpoints, fast());
+    let mut events = hub.subscribe_events();
+    let note = |id: &str, kind: &str, status: &str| {
+        json!({
+            "metadata": {"message_id": id, "message_type": "notification",
+                         "subscription_type": kind, "message_timestamp": "2024-01-01T00:00:00Z"},
+            "payload": {"event": {"id": "red-9", "user_id": "5", "user_login": "nova", "user_name": "Nova",
+                                  "user_input": "hi", "status": status,
+                                  "reward": {"id": "r1", "title": "Hydrate", "cost": 100}}}
+        })
+    };
+    svc.handle_notification(&note(
+        "m1",
+        "channel.channel_points_custom_reward_redemption.add",
+        "unfulfilled",
+    ));
+    let e = next_event(&mut events).await;
+    assert_eq!(e.kind, EventKind::Redemption);
+    assert_eq!(e.data["redemption_id"], "red-9");
+
+    svc.handle_notification(&note(
+        "m2",
+        "channel.channel_points_custom_reward_redemption.update",
+        "fulfilled",
+    ));
+    let sent = ui.0.lock().unwrap().clone();
+    let (_, payload) = sent
+        .iter()
+        .find(|(n, _)| n == crate::hub::ui::REDEMPTION)
+        .expect("update sent");
+    assert_eq!(
+        *payload,
+        json!({"id": "red-9", "reward_id": "r1", "status": "fulfilled"})
+    );
+    assert!(events.try_recv().is_err(), "updates aren't new events");
+    assert!(
+        eventsub::subscription_types()
+            .contains(&"channel.channel_points_custom_reward_redemption.update")
+    );
 }

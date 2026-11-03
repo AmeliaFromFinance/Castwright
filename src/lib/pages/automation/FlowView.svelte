@@ -14,7 +14,7 @@
   import { toasts } from '$lib/state/toast.svelte';
   import IconButton from '$lib/ui/IconButton.svelte';
   import ResizeHandle from '$lib/ui/ResizeHandle.svelte';
-  import { ChevronLeft, ChevronRight, Grid3x3, History, Maximize, Minus, Plus, Sparkles, Zap } from '@lucide/svelte';
+  import { ChevronLeft, ChevronRight, Grid3x3, Group, History, Maximize, Minus, Plus, Sparkles, StickyNote, Zap } from '@lucide/svelte';
   import Menu from '$lib/editors/Menu.svelte';
   import { clock } from '$lib/format';
   import { STEP_GROUPS, STEP_LABELS, STEP_MENU, TRIGGER_LABELS, TRIGGER_MENU, newStep, newTrigger, type StepType, type TriggerType } from './defaults';
@@ -27,14 +27,12 @@
     addEdge,
     anchor,
     arrowHead,
-    bounds,
     copyNodes,
     curve,
     dropTarget,
     duplicateNodes,
     edgeCurve,
     freeSpot,
-    inBox,
     isIf,
     nextBranch,
     nodeById,
@@ -47,12 +45,44 @@
     removeEdges,
     removeNodes,
     snap,
-    tidy,
     unreachable,
     type Clip,
     type Point
   } from './graph';
   import FlowNode from './FlowNode.svelte';
+  import FlowFrame from './FlowFrame.svelte';
+  import FlowNote from './FlowNote.svelte';
+  import {
+    FRAME_MIN,
+    NOTE_MIN,
+    NOTE_SIZE,
+    addNote,
+    allBounds,
+    allIds,
+    frameById,
+    frameOf,
+    frameRect,
+    framesOf,
+    framesToUngroup,
+    groupItems,
+    hiddenIds,
+    itemsInBox,
+    lineEnds,
+    moveItems,
+    noteById,
+    noteRect,
+    notesOf,
+    nudgeItems,
+    patchFrame,
+    patchNote,
+    positions,
+    resizeTo,
+    tidyAll,
+    ungroup,
+    updateMembership,
+    withMembers
+  } from './canvas';
+  import type { Rect } from './graph';
   import { GROUP_ICONS, STEP_ICONS, TRIGGER_ICONS, stepTone } from './icons';
   import Inspector from './Inspector.svelte';
   import Minimap from './Minimap.svelte';
@@ -83,6 +113,14 @@
   let inspectorW = $state(440);
 
   const g = $derived(action.graph);
+  const notes = $derived(notesOf(g));
+  const frames = $derived(framesOf(g));
+  /** Nodes and notes inside collapsed frames. */
+  const hidden = $derived(hiddenIds(g));
+  /** The graph as drawn: nodes in collapsed frames can't be hit or joined. */
+  const shown = $derived({ ...g, nodes: g.nodes.filter((n) => !hidden.has(n.id)) });
+  let editingNote = $state<string | null>(null);
+  let renamingFrame = $state<string | null>(null);
   /** Measured node heights. */
   let sizes = $state<Record<string, number>>({});
 
@@ -149,7 +187,7 @@
 
   // Drop selections of nodes and lines that are gone (after undo, for example).
   $effect(() => {
-    const ids = new Set(g.nodes.map((n) => n.id));
+    const ids = new Set(allIds(g));
     if (flow.selected.some((id) => !ids.has(id))) flow.select(flow.selected.filter((id) => ids.has(id)));
     if (flow.edge && !g.edges.some((e) => e.id === flow.edge)) flow.selectEdge(null);
   });
@@ -159,9 +197,9 @@
   const rects = $derived(new Map(g.nodes.map((n) => [n.id, nodeRect(n, sizes)])));
   const lines = $derived(
     g.edges.flatMap((e) => {
-      const a = rects.get(e.from);
-      const b = rects.get(e.to);
-      if (!a || !b) return [];
+      const ends = lineEnds(g, sizes, e);
+      if (!ends) return [];
+      const { from: a, to: b } = ends;
       const c = edgeCurve(a, e.from_side, b, e.to_side);
       const ran = trace.edges.has(e.id);
       const fresh = ran && !replay && inProgress && trace.latest === e.id;
@@ -176,7 +214,8 @@
     | { kind: 'pan'; start: Point; from: View; moved: boolean; clear: boolean }
     | { kind: 'box'; start: Point; a: Point; b: Point; base: string[]; moved: boolean }
     | { kind: 'drag'; id: string; start: Point; from: Point; origin: Map<string, Point>; moved: boolean; toggle: boolean; additive: boolean }
-    | { kind: 'connect'; start: Point; from: string; side: EdgeSide; p: Point; target: { id: string; side: EdgeSide } | null; moved: boolean };
+    | { kind: 'connect'; start: Point; from: string; side: EdgeSide; p: Point; target: { id: string; side: EdgeSide } | null; moved: boolean }
+    | { kind: 'resize'; id: string; frame: boolean; start: Point; from: Point; orig: Rect; moved: boolean };
 
   let gesture = $state<Gesture | null>(null);
   let space = $state(false);
@@ -197,7 +236,8 @@
   function down(e: PointerEvent) {
     if (picker) return;
     const t = e.target as Element;
-    if (t.closest('[data-chip]')) return;
+    downOn = t;
+    if (t.closest('[data-chip], textarea, input, a')) return;
     const p = local(e);
     if (e.button === 1 || (e.button === 0 && space)) {
       gesture = { kind: 'pan', start: p, from: { ...view }, moved: false, clear: false };
@@ -215,15 +255,30 @@
       e.preventDefault();
       return;
     }
-    if (wrap) {
-      const id = wrap.dataset.nodeWrap!;
+    const resize = t.closest<HTMLElement>('[data-resize]');
+    if (resize) {
+      const id = resize.dataset.resize!;
+      const f = frameById(g, id);
+      const n = noteById(g, id);
+      const orig = f ? frameRect(f) : n ? noteRect(n) : null;
+      if (!orig) return;
+      flow.select([id], false);
+      gesture = { kind: 'resize', id, frame: !!f, start: p, from: toWorld(view, p), orig, moved: false };
+      viewport!.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      return;
+    }
+    const item = wrap?.dataset.nodeWrap ?? t.closest<HTMLElement>('[data-item]')?.dataset.item;
+    if (item) {
+      const id = item;
+      const isNode = !!wrap;
       const additive = e.shiftKey || e.ctrlKey || e.metaKey;
       let toggle = false;
       if (additive) {
         if (selected.has(id)) toggle = true;
         else flow.select([...flow.selected, id], false);
-      } else if (!selected.has(id)) flow.select([id]);
-      const origin = new Map(g.nodes.filter((n) => flow.selected.includes(n.id)).map((n) => [n.id, { x: n.x, y: n.y }]));
+      } else if (!selected.has(id)) flow.select([id], isNode ? flow.inspecting : false);
+      const origin = positions(g, withMembers(g, flow.selected));
       gesture = { kind: 'drag', id, start: p, from: toWorld(view, p), origin, moved: false, toggle, additive };
       viewport!.setPointerCapture(e.pointerId);
       return;
@@ -270,7 +325,7 @@
       if (!gs.moved && !far(gs.start, 3)) return;
       gs.moved = true;
       gs.b = p;
-      flow.select([...new Set([...gs.base, ...inBox(g, sizes, rectFrom(gs.a, w))])], false);
+      flow.select([...new Set([...gs.base, ...itemsInBox(g, sizes, rectFrom(gs.a, w))])], false);
     } else if (gs.kind === 'drag') {
       if (!gs.moved && !far(gs.start, 4)) return;
       gs.moved = true;
@@ -278,23 +333,24 @@
       const dx = w.x - gs.from.x;
       const dy = w.y - gs.from.y;
       const grid = flow.snap && !alt;
-      const to = new Map([...gs.origin].map(([id, o]) => [id, { x: grid ? snap(o.x + dx) : o.x + dx, y: grid ? snap(o.y + dy) : o.y + dy }]));
-      ed.updateGraph(
-        action.id,
-        (gr) => {
-          for (const n of gr.nodes) {
-            const q = to.get(n.id);
-            if (q) Object.assign(n, q);
-          }
-          return gr;
-        },
-        'drag',
-        Infinity
+      // With a frame in the drag, everything moves by the frame's snapped step, so its contents keep their places.
+      const lead = frames.find((f) => gs.origin.has(f.id));
+      const lo = lead ? gs.origin.get(lead.id)! : null;
+      const sx = lo && grid ? snap(lo.x + dx) - lo.x : dx;
+      const sy = lo && grid ? snap(lo.y + dy) - lo.y : dy;
+      const to = new Map(
+        [...gs.origin].map(([id, o]) => [id, lo || !grid ? { x: o.x + sx, y: o.y + sy } : { x: snap(o.x + dx), y: snap(o.y + dy) }])
       );
+      ed.updateGraph(action.id, (gr) => moveItems(gr, to), 'drag', Infinity);
+    } else if (gs.kind === 'resize') {
+      if (!gs.moved && !far(gs.start, 3)) return;
+      gs.moved = true;
+      const size = resizeTo(gs.orig, w.x - gs.from.x, w.y - gs.from.y, gs.frame ? FRAME_MIN : NOTE_MIN, flow.snap && !alt);
+      ed.updateGraph(action.id, (gr) => (gs.frame ? patchFrame(gr, gs.id, size) : patchNote(gr, gs.id, size)), 'resize', Infinity);
     } else {
       if (!gs.moved && far(gs.start, 4)) gs.moved = true;
       gs.p = w;
-      gs.target = dropTarget(g, sizes, w, 18 / view.zoom, gs.from);
+      gs.target = dropTarget(shown, sizes, w, 18 / view.zoom, gs.from);
     }
   }
 
@@ -330,14 +386,22 @@
     if (gs.kind === 'pan') {
       if (!gs.moved && gs.clear) flow.clear();
     } else if (gs.kind === 'drag') {
-      if (gs.moved) ed.seal(action.id);
-      else if (gs.toggle) flow.select(flow.selected.filter((x) => x !== gs.id), false);
-      else if (!gs.additive) flow.select([gs.id], true);
-      focusNode(gs.id);
+      const isNode = !!nodeById(g, gs.id);
+      if (gs.moved) {
+        dropped(gs.origin);
+        ed.seal(action.id);
+      } else if (gs.toggle) flow.select(flow.selected.filter((x) => x !== gs.id), false);
+      else if (!gs.additive) flow.select([gs.id], isNode);
+      if (isNode) focusNode(gs.id);
+    } else if (gs.kind === 'resize') {
+      if (gs.moved) {
+        if (gs.frame) refit(gs.id);
+        ed.seal(action.id);
+      }
     } else if (gs.kind === 'connect') {
       const p = world(e);
       if (gs.target) connect(gs.from, gs.side, gs.target.id, gs.target.side);
-      else if (!g.nodes.some((n) => rects.get(n.id) && contains(rects.get(n.id)!, p))) {
+      else if (!shown.nodes.some((n) => rects.get(n.id) && contains(rects.get(n.id)!, p))) {
         openPicker({ kind: 'step', at: p, link: { from: gs.from, side: gs.side }, anchor: new DOMRect(e.clientX, e.clientY, 0, 0) });
       }
     }
@@ -350,7 +414,29 @@
     const gs = gesture;
     gesture = null;
     if (id !== undefined && viewport?.hasPointerCapture(id)) viewport.releasePointerCapture(id);
-    if (gs?.kind === 'drag' && gs.moved) ed.seal(action.id);
+    if (gs?.kind === 'drag' && gs.moved) dropped(gs.origin);
+    if ((gs?.kind === 'drag' || gs?.kind === 'resize') && gs.moved) ed.seal(action.id);
+  }
+
+  /** Nodes and notes dropped over a frame join it; dragged out, they leave. What a moved frame holds stays. */
+  function dropped(moved: ReadonlyMap<string, Point>) {
+    const carried = new Set(frames.filter((f) => moved.has(f.id)).flatMap((f) => f.members));
+    const ids = [...moved.keys()].filter((id) => !carried.has(id) && !frameById(g, id));
+    if (ids.length) ed.updateGraph(action.id, (gr) => updateMembership(gr, ids, sizes), 'drag', Infinity);
+  }
+
+  /** After resizing a frame: what's now inside joins it, what's outside leaves. */
+  function refit(frameId: string) {
+    const f = frameById(g, frameId);
+    if (!f) return;
+    const r = frameRect(f);
+    const inside = (q: Rect) => contains(r, { x: q.x + q.w / 2, y: q.y + q.h / 2 });
+    const ids = [
+      ...f.members,
+      ...shown.nodes.filter((n) => inside(rects.get(n.id)!)).map((n) => n.id),
+      ...notes.filter((n) => !hidden.has(n.id) && inside(noteRect(n))).map((n) => n.id)
+    ];
+    ed.updateGraph(action.id, (gr) => updateMembership(gr, new Set(ids), sizes), 'resize', Infinity);
   }
 
   const contains = (r: { x: number; y: number; w: number; h: number }, p: Point) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
@@ -365,9 +451,27 @@
     if (made) flow.selectEdge(made);
   }
 
+  /** Where the last press started. Pointer capture sends the double-click to the canvas itself. */
+  let downOn: Element | null = null;
+
   function dblclick(e: MouseEvent) {
-    const t = e.target as Element;
-    if (t.closest('[data-node-wrap], [data-edge], [data-chip]')) return;
+    const t = (downOn?.isConnected ? downOn : e.target) as Element;
+    const noteEl = t.closest<HTMLElement>('[data-note]');
+    if (noteEl && !t.closest('[data-chip], textarea, [data-resize]')) {
+      editingNote = noteEl.dataset.note!;
+      return;
+    }
+    const bar = t.closest<HTMLElement>('[data-frame] [data-item]');
+    if (bar && !t.closest('[data-chip], input')) {
+      renamingFrame = bar.dataset.item!;
+      return;
+    }
+    if (t.closest('[data-node-wrap], [data-edge], [data-chip], [data-item], [data-note]')) return;
+    if (e.shiftKey) {
+      const p = world(e);
+      newNote({ x: p.x - NOTE_SIZE.w / 2, y: p.y - 24 });
+      return;
+    }
     openPicker({ kind: 'step', at: world(e), anchor: new DOMRect(e.clientX, e.clientY, 0, 0) });
   }
 
@@ -405,7 +509,7 @@
     // has no room beside the overview, so keep clear above it.
     const side = vw > 900 ? 230 : 56;
     const bottom = vw > 900 || vw <= 760 ? 84 : 190;
-    view = fitView(bounds(g.nodes, sizes), vw, vh, { top: 64, right: side, bottom, left: side }, 1);
+    view = fitView(allBounds(g, sizes), vw, vh, { top: 64, right: side, bottom, left: side }, 1);
   }
 
   onMount(() => {
@@ -466,9 +570,10 @@
   function removeSelected() {
     if (flow.selected.length) {
       const n = flow.selected.length;
+      const what = n > 1 ? `${n} items` : nodeById(g, flow.selected[0]!) ? 'Node' : noteById(g, flow.selected[0]!) ? 'Note' : 'Frame';
       ed.updateGraph(action.id, (gr) => removeNodes(gr, flow.selected));
       flow.clear();
-      toasts.show(`${n === 1 ? 'Node' : `${n} nodes`} deleted. Ctrl+Z brings ${n === 1 ? 'it' : 'them'} back.`);
+      toasts.show(`${what} deleted. Ctrl+Z brings ${n === 1 ? 'it' : 'them'} back.`);
     } else if (flow.edge) {
       const id = flow.edge;
       ed.updateGraph(action.id, (gr) => removeEdges(gr, [id]));
@@ -491,44 +596,87 @@
     if (!flow.selected.length) return;
     flow.clipboard = copyNodes($state.snapshot(g) as typeof g, flow.selected);
     if (cut) removeSelected();
-    else toasts.show(flow.selected.length === 1 ? 'Copied' : `Copied ${flow.selected.length} nodes`);
+    else toasts.show(flow.selected.length === 1 ? 'Copied' : `Copied ${flow.selected.length} items`);
   }
 
   function paste() {
     const clip = $state.snapshot(flow.clipboard) as Clip | null;
-    if (!clip?.nodes.length) return;
+    if (!clip || !(clip.nodes.length || clip.notes?.length || clip.frames?.length)) return;
     const at = pointer && contains(visibleRect(view, vw, vh), pointer) ? pointer : toWorld(view, { x: vw / 2 - NODE_W / 2, y: vh / 3 });
     let ids: string[] = [];
     ed.updateGraph(action.id, (gr) => {
       const r = pasteClip(gr, clip, flow.snap ? { x: snap(at.x), y: snap(at.y) } : at);
       ids = r.ids;
-      return r.graph;
+      const carried = new Set(framesOf(r.graph).filter((f) => ids.includes(f.id)).flatMap((f) => f.members));
+      return updateMembership(r.graph, ids.filter((id) => !carried.has(id)), sizes);
     });
     flow.select(ids, false);
   }
 
   function nudge(dx: number, dy: number) {
     if (!flow.selected.length) return;
-    ed.updateGraph(
-      action.id,
-      (gr) => {
-        for (const n of gr.nodes)
-          if (flow.selected.includes(n.id)) {
-            n.x += dx;
-            n.y += dy;
-          }
-        return gr;
-      },
-      'nudge'
-    );
+    ed.updateGraph(action.id, (gr) => nudgeItems(gr, flow.selected, dx, dy), 'nudge');
   }
 
   async function tidyUp() {
-    if (ed.updateGraph(action.id, (gr) => tidy(gr, sizes))) {
+    if (ed.updateGraph(action.id, (gr) => tidyAll(gr, sizes))) {
       await tick();
       requestAnimationFrame(() => fit());
     }
   }
+
+  // Notes and frames
+
+  function newNote(at: Point) {
+    let id = '';
+    const p = flow.snap ? { x: snap(at.x), y: snap(at.y) } : at;
+    ed.updateGraph(action.id, (gr) => {
+      const r = addNote(gr, p);
+      id = r.id;
+      return r.graph;
+    });
+    flow.select([id], false);
+    editingNote = id;
+  }
+
+  function noteFromBar() {
+    const c = toWorld(view, { x: vw / 2, y: vh / 2 });
+    newNote({ x: c.x - NOTE_SIZE.w / 2, y: c.y - NOTE_SIZE.h / 2 });
+  }
+
+  const canGroup = $derived(flow.selected.some((id) => nodeById(g, id) || noteById(g, id) || frameById(g, id)));
+
+  function group() {
+    let made: string | null = null;
+    ed.updateGraph(action.id, (gr) => {
+      const r = groupItems(gr, flow.selected, sizes);
+      made = r?.id ?? null;
+      return r?.graph ?? null;
+    });
+    if (made) {
+      flow.select([made], false);
+      toasts.show('Grouped. Double-click the title to rename it.');
+    }
+  }
+
+  function ungroupSelected() {
+    const ids = framesToUngroup(g, flow.selected);
+    if (!ids.length) return;
+    const keep = frames.filter((f) => ids.includes(f.id)).flatMap((f) => f.members);
+    ed.updateGraph(action.id, (gr) => ungroup(gr, ids));
+    flow.select(keep, false);
+  }
+
+  function setNote(id: string, patch: Parameters<typeof patchNote>[2], key: string | null = null) {
+    ed.updateGraph(action.id, (gr) => patchNote(gr, id, patch), key);
+  }
+
+  function setFrame(id: string, patch: Parameters<typeof patchFrame>[2], key: string | null = null) {
+    ed.updateGraph(action.id, (gr) => patchFrame(gr, id, patch), key);
+  }
+
+  const single = $derived(flow.selected.length === 1 ? flow.selected[0]! : null);
+  const nodesIn = (id: string) => frameById(g, id)?.members.filter((m) => nodeById(g, m)).length ?? 0;
 
   function setBranch(edgeId: string) {
     ed.updateGraph(action.id, (gr) => {
@@ -615,7 +763,9 @@
       else if (key === 'c' && flow.selected.length) copySelected(false);
       else if (key === 'x' && flow.selected.length) copySelected(true);
       else if (key === 'v' && flow.clipboard) paste();
-      else if (key === 'a') flow.select(g.nodes.map((n) => n.id), false);
+      else if (key === 'a') flow.select(allIds(g), false);
+      else if (key === 'g' && e.shiftKey) ungroupSelected();
+      else if (key === 'g') group();
       else return;
       e.preventDefault();
       return;
@@ -631,7 +781,11 @@
     }
     else if (key === 'f') fit();
     else if (key === ' ' && (!(e.target as Element)?.closest?.('button') || (e.target as Element).closest('[data-node]'))) space = true;
-    else if (key === 'Enter' && flow.selected.length === 1 && !(e.target as Element)?.closest?.('button')) flow.select(flow.selected, true);
+    else if (key === 'Enter' && single && !(e.target as Element)?.closest?.('button')) {
+      if (nodeById(g, single)) flow.select(flow.selected, true);
+      else if (noteById(g, single)) editingNote = single;
+      else renamingFrame = single;
+    }
     else return;
     e.preventDefault();
   }
@@ -696,9 +850,21 @@
   const marquee = $derived(gesture?.kind === 'box' && gesture.moved ? rectFrom(toScreen(view, gesture.a), gesture.b) : null);
   const dot = $derived(GRID * (view.zoom < 0.6 ? 2 : 1) * view.zoom);
   const visible = $derived(visibleRect(view, vw, vh));
-  const mapNodes = $derived(g.nodes.map((n) => ({ ...rects.get(n.id)!, id: n.id, trigger: n.kind.type === 'trigger', selected: selected.has(n.id) })));
+  const mapNodes = $derived(shown.nodes.map((n) => ({ ...rects.get(n.id)!, id: n.id, trigger: n.kind.type === 'trigger', selected: selected.has(n.id) })));
+  const mapNotes = $derived(notes.filter((n) => !hidden.has(n.id)).map((n) => ({ ...noteRect(n), id: n.id, color: n.color })));
+  const mapFrames = $derived(frames.map((f) => ({ ...frameRect(f), id: f.id, color: f.color })));
   const cursor = $derived(
-    gesture?.kind === 'pan' && gesture.moved ? 'grabbing' : gesture?.kind === 'connect' ? 'crosshair' : gesture?.kind === 'drag' && gesture.moved ? 'grabbing' : space ? 'grab' : 'default'
+    gesture?.kind === 'pan' && gesture.moved
+      ? 'grabbing'
+      : gesture?.kind === 'connect'
+        ? 'crosshair'
+        : gesture?.kind === 'resize'
+          ? 'nwse-resize'
+          : gesture?.kind === 'drag' && gesture.moved
+            ? 'grabbing'
+            : space
+              ? 'grab'
+              : 'default'
   );
   const stats = $derived(`${g.nodes.length} node${g.nodes.length === 1 ? '' : 's'} · ${g.edges.length} line${g.edges.length === 1 ? '' : 's'}`);
   const toScreenPt = (p: Point) => toScreen(view, p);
@@ -727,6 +893,19 @@
       }}
     >
       <div class="world" class:connecting={gesture?.kind === 'connect'} style="transform:translate({view.x}px, {view.y}px) scale({view.zoom})">
+        {#each frames as f (f.id)}
+          <FlowFrame
+            frame={f}
+            selected={selected.has(f.id)}
+            count={f.collapsed ? nodesIn(f.id) : 0}
+            renaming={renamingFrame === f.id}
+            tools={single === f.id}
+            onrename={(on) => (renamingFrame = on ? f.id : null)}
+            onlabel={(label) => setFrame(f.id, { label }, `f.${f.id}.label`)}
+            oncolor={(color) => setFrame(f.id, { color })}
+            ontoggle={() => setFrame(f.id, { collapsed: !f.collapsed })}
+          />
+        {/each}
         <svg class="edges" width="1" height="1" aria-hidden="true">
           {#each lines as l (l.e.id)}
             <g class="edge b-{l.e.branch}" class:if={l.fromIf} class:selected={flow.edge === l.e.id} class:ran={l.ran} class:fresh={l.fresh} data-edge={l.e.id} data-from={l.e.from} data-to={l.e.to} data-to-side={l.e.to_side} data-branch={l.e.branch}>
@@ -755,7 +934,21 @@
           {/if}
         {/each}
 
-        {#each g.nodes as n (n.id)}
+        {#each notes as note (note.id)}
+          {#if !hidden.has(note.id)}
+            <FlowNote
+              {note}
+              selected={selected.has(note.id)}
+              editing={editingNote === note.id}
+              tools={single === note.id}
+              onedit={(on) => (editingNote = on ? note.id : null)}
+              ontext={(text) => setNote(note.id, { text }, `nt.${note.id}`)}
+              oncolor={(color) => setNote(note.id, { color })}
+            />
+          {/if}
+        {/each}
+
+        {#each shown.nodes as n (n.id)}
           {@const p = nodeProps(n)}
           <div
             class="gn"
@@ -792,7 +985,7 @@
         <div class="marquee" style="left:{marquee.x}px;top:{marquee.y}px;width:{marquee.w}px;height:{marquee.h}px"></div>
       {/if}
 
-      {#if !g.nodes.length}
+      {#if !g.nodes.length && !notes.length && !frames.length}
         <div class="empty">
           <span class="empty-ic"><Zap size={18} /></span>
           <p class="empty-title">Start with a trigger</p>
@@ -844,6 +1037,9 @@
       <button type="button" class="tool" aria-label="Tidy up" title="Arrange the nodes neatly (one undo step)" disabled={!g.nodes.length} onclick={tidyUp}
         ><Sparkles size={14} /><span>Tidy up</span></button
       >
+      <button type="button" class="tool" aria-label="Group in a frame" title="Put the selected nodes in a frame (Ctrl+G)" disabled={!canGroup} onclick={group}
+        ><Group size={14} /><span>Group</span></button
+      >
       <span class="sep" aria-hidden="true"></span>
       <IconButton size="sm" label="Zoom out" onclick={() => zoomBy(1 / 1.2)}><Minus /></IconButton>
       <button type="button" class="pct mono" title="Reset zoom to 100%" onclick={() => (view = zoomAt(view, 1, { x: vw / 2, y: vh / 2 }))}
@@ -857,6 +1053,9 @@
       <button type="button" class="chip trig" title="Add trigger" aria-label="Add trigger" onclick={(e) => fromBar(e, 'trigger')}
         ><Zap size={14} /><span>Trigger</span></button
       >
+      <button type="button" class="chip note" title="Add a sticky note (or Shift + double-click the canvas)" aria-label="Add note" onclick={noteFromBar}
+        ><StickyNote size={14} /><span>Note</span></button
+      >
       <span class="psep" aria-hidden="true"></span>
       {#each STEP_GROUPS as g (g.label)}
         {@const Icon = GROUP_ICONS[g.label]}
@@ -867,18 +1066,18 @@
     </div>
 
     <div class="hint faint" aria-hidden="true">
-      <span>Drag to pan</span><span><kbd>Shift</kbd> + drag to select</span><span><kbd>Ctrl</kbd> + scroll to zoom</span><span>Double-click to add a step</span>
+      <span>Drag to pan</span><span><kbd>Shift</kbd> + drag to select</span><span><kbd>Ctrl</kbd> + scroll to zoom</span><span>Double-click to add a step</span><span><kbd>Shift</kbd> + double-click for a note</span>
     </div>
 
-    {#if g.nodes.length}
+    {#if g.nodes.length || notes.length || frames.length}
       <div class="map" aria-label="Overview">
-        <Minimap nodes={mapNodes} {visible} onjump={(p) => (view = centerOn(view, p, vw, vh))} />
+        <Minimap nodes={mapNodes} notes={mapNotes} frames={mapFrames} {visible} onjump={(p) => (view = centerOn(view, p, vw, vh))} />
         <span class="stats faint">{stats}</span>
       </div>
     {/if}
   </div>
 
-  {#if flow.inspected}
+  {#if flow.inspected && nodeById(g, flow.inspected)}
     {@const id = flow.inspected}
     <ResizeHandle bind:size={inspectorW} id="automation.inspector" min={340} max={760} initial={440} panel="after" label="Resize inspector" />
     <div class="inspector" style="width:{inspectorW}px">
@@ -1349,6 +1548,9 @@
   }
   .chip.trig {
     color: var(--accent-text);
+  }
+  .chip.note :global(svg) {
+    color: #e2b93b;
   }
   .chip.trig:hover {
     background: color-mix(in srgb, var(--accent) 16%, transparent);

@@ -220,7 +220,10 @@ fn twitch_check(i: &CheckInput) -> Check {
             .map(String::as_str)
             .collect()
     };
-    if !missing.is_empty() {
+    let interact_only = missing
+        .iter()
+        .all(|s| crate::twitch::auth::INTERACT_SCOPES.contains(s));
+    if !missing.is_empty() && !interact_only {
         return check(
             "twitch",
             "Twitch",
@@ -229,6 +232,16 @@ fn twitch_check(i: &CheckInput) -> Check {
                 "Missing permissions: {}. Sign out and in again.",
                 missing.join(", ")
             ),
+        )
+        .fix(open("settings:twitch"));
+    }
+    if !missing.is_empty() {
+        return check(
+            "twitch",
+            "Twitch",
+            CheckStatus::Warn,
+            "Signed in before channel points, polls and predictions were added. \
+             Sign out and in again to use them.",
         )
         .fix(open("settings:twitch"));
     }
@@ -620,6 +633,12 @@ mod tests {
         let t = evaluate(&i);
         assert_eq!(find(&t, "twitch").status, CheckStatus::Fail);
         assert!(find(&t, "twitch").detail.contains("clips:edit"));
+
+        let mut i = good();
+        i.required_scopes.push("channel:manage:polls".into());
+        let t = find(&evaluate(&i), "twitch").clone();
+        assert_eq!(t.status, CheckStatus::Warn, "older sign-ins keep working");
+        assert!(t.detail.contains("Sign out and in again"));
 
         let mut i = good();
         i.twitch.eventsub = ConnState::Error;

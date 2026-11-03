@@ -1,6 +1,7 @@
 //! Turns EventSub notifications into app events. Every function here is pure.
 
 use crate::model::event::{Event, EventKind, EventUser, MessagePart, UserRoles};
+use crate::model::interact::RedemptionUpdate;
 use serde_json::{Value, json};
 
 /// What a notification means for the app.
@@ -10,6 +11,8 @@ pub enum Normalized {
     DeleteChat(String),
     ClearUser(String),
     ClearChat,
+    /// A redemption was completed or refunded.
+    RedemptionUpdate(RedemptionUpdate),
     /// The broadcaster raided another channel.
     RaidOut {
         login: String,
@@ -56,6 +59,17 @@ pub fn normalize(sub_type: &str, meta: Meta, ev: &Value) -> Normalized {
         }
         "channel.raid" => raid(meta, ev),
         "channel.channel_points_custom_reward_redemption.add" => redemption(meta, ev),
+        "channel.channel_points_custom_reward_redemption.update" => {
+            let r = super::points::redemption_from(ev);
+            if r.id.is_empty() {
+                return Normalized::Ignore;
+            }
+            return Normalized::RedemptionUpdate(RedemptionUpdate {
+                id: r.id,
+                reward_id: r.reward_id,
+                status: r.status,
+            });
+        }
         "channel.bits.use" => bits_use(meta, ev),
         "channel.hype_train.begin" => hype_train(meta, ev, EventKind::HypeTrainBegin),
         "channel.hype_train.progress" => hype_train(meta, ev, EventKind::HypeTrainProgress),
@@ -198,6 +212,13 @@ pub fn poll(meta: Meta, ev: &Value, kind: EventKind) -> Option<Event> {
         s if s.is_empty() => "active".to_string(),
         s => s,
     };
+    let voting = ev.get("channel_points_voting").unwrap_or(&Value::Null);
+    let per_vote = if bool_of(voting, "is_enabled") {
+        num_of(voting, "amount_per_vote") as u64
+    } else {
+        0
+    };
+    e.data.insert("points_per_vote".into(), json!(per_vote));
     e.data.insert("poll_id".into(), str_of(ev, "id").into());
     e.data.insert("title".into(), str_of(ev, "title").into());
     e.data.insert("choices".into(), choices.into());
@@ -438,7 +459,7 @@ fn from_other_channel(meta: Meta, ev: &Value) -> bool {
 }
 
 /// Reads `{prefix}_id`, `{prefix}_login` and `{prefix}_name`.
-fn user(v: &Value, prefix: &str) -> Option<EventUser> {
+pub(crate) fn user(v: &Value, prefix: &str) -> Option<EventUser> {
     let id = str_of(v, &format!("{prefix}_id"));
     let login = str_of(v, &format!("{prefix}_login"));
     let name = str_of(v, &format!("{prefix}_name"));

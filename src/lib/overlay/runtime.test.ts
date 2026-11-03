@@ -142,6 +142,22 @@ describe('OverlayRuntime', () => {
     expect(seen).toEqual(['hello', 'play_sound', 'hello', 'play_sound', 'chat_clear']);
   });
 
+  it('stays quiet when the scene hides the alerts layer', () => {
+    const playSound = vi.fn();
+    const rt = make({ playSound });
+    const scenes = { mode: 'only', scenes: ['Gameplay'], transition: 'fade', duration_ms: 300 };
+    rt.dispatch({
+      ...hello,
+      vars: { 'obs.scene': 'BRB' },
+      overlay: { ...hello.overlay, layers: [{ id: 'a', name: 'Alerts', visible: true, scenes, kind: { type: 'alerts' } }] }
+    } as never);
+    rt.dispatch({ type: 'play_sound', src: 'assets/ding.mp3', volume: 40 });
+    expect(playSound).not.toHaveBeenCalled();
+    rt.dispatch({ type: 'vars', changes: { 'obs.scene': 'Gameplay' } });
+    rt.dispatch({ type: 'play_sound', src: 'assets/ding.mp3', volume: 40 });
+    expect(playSound).toHaveBeenCalledOnce();
+  });
+
   it('pings while connected', () => {
     const rt = make();
     rt.start();

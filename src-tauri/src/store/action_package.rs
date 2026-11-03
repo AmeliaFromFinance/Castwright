@@ -777,6 +777,53 @@ mod tests {
     }
 
     #[test]
+    fn notes_and_frames_travel_with_the_action() {
+        use crate::model::automation::{CanvasColor, GraphFrame, GraphNote};
+        let (mut p, saved) = source();
+        let hype = &mut p.actions[0];
+        let members: Vec<String> = hype
+            .graph
+            .nodes
+            .iter()
+            .take(2)
+            .map(|n| n.id.clone())
+            .collect();
+        hype.graph.notes.push(GraphNote {
+            id: "note".into(),
+            text: "**Counts** hype".into(),
+            color: CanvasColor::Pink,
+            ..GraphNote::default()
+        });
+        hype.graph.frames.push(GraphFrame {
+            id: "frame".into(),
+            label: "Start".into(),
+            collapsed: true,
+            members: [members.clone(), vec!["note".into()]].concat(),
+            ..GraphFrame::default()
+        });
+        let pkg = export(&p, &saved, &["Hype"]);
+        let g = &pkg.actions[0].graph;
+        assert_eq!(g.notes.len(), 1);
+        assert_eq!(g.notes[0].color, CanvasColor::Pink);
+        assert_eq!(g.frames[0].members.len(), 3);
+
+        let mut target = Project::default();
+        apply(&mut target, &pkg, &ImportChoices::default(), &[]);
+        let g = &target.actions[0].graph;
+        assert_eq!(g.notes[0].text, "**Counts** hype");
+        assert!(g.frames[0].collapsed);
+        assert_eq!(g.frames[0].label, "Start");
+        let ids: Vec<&str> = g.nodes.iter().map(|n| n.id.as_str()).collect();
+        assert!(
+            g.frames[0]
+                .members
+                .iter()
+                .take(2)
+                .all(|m| ids.contains(&m.as_str()))
+        );
+    }
+
+    #[test]
     fn secrets_never_leave() {
         let (p, saved) = source();
         let pkg = export(&p, &saved, &["Hype"]);

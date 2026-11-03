@@ -212,6 +212,7 @@
         paused={!store.animate}
         muted={!store.sound}
         showHidden={store.showHidden}
+        scene={store.previewScene}
         feed={store.feed}
         onWidgetStore={(layerId, key, value) => {
           const cur = { ...(store.widgetState[layerId] ?? {}) };

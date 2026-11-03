@@ -397,6 +397,18 @@ pub enum ListDirection {
     Ticker,
 }
 
+/// What a poll layer shows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum PollSource {
+    /// Whichever is running; the newest wins.
+    #[default]
+    Both,
+    Poll,
+    Prediction,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[ts(export)]
@@ -528,6 +540,33 @@ pub enum LayerKind {
         #[serde(default)]
         item_card: ItemCard,
     },
+    /// The running poll or prediction, with a bar per choice.
+    Poll {
+        #[serde(default)]
+        show: PollSource,
+        /// Seconds the result stays on screen after it ends.
+        #[serde(default = "default_result_s")]
+        result_s: u32,
+        #[serde(default = "yes")]
+        show_title: bool,
+        /// Time left while it runs.
+        #[serde(default = "yes")]
+        show_timer: bool,
+        /// Votes or points per choice and in total.
+        #[serde(default = "yes")]
+        show_totals: bool,
+        #[serde(default)]
+        bar_color: String,
+        #[serde(default)]
+        track_color: String,
+        #[serde(default)]
+        style: TextStyle,
+        /// The card around each choice.
+        #[serde(default)]
+        item_box: BoxStyle,
+        #[serde(default)]
+        item_card: ItemCard,
+    },
     /// HTML/CSS/JS widget with a StreamElements-compatible API.
     Custom {
         #[serde(default)]
@@ -559,6 +598,9 @@ fn default_goal_target() -> f64 {
 fn default_list_max() -> u32 {
     5
 }
+fn default_result_s() -> u32 {
+    8
+}
 
 impl LayerKind {
     pub fn type_name(&self) -> &'static str {
@@ -573,7 +615,69 @@ impl LayerKind {
             LayerKind::Counter { .. } => "counter",
             LayerKind::Timer { .. } => "timer",
             LayerKind::EventList { .. } => "event_list",
+            LayerKind::Poll { .. } => "poll",
             LayerKind::Custom { .. } => "custom",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum SceneMode {
+    #[default]
+    All,
+    Only,
+    Hide,
+}
+
+/// Used for scene changes when the layer has no enter or exit animation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum SceneTransition {
+    None,
+    #[default]
+    Fade,
+    Slide,
+    Scale,
+}
+
+/// Which OBS scenes (program output) show the layer.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default)]
+#[ts(export)]
+pub struct SceneRule {
+    pub mode: SceneMode,
+    /// Scene names, matched exactly.
+    pub scenes: Vec<String>,
+    pub transition: SceneTransition,
+    pub duration_ms: u32,
+}
+
+impl Default for SceneRule {
+    fn default() -> Self {
+        SceneRule {
+            mode: SceneMode::All,
+            scenes: Vec::new(),
+            transition: SceneTransition::Fade,
+            duration_ms: 300,
+        }
+    }
+}
+
+impl SceneRule {
+    /// Whether the rule lets the layer show in `scene`. An unknown scene (OBS not
+    /// connected) shows it.
+    pub fn allows(&self, scene: &str) -> bool {
+        if scene.is_empty() {
+            return true;
+        }
+        let listed = self.scenes.iter().any(|s| s == scene);
+        match self.mode {
+            SceneMode::All => true,
+            SceneMode::Only => listed,
+            SceneMode::Hide => !listed,
         }
     }
 }
@@ -596,6 +700,8 @@ pub struct Layer {
     pub locked: bool,
     /// Shown only while these conditions match the current variables.
     pub visible_when: ConditionGroup,
+    /// Shown only in some OBS scenes. Applies on top of `visible` and `visible_when`.
+    pub scenes: SceneRule,
     pub box_style: BoxStyle,
     pub enter: Animation,
     pub exit: Animation,
@@ -622,6 +728,7 @@ impl Default for Layer {
             visible: true,
             locked: false,
             visible_when: ConditionGroup::default(),
+            scenes: SceneRule::default(),
             box_style: BoxStyle::default(),
             enter: Animation::default(),
             exit: Animation::default(),
@@ -808,6 +915,45 @@ mod tests {
         }
         assert!(o.layers[0].visible);
         assert_eq!(o.layers[0].opacity, 1.0);
+        assert_eq!(o.layers[0].scenes, SceneRule::default());
+    }
+
+    #[test]
+    fn scene_rules() {
+        let only = SceneRule {
+            mode: SceneMode::Only,
+            scenes: vec!["Gameplay".into()],
+            ..SceneRule::default()
+        };
+        assert!(only.allows("Gameplay"));
+        assert!(!only.allows("BRB"));
+        assert!(!only.allows("gameplay"), "names match exactly");
+        assert!(only.allows(""), "no OBS: shown");
+        let hide = SceneRule {
+            mode: SceneMode::Hide,
+            ..only.clone()
+        };
+        assert!(!hide.allows("Gameplay"));
+        assert!(hide.allows("BRB"));
+        assert!(SceneRule::default().allows("Anything"));
+        // An empty "only" list hides the layer in every known scene.
+        let none = SceneRule {
+            mode: SceneMode::Only,
+            ..SceneRule::default()
+        };
+        assert!(!none.allows("BRB"));
+    }
+
+    #[test]
+    fn scene_rule_round_trips_and_partial_rules_load() {
+        let json = r#"{"id":"l","scenes":{"mode":"hide","scenes":["BRB"]}}"#;
+        let l: Layer = serde_json::from_str(json).unwrap();
+        assert_eq!(l.scenes.mode, SceneMode::Hide);
+        assert_eq!(l.scenes.scenes, vec!["BRB".to_string()]);
+        assert_eq!(l.scenes.transition, SceneTransition::Fade);
+        assert_eq!(l.scenes.duration_ms, 300);
+        let back: Layer = serde_json::from_str(&serde_json::to_string(&l).unwrap()).unwrap();
+        assert_eq!(back, l);
     }
 
     fn same_json(a: &serde_json::Value, b: &serde_json::Value) -> bool {
@@ -946,6 +1092,7 @@ mod tests {
         .unwrap();
         let o = &p.overlays[0];
         for l in &o.layers {
+            assert_eq!(l.scenes, SceneRule::default());
             assert_eq!(l.box_style.shape, BoxShape::Rounded);
             assert_eq!(l.box_style.shadow_kind, ShadowKind::Custom);
             match &l.kind {
@@ -966,6 +1113,11 @@ mod tests {
                 _ => {}
             }
         }
+        assert!(
+            p.actions
+                .iter()
+                .all(|a| a.graph.notes.is_empty() && a.graph.frames.is_empty())
+        );
         assert!(
             p.alerts
                 .types

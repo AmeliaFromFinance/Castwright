@@ -5,7 +5,9 @@ import type { EdgeBranch } from '$lib/bindings/EdgeBranch';
 import type { EdgeSide } from '$lib/bindings/EdgeSide';
 import type { Graph } from '$lib/bindings/Graph';
 import type { GraphEdge } from '$lib/bindings/GraphEdge';
+import type { GraphFrame } from '$lib/bindings/GraphFrame';
 import type { GraphNode } from '$lib/bindings/GraphNode';
+import type { GraphNote } from '$lib/bindings/GraphNote';
 import type { NodeResult } from '$lib/bindings/NodeResult';
 import type { RunStep } from '$lib/bindings/RunStep';
 import type { Step } from '$lib/bindings/Step';
@@ -390,9 +392,15 @@ export function addEdge(g: Graph, e: NewEdge): { graph: Graph; edge: GraphEdge }
   return { graph: { ...g, edges: [...g.edges, edge] }, edge };
 }
 
+/** Remove nodes, notes and frames, and the lines to removed nodes. Frames lose removed members. */
 export function removeNodes(g: Graph, ids: Iterable<string>): Graph {
   const gone = new Set(ids);
-  return { nodes: g.nodes.filter((n) => !gone.has(n.id)), edges: g.edges.filter((e) => !gone.has(e.from) && !gone.has(e.to)) };
+  return {
+    nodes: g.nodes.filter((n) => !gone.has(n.id)),
+    edges: g.edges.filter((e) => !gone.has(e.from) && !gone.has(e.to)),
+    notes: (g.notes ?? []).filter((n) => !gone.has(n.id)),
+    frames: (g.frames ?? []).filter((f) => !gone.has(f.id)).map((f) => ({ ...f, members: f.members.filter((m) => !gone.has(m)) }))
+  };
 }
 
 export function removeEdges(g: Graph, ids: Iterable<string>): Graph {
@@ -407,36 +415,61 @@ export function moveNodes(g: Graph, to: ReadonlyMap<string, Point>): Graph {
 export interface Clip {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  notes?: GraphNote[];
+  frames?: GraphFrame[];
 }
 
-/** The nodes and the lines between them. */
+/** The items and the lines between their nodes. A frame brings everything inside it. */
 export function copyNodes(g: Graph, ids: Iterable<string>): Clip {
   const set = new Set(ids);
+  const frames = (g.frames ?? []).filter((f) => set.has(f.id));
+  for (const f of frames) for (const m of f.members) set.add(m);
   return {
     nodes: structuredClone(g.nodes.filter((n) => set.has(n.id))),
-    edges: structuredClone(g.edges.filter((e) => set.has(e.from) && set.has(e.to)))
+    edges: structuredClone(g.edges.filter((e) => set.has(e.from) && set.has(e.to))),
+    notes: structuredClone((g.notes ?? []).filter((n) => set.has(n.id))),
+    frames: structuredClone(frames.map((f) => ({ ...f, members: f.members.filter((m) => set.has(m)) })))
   };
 }
 
-/** Add a copy of `clip` with new ids, its top-left corner at `at`. Returns the new node ids. */
+const clipItems = (clip: Clip): Point[] => [...clip.nodes, ...(clip.notes ?? []), ...(clip.frames ?? [])];
+
+/** Add a copy of `clip` with new ids, its top-left corner at `at`. Returns the new ids. */
 export function pasteClip(g: Graph, clip: Clip, at: Point): { graph: Graph; ids: string[] } {
-  if (!clip.nodes.length) return { graph: g, ids: [] };
-  const x0 = Math.min(...clip.nodes.map((n) => n.x));
-  const y0 = Math.min(...clip.nodes.map((n) => n.y));
-  const ids = new Map(clip.nodes.map((n) => [n.id, newId()]));
-  const nodes = clip.nodes.map((n) => ({ ...structuredClone(n), id: ids.get(n.id)!, x: n.x - x0 + at.x, y: n.y - y0 + at.y }));
+  const items = clipItems(clip);
+  if (!items.length) return { graph: g, ids: [] };
+  const x0 = Math.min(...items.map((n) => n.x));
+  const y0 = Math.min(...items.map((n) => n.y));
+  const ids = new Map<string, string>();
+  const place = <T extends { id: string; x: number; y: number }>(n: T): T => {
+    const id = newId();
+    ids.set(n.id, id);
+    return { ...structuredClone(n), id, x: n.x - x0 + at.x, y: n.y - y0 + at.y };
+  };
+  const nodes = clip.nodes.map(place);
+  const notes = (clip.notes ?? []).map(place);
+  const frames = (clip.frames ?? []).map(place).map((f) => ({ ...f, members: f.members.flatMap((m) => (ids.has(m) ? [ids.get(m)!] : [])) }));
   const edges = clip.edges
     .filter((e) => ids.has(e.from) && ids.has(e.to))
     .map((e) => ({ ...e, id: newId(), from: ids.get(e.from)!, to: ids.get(e.to)! }));
-  return { graph: { nodes: [...g.nodes, ...nodes], edges: [...g.edges, ...edges] }, ids: nodes.map((n) => n.id) };
+  return {
+    graph: {
+      nodes: [...g.nodes, ...nodes],
+      edges: [...g.edges, ...edges],
+      notes: [...(g.notes ?? []), ...notes],
+      frames: [...(g.frames ?? []), ...frames]
+    },
+    ids: [...nodes, ...notes, ...frames].map((n) => n.id)
+  };
 }
 
-/** Copy nodes in place, shifted by `offset`, keeping the lines between them. */
+/** Copy items in place, shifted by `offset`, keeping the lines between them. */
 export function duplicateNodes(g: Graph, ids: Iterable<string>, offset: Point = { x: GRID * 2, y: GRID * 2 }): { graph: Graph; ids: string[] } {
   const clip = copyNodes(g, ids);
-  if (!clip.nodes.length) return { graph: g, ids: [] };
-  const x0 = Math.min(...clip.nodes.map((n) => n.x));
-  const y0 = Math.min(...clip.nodes.map((n) => n.y));
+  const items = clipItems(clip);
+  if (!items.length) return { graph: g, ids: [] };
+  const x0 = Math.min(...items.map((n) => n.x));
+  const y0 = Math.min(...items.map((n) => n.y));
   return pasteClip(g, clip, { x: x0 + offset.x, y: y0 + offset.y });
 }
 
@@ -465,7 +498,7 @@ export function fromTree(triggers: readonly Trigger[], steps: readonly Step[]): 
     return preds;
   };
   list(steps, open);
-  return tidy({ nodes, edges }, {});
+  return tidy({ nodes, edges, notes: [], frames: [] }, {});
 }
 
 // Tidy up
@@ -478,8 +511,9 @@ const GAP_Y = 72;
  * branches of an If side by side (Then left). Lines are redrawn top to bottom, loops
  * back on the right. The drawing keeps its top-left corner.
  */
-export function tidy(g: Graph, sizes: Sizes): Graph {
+export function tidy(g: Graph, sizes: Sizes, widths: Sizes = {}): Graph {
   if (!g.nodes.length) return g;
+  const wOf = (id: string) => widths[id] ?? NODE_W;
   const byId = new Map(g.nodes.map((n) => [n.id, n]));
   const rank: Record<EdgeBranch, number> = { then: 0, next: 1, otherwise: 2 };
   const out = new Map<string, GraphEdge[]>();
@@ -546,6 +580,7 @@ export function tidy(g: Graph, sizes: Sizes): Graph {
 
   // x: under the parents, then spread so nothing overlaps.
   const span = NODE_W + GAP_X;
+  const apart = (a: string, b: string) => (wOf(a) + wOf(b)) / 2 + GAP_X;
   const cx = new Map<string, number>();
   for (const ids of layers) {
     if (!ids) continue;
@@ -556,9 +591,9 @@ export function tidy(g: Graph, sizes: Sizes): Graph {
       return ps.reduce((s, p) => s + cx.get(p.from)! + shift(p.branch), 0) / ps.length;
     });
     const a = [...want];
-    for (let j = 1; j < a.length; j++) a[j] = Math.max(a[j]!, a[j - 1]! + span);
+    for (let j = 1; j < a.length; j++) a[j] = Math.max(a[j]!, a[j - 1]! + apart(ids[j - 1]!, ids[j]!));
     const b = [...want];
-    for (let j = b.length - 2; j >= 0; j--) b[j] = Math.min(b[j]!, b[j + 1]! - span);
+    for (let j = b.length - 2; j >= 0; j--) b[j] = Math.min(b[j]!, b[j + 1]! - apart(ids[j]!, ids[j + 1]!));
     ids.forEach((id, j) => cx.set(id, (a[j]! + b[j]!) / 2));
   }
 
@@ -570,12 +605,17 @@ export function tidy(g: Graph, sizes: Sizes): Graph {
     y += Math.max(DEFAULT_H, ...(ids ?? []).map((id) => sizes[id] ?? DEFAULT_H)) + GAP_Y;
   }
 
-  const old = bounds(g.nodes, sizes)!;
-  const placed = g.nodes.map((n) => ({ ...n, x: cx.get(n.id)! - NODE_W / 2, y: ys[layer.get(n.id)!]! }));
-  const now = bounds(placed, sizes)!;
+  const box = (list: readonly GraphNode[]) => ({
+    x: Math.min(...list.map((n) => n.x)),
+    y: Math.min(...list.map((n) => n.y))
+  });
+  const old = box(g.nodes);
+  const placed = g.nodes.map((n) => ({ ...n, x: cx.get(n.id)! - wOf(n.id) / 2, y: ys[layer.get(n.id)!]! }));
+  const now = box(placed);
   const dx = snap(old.x - now.x);
   const dy = snap(old.y - now.y);
   return {
+    ...g,
     nodes: placed.map((n) => ({ ...n, x: n.x + dx, y: n.y + dy })),
     edges: g.edges.map((e) =>
       back.has(e.id) ? { ...e, from_side: 'right', to_side: 'right' } : { ...e, from_side: 'bottom', to_side: 'top' }

@@ -13,14 +13,16 @@
   const loadOverlays = () => import('$lib/pages/overlays/Overlays.svelte');
   const loadAlerts = () => import('$lib/pages/alerts/Alerts.svelte');
   const loadAutomation = () => import('$lib/pages/automation/Automation.svelte');
+  const loadInteract = () => import('$lib/pages/interact/Interact.svelte');
   import Activity from '$lib/pages/activity/Activity.svelte';
   import SettingsPage from '$lib/pages/settings/Settings.svelte';
   import FirstRun from '$lib/pages/firstrun/FirstRun.svelte';
-  import { Layers, BellRing, Zap, History, Settings, Search } from '@lucide/svelte';
+  import { Layers, BellRing, Zap, History, Settings, Search, Vote } from '@lucide/svelte';
   import CommandPalette from '$lib/shell/CommandPalette.svelte';
   import ShortcutsDialog from '$lib/shell/ShortcutsDialog.svelte';
   import GoLiveDialog from '$lib/shell/GoLiveDialog.svelte';
   import SummaryDialog from '$lib/sessions/SummaryDialog.svelte';
+  import WhatsNewDialog from '$lib/whatsnew/WhatsNewDialog.svelte';
   import { golive } from '$lib/state/golive.svelte';
   import { loadPref, savePref } from '$lib/state/persist';
 
@@ -28,7 +30,8 @@
     { id: 'overlays', label: 'Overlays', icon: Layers },
     { id: 'alerts', label: 'Alerts', icon: BellRing },
     { id: 'automation', label: 'Automation', icon: Zap },
-    { id: 'activity', label: 'Activity', icon: History }
+    { id: 'activity', label: 'Activity', icon: History },
+    { id: 'interact', label: 'Interact', icon: Vote }
   ];
 
   const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent);
@@ -38,7 +41,7 @@
 
   // Reopen on the page used last time.
   const lastPage = loadPref<Page>('page', 'overlays');
-  if (['overlays', 'alerts', 'automation', 'activity', 'settings'].includes(lastPage)) app.page = lastPage;
+  if (['overlays', 'alerts', 'automation', 'activity', 'interact', 'settings'].includes(lastPage)) app.page = lastPage;
   $effect(() => savePref('page', app.page));
 
   $effect(() => {
@@ -194,6 +197,7 @@
       {:else if app.page === 'alerts'}{#await loadAlerts() then m}<m.default />{:catch}{@render loadFailed()}{/await}
       {:else if app.page === 'automation'}{#await loadAutomation() then m}<m.default />{:catch}{@render loadFailed()}{/await}
       {:else if app.page === 'activity'}<Activity />
+      {:else if app.page === 'interact'}{#await loadInteract() then m}<m.default />{:catch}{@render loadFailed()}{/await}
       {:else}<SettingsPage />{/if}
     </main>
     <StatusBar />
@@ -205,6 +209,7 @@
   <ShortcutsDialog bind:open={shortcutsOpen} />
   <GoLiveDialog />
   <SummaryDialog />
+  <WhatsNewDialog />
 {/if}
 
 <style>

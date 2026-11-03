@@ -34,6 +34,8 @@ export class EditorStore {
   fit = $state(true);
   snapping = $state(true);
   showHidden = $state(true);
+  /** Show the canvas as in this OBS scene; '' ignores scene rules. */
+  previewScene = $state('');
   safeArea = $state(false);
   animate = $state(false);
   sound = $state(false);

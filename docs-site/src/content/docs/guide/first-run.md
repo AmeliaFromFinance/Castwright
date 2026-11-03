@@ -17,6 +17,8 @@ Choose **Match system**, **Dark**, **Light** or **High contrast**. You can make 
 2. Type the code Castwright shows, or click **Copy** and paste it.
 3. Approve the permissions. Castwright notices on its own, then click **Next**.
 
+The permissions cover events, chat, stream info, channel points, polls and predictions. The full list is in [Settings → Permissions](/guide/settings/#permissions).
+
 The code is valid for 30 minutes. Castwright never sees your Twitch password.
 
 :::note

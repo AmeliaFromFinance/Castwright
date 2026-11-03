@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { whatsNew } from '$lib/whatsnew/whatsnew.svelte';
   import { onMount } from 'svelte';
   import { app } from '$lib/state/app.svelte';
   import { api } from '$lib/api';
@@ -354,6 +355,7 @@
           {/if}
           <div class="row gap">
             <Button size="sm" busy={checking} onclick={checkUpdates}>Check for updates</Button>
+            <Button size="sm" onclick={() => whatsNew.show(app.info?.version ?? '')}>What's new</Button>
             <Button size="sm" variant="ghost" onclick={() => openExternal(SITE)}>Guide <ExternalLink size={12} /></Button>
             <Button size="sm" variant="ghost" onclick={() => openExternal(REPO)}>Source code <ExternalLink size={12} /></Button>
             <Button size="sm" variant="ghost" onclick={() => openExternal(`${REPO}/issues`)}>Report a problem <ExternalLink size={12} /></Button>

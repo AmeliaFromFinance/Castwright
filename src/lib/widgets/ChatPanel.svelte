@@ -8,7 +8,13 @@
   import IconButton from '$lib/ui/IconButton.svelte';
   import Switch from '$lib/ui/Switch.svelte';
   import { loadPref, savePref } from '$lib/state/persist';
-  import { Settings2 } from '@lucide/svelte';
+  import { Ellipsis, Reply, Settings2, X } from '@lucide/svelte';
+  import { on } from '$lib/api';
+  import ChatModes from './chat/ChatModes.svelte';
+  import ChatModMenu from './chat/ChatModMenu.svelte';
+  import ModDialog from './chat/ModDialog.svelte';
+  import ViewerCard from './chat/ViewerCard.svelte';
+  import { mod } from './chat/mod.svelte';
   import { messageParts, twitchBadges } from '$lib/overlay/chat';
   import ChatBadges from '$lib/overlay/emotes/ChatBadges.svelte';
   import ChatText from '$lib/overlay/emotes/ChatText.svelte';
@@ -55,6 +61,66 @@
   const emoteHeight = $derived(compact ? 20 : 21);
 
   $effect(() => chatExtras.want(channelId, emoteOpts));
+
+  $effect(() => {
+    if (!signedIn) return;
+    void mod.loadModes();
+    let unlisten: (() => void) | undefined;
+    let gone = false;
+    void on('cw://chat-modes', (m) => (mod.modes = m)).then((u) => (gone ? u() : (unlisten = u)));
+    // Mods can change modes elsewhere; check now and then.
+    const timer = setInterval(() => void mod.loadModes(), 60_000);
+    return () => {
+      gone = true;
+      unlisten?.();
+      clearInterval(timer);
+    };
+  });
+
+  let menu = $state<{ message: Event; at: { x: number; y: number } } | null>(null);
+  /** Message that keyboard focus rests on (roving tabindex). */
+  let focusId = $state<string | null>(null);
+  let input: HTMLInputElement | undefined = $state();
+
+  const tabbable = $derived(focusId && messages.some((m) => m.id === focusId) ? focusId : messages.at(-1)?.id);
+
+  function openMenu(m: Event, x: number, y: number) {
+    menu = { message: m, at: { x, y } };
+  }
+
+  function reply(m: Event) {
+    mod.replyTo = m;
+    input?.focus();
+  }
+
+  function onItemKey(e: KeyboardEvent, m: Event, i: number) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const li = e.currentTarget as HTMLElement;
+    const move = (to: number) => {
+      const next = messages[Math.max(0, Math.min(messages.length - 1, to))];
+      if (!next) return;
+      focusId = next.id;
+      void tick().then(() => list?.querySelector<HTMLElement>(`[data-id="${CSS.escape(next.id)}"]`)?.focus());
+    };
+    const key = e.key.toLowerCase();
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      move(i + (e.key === 'ArrowUp' ? -1 : 1));
+    } else if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault();
+      move(e.key === 'Home' ? 0 : messages.length - 1);
+    } else if (e.key === 'Enter' || e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+      e.preventDefault();
+      const r = li.getBoundingClientRect();
+      openMenu(m, r.left + 24, r.bottom);
+    } else if (!e.shiftKey && mod.canModerate(m) && m.user) {
+      if (key === 'd' && m.data.deleted !== true) void mod.remove(m);
+      else if (key === 't') void mod.timeout(m.user, 600);
+      else if (key === 'b') mod.ask('ban', m.user);
+      else return;
+      e.preventDefault();
+    }
+  }
   $effect(() => {
     if (channelId && (opts.paints || opts.seventvBadges)) chatExtras.wantCosmetics(messages.slice(-60).map((m) => m.user?.id ?? ''));
   });
@@ -89,10 +155,11 @@
     const text = draft.trim();
     if (!text || sending) return;
     sending = true;
-    const ok = await attempt(() => api.twitchSendChat(text, hasBot && asBot));
+    const ok = await attempt(() => api.twitchSendChat(text, hasBot && asBot, mod.replyTo?.id ?? null));
     sending = false;
     if (ok !== undefined) {
       draft = '';
+      mod.replyTo = null;
       stick = true;
     }
   }
@@ -110,6 +177,7 @@
 <div class="head">
   <h3 class="eyebrow">Chat</h3>
   <span class="grow"></span>
+  {#if signedIn}<ChatModes />{/if}
   <div class="opts" bind:this={optsBox}>
     <IconButton label="Chat display options" size="sm" pressed={showOptions} aria-expanded={showOptions} onclick={() => (showOptions = !showOptions)}>
       <Settings2 size={14} />
@@ -129,18 +197,63 @@
     }}>New messages ↓</button>
   {/if}
 </div>
-<ol class="chat" class:compact bind:this={list} onscroll={onScroll} aria-label="Chat messages" aria-live="off">
-  {#each messages as m (m.id)}
+<ol class="chat" class:compact bind:this={list} onscroll={onScroll} aria-label="Chat messages" aria-live="off" role="listbox">
+  {#each messages as m, i (m.id)}
     {@const extra = opts.paints || opts.seventvBadges ? chatExtras.cosmetics(m.user?.id) : undefined}
-    <li class:own={m.data.sent_by_castwright === true}>
+    {@const deleted = m.data.deleted === true}
+    <li
+      role="option"
+      aria-selected={m.id === tabbable}
+      data-id={m.id}
+      class:own={m.data.sent_by_castwright === true}
+      class:deleted
+      class:menu-open={menu?.message.id === m.id}
+      tabindex={m.id === tabbable ? 0 : -1}
+      aria-label="{m.user?.display_name ?? ''}: {m.message ?? ''}{deleted ? ' (deleted)' : ''}"
+      onfocus={() => (focusId = m.id)}
+      onkeydown={(e) => onItemKey(e, m, i)}
+      oncontextmenu={(e) => {
+        if (!m.user) return;
+        e.preventDefault();
+        openMenu(m, e.clientX, e.clientY);
+      }}
+    >
       <span class="badges"><ChatBadges twitch={opts.twitchBadges ? twitchBadges(m) : []} seventv={opts.seventvBadges ? extra?.badge : null} size={15} /></span
-      ><b class="name" class:cw-paint={opts.paints && !!extra?.paint} style={nameStyle(m)}>{m.user?.display_name ?? ''}</b><span class="colon">:</span>
+      ><button
+        type="button"
+        tabindex="-1"
+        class="name"
+        class:cw-paint={opts.paints && !!extra?.paint}
+        style={nameStyle(m)}
+        onclick={(e) => m.user && (mod.card = { user: m.user, x: e.clientX + 8, y: e.clientY + 8 })}>{m.user?.display_name ?? ''}</button
+      ><span class="colon">:</span>
       <span class="msg selectable"><ChatText pieces={chatPieces(messageParts(m), emotes)} height={emoteHeight} /></span>
+      {#if deleted}<span class="tag">deleted</span>{/if}
+      {#if m.user}
+        <button
+          type="button"
+          tabindex="-1"
+          class="more"
+          aria-label="Message actions"
+          title="Message actions"
+          onclick={(e) => {
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            openMenu(m, r.right - 230, r.bottom + 4);
+          }}><Ellipsis size={14} /></button
+        >
+      {/if}
     </li>
   {:else}
-    <li class="none muted">{signedIn ? 'Chat messages appear here.' : 'Sign in to Twitch in Settings to see chat.'}</li>
+    <li class="none muted" role="option" aria-selected="false" aria-disabled="true">{signedIn ? 'Chat messages appear here.' : 'Sign in to Twitch in Settings to see chat.'}</li>
   {/each}
 </ol>
+{#if mod.replyTo}
+  <div class="replying">
+    <Reply size={13} />
+    <span class="truncate">Replying to <b>{mod.replyTo.user?.display_name}</b>: {mod.replyTo.message}</span>
+    <button type="button" aria-label="Cancel reply" onclick={() => (mod.replyTo = null)}><X size={13} /></button>
+  </div>
+{/if}
 <form class="send" onsubmit={send}>
   <label class="sr-only" for="chat-input">Chat message</label>
   <input
@@ -149,7 +262,11 @@
     placeholder={signedIn ? (hasBot && asBot ? `Chat as ${app.twitch?.bot?.display_name}` : `Chat as ${app.twitch?.broadcaster?.display_name}`) : 'Not signed in'}
     maxlength="500"
     disabled={!signedIn}
+    bind:this={input}
     bind:value={draft}
+    onkeydown={(e) => {
+      if (e.key === 'Escape' && mod.replyTo) mod.replyTo = null;
+    }}
   />
   {#if hasBot}
     <button
@@ -161,6 +278,10 @@
   {/if}
   <Button type="submit" variant="primary" size="sm" disabled={!signedIn || !draft.trim()} busy={sending}>Send</Button>
 </form>
+
+<ChatModMenu message={menu?.message ?? null} at={menu?.at ?? null} onclose={() => (menu = null)} onreply={reply} />
+<ViewerCard />
+<ModDialog />
 
 <style>
   .head {
@@ -194,14 +315,80 @@
     font-size: 12.5px;
   }
   li {
-    padding: 3px 0;
+    position: relative;
+    padding: 3px 26px 3px 4px;
+    margin: 0 -4px;
+    border-radius: 6px;
     overflow-wrap: anywhere;
+  }
+  li:hover,
+  li.menu-open {
+    background: var(--bg-2);
+  }
+  li:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: -2px;
+  }
+  li.deleted .msg {
+    color: var(--text-faint);
+    text-decoration: line-through;
+  }
+  .tag {
+    margin-left: 6px;
+    font-size: 10.5px;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-faint);
+  }
+  .name {
+    border: 0;
+    padding: 0;
+    background: none;
+    font: inherit;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .name:hover {
+    text-decoration: underline;
+  }
+  .more {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    display: none;
+    place-items: center;
+    width: 22px;
+    height: 20px;
+    border: 0;
+    border-radius: 5px;
+    background: var(--bg-3);
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  li:hover .more,
+  li:focus-within .more,
+  li.menu-open .more {
+    display: grid;
+  }
+  .replying {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px 0;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .replying button {
+    margin-left: auto;
+    border: 0;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px;
   }
   li.own {
     opacity: 0.85;
-  }
-  b {
-    font-weight: 650;
   }
   .colon {
     margin-right: 5px;

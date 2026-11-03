@@ -4,7 +4,9 @@
   import type { Overlay } from '$lib/bindings/Overlay';
   import { STEP_LABELS, TRIGGER_LABELS } from './defaults';
   import { describeStep, describeTrigger } from './describe';
-  import { NODE_W, anchor, arrowHead, edgeCurve, nodeRect, pathOf, type Rect } from './graph';
+  import { COLORS, FRAME_BAR, allBounds, frameRect, framesOf, hiddenIds, lineEnds, notesOf } from './canvas';
+  import { anchor, arrowHead, edgeCurve, nodeRect, pathOf } from './graph';
+  import { renderNote } from './notes';
   import { STEP_ICONS, TRIGGER_ICONS, stepTone } from './icons';
 
   interface Props {
@@ -19,17 +21,17 @@
   const PAD = 24;
   const sizes = $derived(Object.fromEntries(graph.nodes.map((n) => [n.id, H])));
 
+  const hidden = $derived(hiddenIds(graph));
   const box = $derived.by(() => {
-    if (!graph.nodes.length) return { x: 0, y: 0, w: 1, h: 1 };
-    const xs = graph.nodes.map((n) => n.x);
-    const ys = graph.nodes.map((n) => n.y);
-    const x = Math.min(...xs) - PAD;
-    const y = Math.min(...ys) - PAD;
-    return { x, y, w: Math.max(...xs) + NODE_W + PAD - x, h: Math.max(...ys) + H + PAD - y };
+    const b = allBounds(graph, sizes);
+    if (!b) return { x: 0, y: 0, w: 1, h: 1 };
+    return { x: b.x - PAD, y: b.y - PAD, w: b.w + PAD * 2, h: b.h + PAD * 2 };
   });
+  const frames = $derived(framesOf(graph).map((f) => ({ ...frameRect(f), id: f.id, label: f.label, tone: COLORS[f.color] ?? COLORS.blue })));
+  const notes = $derived(notesOf(graph).filter((n) => !hidden.has(n.id)));
 
   const nodes = $derived(
-    graph.nodes.map((n) => {
+    graph.nodes.filter((n) => !hidden.has(n.id)).map((n) => {
       const r = nodeRect(n, sizes);
       if (n.kind.type === 'trigger') {
         const t = n.kind.trigger;
@@ -40,12 +42,11 @@
     })
   );
 
-  const rects = $derived(new Map<string, Rect>(nodes.map((n) => [n.id, n.r])));
   const edges = $derived(
     graph.edges.flatMap((e) => {
-      const a = rects.get(e.from);
-      const b = rects.get(e.to);
-      if (!a || !b) return [];
+      const ends = lineEnds(graph, sizes, e);
+      if (!ends) return [];
+      const { from: a, to: b } = ends;
       const d = pathOf(edgeCurve(a, e.from_side, b, e.to_side));
       return [{ id: e.id, d, head: arrowHead(anchor(b, e.to_side), e.to_side), branch: e.branch }];
     })
@@ -54,6 +55,17 @@
 
 <div class="preview" role="img" aria-label="Preview of the flow">
   <svg viewBox="{box.x} {box.y} {box.w} {box.h}" preserveAspectRatio="xMidYMid meet">
+    {#each frames as f (f.id)}
+      <rect class="frame" x={f.x} y={f.y} width={f.w} height={f.h} rx="12" style="--tone:{f.tone}" />
+      <foreignObject x={f.x} y={f.y} width={f.w} height={FRAME_BAR}>
+        <div class="flabel" style="--tone:{f.tone}">{f.label}</div>
+      </foreignObject>
+    {/each}
+    {#each notes as n (n.id)}
+      <foreignObject x={n.x} y={n.y} width={n.w} height={n.h}>
+        <div class="note" style="--tone:{COLORS[n.color] ?? COLORS.yellow}">{@html renderNote(n.text)}</div>
+      </foreignObject>
+    {/each}
     {#each edges as e (e.id)}
       <path class="line {e.branch}" d={e.d} />
       <polygon class="head {e.branch}" points={e.head} />
@@ -83,6 +95,41 @@
     display: block;
     width: 100%;
     height: 100%;
+  }
+  .frame {
+    fill: color-mix(in srgb, var(--tone) 8%, transparent);
+    stroke: color-mix(in srgb, var(--tone) 45%, var(--border));
+    stroke-width: 2;
+  }
+  .flabel {
+    box-sizing: border-box;
+    height: 100%;
+    padding: 0 14px;
+    border-radius: 12px 12px 0 0;
+    background: color-mix(in srgb, var(--tone) 20%, transparent);
+    font-size: 15px;
+    font-weight: 650;
+    line-height: 40px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .note {
+    box-sizing: border-box;
+    height: 100%;
+    overflow: hidden;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--tone) 55%, var(--border));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--tone) 20%, var(--bg-1));
+    font-size: 13px;
+    line-height: 1.45;
+    pointer-events: none;
+  }
+  .note :global(p),
+  .note :global(ul),
+  .note :global(ol) {
+    margin: 0 0 6px;
   }
   .line {
     fill: none;

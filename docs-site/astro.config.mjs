@@ -30,6 +30,7 @@ export default defineConfig({
             { label: 'Alerts', slug: 'guide/alerts' },
             { label: 'Go-live check', slug: 'guide/go-live-check' },
             { label: 'Automation', slug: 'guide/automation' },
+            { label: 'Channel points, polls and predictions', slug: 'guide/interact' },
             { label: 'Activity', slug: 'guide/activity' },
             { label: 'Settings and themes', slug: 'guide/settings' },
             { label: 'Stream Deck and hotkeys', slug: 'guide/stream-deck' },
@@ -39,6 +40,7 @@ export default defineConfig({
         },
         { label: 'Reference', items: [{ autogenerate: { directory: 'reference' } }] },
         { label: 'Screenshots', slug: 'gallery' },
+        { label: 'Changelog', slug: 'changelog' },
         { label: 'Build from source', slug: 'development' }
       ]
     })

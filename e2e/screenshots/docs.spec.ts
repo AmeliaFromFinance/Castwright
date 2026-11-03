@@ -245,3 +245,28 @@ test('command palette', async ({ page }) => {
   await page.keyboard.type('test');
   await shot(page, 'palette');
 });
+
+test('channel points', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Interact');
+  await page.getByRole('radio', { name: 'Channel points' }).click();
+  await page.locator('[data-reward="Hydrate"]').waitFor();
+  await shot(page, 'interact-rewards');
+});
+
+test('polls and predictions', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Interact');
+  await page.getByRole('radio', { name: 'Polls & predictions' }).click();
+  await page.getByText('Clutch this round?').waitFor();
+  await shot(page, 'interact-polls');
+});
+
+test('poll layer', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Overlays');
+  await page.locator('[data-overlay-card]').first().getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.getByRole('button', { name: 'Add poll / prediction layer' }).click();
+  await page.locator('.cw-stage .cw-poll').waitFor();
+  await shot(page, 'interact-poll-layer');
+});

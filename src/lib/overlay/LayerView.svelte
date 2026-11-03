@@ -3,12 +3,16 @@
   import type { Layer } from '$lib/bindings/Layer';
   import { animSpec, hasAnimation, play, type Phase } from './anim';
   import { getStageCtx } from './context';
+  import { hasSceneRule, prefersReducedMotion, sceneAnimation } from './scenes';
   import { boxInset, fillColorOf, layerFrameCss, scopeClass, scopeCss } from './styles';
   import AlertsLayer from './layers/AlertsLayer.svelte';
   import ChatLayer from './layers/ChatLayer.svelte';
   import CounterLayer from './layers/CounterLayer.svelte';
   import CustomLayer from './layers/CustomLayer.svelte';
   import EventListLayer from './layers/EventListLayer.svelte';
+  import PollLayer from './layers/PollLayer.svelte';
+  import { clock, useClock } from './clock.svelte';
+  import { layerLive, samplePoll } from './interact';
   import GoalLayer from './layers/GoalLayer.svelte';
   import ImageLayer from './layers/ImageLayer.svelte';
   import ShapeLayer from './layers/ShapeLayer.svelte';
@@ -26,7 +30,16 @@
   let { layer, shown, ghost = false }: Props = $props();
   const ctx = getStageCtx();
 
-  const present = $derived(shown || ghost);
+  const kind = $derived(layer.kind);
+  const isPoll = $derived(kind.type === 'poll');
+  $effect(() => {
+    if (isPoll) return useClock();
+  });
+  // Poll layers hide themselves while nothing runs; the editor shows a sample instead.
+  const pollLive = $derived(
+    kind.type === 'poll' ? (layerLive(ctx.recent, kind.show, kind.result_s, clock.now) ?? (ctx.mode === 'editor' ? samplePoll(clock.now) : null)) : null
+  );
+  const present = $derived((shown && (!isPoll || !!pollLive)) || ghost);
   let rendered = $state(untrack(() => present));
   let animEl = $state<HTMLDivElement>();
   let idleEl = $state<HTMLDivElement>();
@@ -35,7 +48,6 @@
   let first = true;
   let seq = 0;
 
-  const kind = $derived(layer.kind);
   const scope = $derived(scopeClass(layer.id));
   const inset = $derived(boxInset(layer.box_style));
   const innerW = $derived(Math.max(0, layer.w - inset.x * 2));
@@ -51,11 +63,17 @@
   const idleKey = $derived(JSON.stringify(layer.idle));
   const scoped = $derived(scopeCss(layer.css ?? '', scope));
 
+  /** Layers with a scene rule fall back to the rule's transition and respect reduced motion. */
+  function animOf(phase: 'enter' | 'exit') {
+    if (hasSceneRule(layer.scenes)) return sceneAnimation(layer, phase, prefersReducedMotion());
+    return phase === 'enter' ? layer.enter : layer.exit;
+  }
+
   function runPhase(phase: 'enter' | 'exit'): Promise<void> {
     const el = animEl;
     if (!el) return Promise.resolve();
     current?.cancel();
-    const r = play(el, animSpec(phase === 'enter' ? layer.enter : layer.exit, phase, layer.w, layer.h));
+    const r = play(el, animSpec(animOf(phase), phase, layer.w, layer.h));
     current = r.anim;
     return r.done.then(() => {
       // Entrances end at the resting state, so drop them rather than keep a filled effect.
@@ -75,7 +93,7 @@
         const wasGone = !rendered || exiting;
         exiting = false;
         rendered = true;
-        if (live && (first || wasGone) && hasAnimation(layer.enter)) {
+        if (live && (first || wasGone) && hasAnimation(animOf('enter'))) {
           void tick().then(() => {
             if (my === seq) void runPhase('enter');
           });
@@ -84,7 +102,7 @@
           current = null;
         }
       } else if (rendered) {
-        if (live && !first && animEl && hasAnimation(layer.exit)) {
+        if (live && !first && animEl && hasAnimation(animOf('exit'))) {
           exiting = true;
           void runPhase('exit').then(() => {
             if (my === seq) {
@@ -173,6 +191,8 @@
             <TimerLayer {kind} />
           {:else if kind.type === 'event_list'}
             <EventListLayer {kind} />
+          {:else if kind.type === 'poll'}
+            <PollLayer {kind} live={pollLive} now={clock.now} />
           {:else if kind.type === 'custom'}
             <CustomLayer layerId={layer.id} {kind} />
           {/if}

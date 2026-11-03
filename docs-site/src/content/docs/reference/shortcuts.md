@@ -16,10 +16,23 @@ On macOS, use <kbd>Cmd</kbd> where this page says <kbd>Ctrl</kbd>.
 | <kbd>Ctrl</kbd> + <kbd>2</kbd> | Alerts |
 | <kbd>Ctrl</kbd> + <kbd>3</kbd> | Automation |
 | <kbd>Ctrl</kbd> + <kbd>4</kbd> | Activity |
-| <kbd>Ctrl</kbd> + <kbd>5</kbd> or <kbd>Ctrl</kbd> + <kbd>,</kbd> | Settings |
+| <kbd>Ctrl</kbd> + <kbd>5</kbd> | Interact: channel points, polls and predictions |
+| <kbd>Ctrl</kbd> + <kbd>6</kbd> or <kbd>Ctrl</kbd> + <kbd>,</kbd> | Settings |
 | <kbd>Ctrl</kbd> + <kbd>+</kbd> / <kbd>Ctrl</kbd> + <kbd>-</kbd> | Zoom in and out (saved as the interface size) |
 | <kbd>Ctrl</kbd> + <kbd>0</kbd> | Reset zoom to 100% |
 | <kbd>Ctrl</kbd> + <kbd>/</kbd> | Show the shortcut list |
+
+## Chat
+
+With a chat message focused on the Activity page. See [mod tools](/guide/activity/#mod-tools).
+
+| Keys | Does |
+| --- | --- |
+| <kbd>↑</kbd> / <kbd>↓</kbd> | Move between messages |
+| <kbd>Enter</kbd> | Open the message menu |
+| <kbd>D</kbd> | Delete the message |
+| <kbd>T</kbd> | Time out the sender for 10 minutes |
+| <kbd>B</kbd> | Ban the sender (asks first) |
 
 ## Panels
 
@@ -70,6 +83,17 @@ Letters follow your keyboard layout on Windows and Linux. On macOS they follow t
 Without <kbd>Ctrl</kbd>, <kbd>Alt</kbd> or <kbd>Super</kbd>, only function keys, media keys, `Pause` and `ScrollLock` are allowed.
 
 On Wayland, global hotkeys may not work. See the [Linux note](/guide/settings/#hotkeys).
+
+## Automation canvas
+
+| Keys | Does |
+| --- | --- |
+| <kbd>Ctrl</kbd> + <kbd>G</kbd> | Put the selected nodes and notes in a frame |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> | Ungroup: remove the frame, keep its nodes |
+| <kbd>Shift</kbd> + double-click | Add a sticky note |
+| <kbd>Ctrl</kbd> + <kbd>A</kbd> | Select every node, note and frame |
+
+The rest are in the [automation guide](/guide/automation/#working-in-the-flow).
 
 ## Overlay editor
 

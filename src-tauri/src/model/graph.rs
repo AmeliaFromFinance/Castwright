@@ -112,8 +112,16 @@ impl Graph {
         seen
     }
 
-    /// Drop lines to missing nodes, lines from a node to itself, and repeats.
+    /// Drop lines to missing nodes, lines from a node to itself, and repeats. Frames keep
+    /// only nodes and notes that exist, each in one frame at most.
     fn clean(&mut self) {
+        let mut items: HashSet<&str> = self.nodes.iter().map(|n| n.id.as_str()).collect();
+        items.extend(self.notes.iter().map(|n| n.id.as_str()));
+        let mut placed: HashSet<String> = HashSet::new();
+        for f in &mut self.frames {
+            f.members
+                .retain(|m| items.contains(m.as_str()) && placed.insert(m.clone()));
+        }
         let ids: HashSet<String> = self.nodes.iter().map(|n| n.id.clone()).collect();
         let mut seen = HashSet::new();
         self.edges.retain(|e| {
@@ -182,6 +190,7 @@ pub fn graph_from_tree(triggers: &[Trigger], steps: &[Step]) -> Graph {
     Graph {
         nodes: b.nodes,
         edges: b.edges,
+        ..Graph::default()
     }
 }
 
@@ -487,5 +496,56 @@ mod tests {
         });
         a.normalize();
         assert_eq!(a.graph.edges.len(), 1);
+    }
+
+    #[test]
+    fn graphs_without_notes_or_frames_load() {
+        let json = r#"{"nodes":[{"id":"t","x":0,"y":0,"kind":{"type":"trigger","trigger":{"type":"manual"}}}],"edges":[]}"#;
+        let g: Graph = serde_json::from_str(json).unwrap();
+        assert!(g.notes.is_empty() && g.frames.is_empty());
+        let a: Action = serde_json::from_str(r#"{"id":"a","graph":{"nodes":[]}}"#).unwrap();
+        assert!(a.graph.frames.is_empty());
+    }
+
+    #[test]
+    fn note_and_frame_defaults() {
+        use crate::model::automation::{CanvasColor, GraphFrame, GraphNote};
+        let n: GraphNote = serde_json::from_str(r#"{"id":"n","text":"hi"}"#).unwrap();
+        assert_eq!((n.w, n.h, n.color), (240.0, 160.0, CanvasColor::Yellow));
+        let f: GraphFrame = serde_json::from_str(r#"{"id":"f"}"#).unwrap();
+        assert_eq!(f.color, CanvasColor::Blue);
+        assert!(!f.collapsed && f.members.is_empty());
+    }
+
+    #[test]
+    fn clean_keeps_frame_members_real_and_single() {
+        use crate::model::automation::{GraphFrame, GraphNote};
+        let mut a = Action {
+            triggers: vec![Trigger::Manual],
+            steps: vec![say("a")],
+            ..Action::default()
+        };
+        a.normalize();
+        let (t, s) = (a.graph.nodes[0].id.clone(), a.graph.nodes[1].id.clone());
+        a.graph.notes.push(GraphNote {
+            id: "n".into(),
+            ..GraphNote::default()
+        });
+        a.graph.frames = vec![
+            GraphFrame {
+                id: "f1".into(),
+                members: vec![t.clone(), "gone".into(), "n".into()],
+                ..GraphFrame::default()
+            },
+            GraphFrame {
+                id: "f2".into(),
+                members: vec![t.clone(), s.clone()],
+                ..GraphFrame::default()
+            },
+        ];
+        a.normalize();
+        assert_eq!(a.graph.frames[0].members, vec![t, "n".to_string()]);
+        assert_eq!(a.graph.frames[1].members, vec![s]);
+        assert_eq!(a.triggers, vec![Trigger::Manual], "frames aren't triggers");
     }
 }

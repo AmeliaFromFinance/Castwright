@@ -4,6 +4,7 @@ import type { Layer } from '$lib/bindings/Layer';
 import type { LayerKind } from '$lib/bindings/LayerKind';
 import type { AlertPlay } from '$lib/bindings/AlertPlay';
 import { DEFAULT_BOX, DEFAULT_TEXT } from '../styles';
+import { defaultSceneRule } from '$lib/overlay/scenes';
 
 let n = 0;
 
@@ -47,6 +48,7 @@ export function layer(kind: LayerKind, patch: Partial<Layer> = {}): Layer {
     visible: true,
     locked: false,
     visible_when: { mode: 'all', conditions: [] },
+    scenes: defaultSceneRule(),
     box_style: structuredClone(DEFAULT_BOX),
     enter: { ...NONE },
     exit: { ...NONE },

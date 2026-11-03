@@ -4,6 +4,11 @@ use super::TwitchService;
 use super::helix::HelixError;
 use super::normalize::str_of;
 use crate::error::{AppError, AppResult, user_err};
+use crate::model::automation::Toggle;
+use crate::model::interact::{
+    PollDraft, PredictionAction, PredictionDraft, RedemptionRef, RewardState,
+};
+use crate::model::moderation::ChatMode;
 use crate::model::runtime::AccountRole;
 use crate::services::TwitchActions;
 use async_trait::async_trait;
@@ -90,7 +95,7 @@ fn validate_tags(tags: &[String]) -> AppResult<Vec<String>> {
 }
 
 impl TwitchService {
-    fn require_broadcaster(&self) -> AppResult<String> {
+    pub(crate) fn require_broadcaster(&self) -> AppResult<String> {
         self.broadcaster_id()
             .ok_or_else(|| HelixError::NotSignedIn.into_app(""))
     }
@@ -403,6 +408,51 @@ impl TwitchActions for TwitchService {
         .await
         .map_err(|e| e.into_app("time out users"))?;
         Ok(())
+    }
+
+    async fn delete_message(&self, message_id: &str) -> AppResult<()> {
+        self.delete_chat_message(message_id).await
+    }
+
+    async fn set_chat_mode(&self, mode: ChatMode, state: Toggle, value: u32) -> AppResult<()> {
+        self.set_mode_toggle(mode, state, value).await
+    }
+    async fn finish_redemption(
+        &self,
+        reward_id: &str,
+        redemption_id: &str,
+        refund: bool,
+    ) -> AppResult<()> {
+        let item = RedemptionRef {
+            id: redemption_id.to_string(),
+            reward_id: reward_id.to_string(),
+        };
+        self.finish_redemptions(&[item], refund).await?;
+        Ok(())
+    }
+
+    async fn set_reward_state(&self, id: &str, title: &str, state: RewardState) -> AppResult<()> {
+        self.reward_state(id, title, state).await
+    }
+
+    async fn set_reward_cost(&self, id: &str, title: &str, cost: u32) -> AppResult<()> {
+        self.reward_cost(id, title, cost).await
+    }
+
+    async fn start_poll(&self, draft: &PollDraft) -> AppResult<()> {
+        self.create_poll(draft).await.map(|_| ())
+    }
+
+    async fn end_poll(&self) -> AppResult<()> {
+        self.stop_poll().await.map(|_| ())
+    }
+
+    async fn start_prediction(&self, draft: &PredictionDraft) -> AppResult<()> {
+        self.create_prediction(draft).await.map(|_| ())
+    }
+
+    async fn end_prediction(&self, action: PredictionAction, winner: &str) -> AppResult<()> {
+        self.finish_prediction(action, winner).await.map(|_| ())
     }
 }
 

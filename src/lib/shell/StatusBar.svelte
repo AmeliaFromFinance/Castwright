@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { whatsNew } from '$lib/whatsnew/whatsnew.svelte';
   import { app } from '$lib/state/app.svelte';
   import { updates } from '$lib/state/updates.svelte';
   import { openExternal } from '$lib/util/os';
@@ -73,9 +74,11 @@
     </button>
   {/if}
   {#if updates.available}
-    <button type="button" class="item link update" onclick={() => openExternal(updates.available!.url)}>
-      Version {updates.available.version} is out
-    </button>
+    {@const u = updates.available}
+    <span class="item pair">
+      <button type="button" class="link update" onclick={() => openExternal(u.url)}>Version {u.version} is out</button>
+      <button type="button" class="link" onclick={() => (u.notes.trim() ? whatsNew.showUpdate(u.version, u.notes, u.url) : openExternal(u.url))}>What's new</button>
+    </span>
   {/if}
   {#if app.demo}<span class="item demo">Demo mode</span>{/if}
   <span class="item faint">v{app.info?.version ?? ''}</span>
@@ -120,6 +123,9 @@
   .link:hover {
     background: var(--bg-2);
     color: var(--text);
+  }
+  .pair {
+    gap: 14px;
   }
   .update {
     color: var(--accent-text);

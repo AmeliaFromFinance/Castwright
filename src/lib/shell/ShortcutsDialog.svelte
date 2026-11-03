@@ -11,7 +11,7 @@
       title: 'Anywhere',
       keys: [
         [`${mod} K`, 'Search and run commands'],
-        [`${mod} 1 – 4`, 'Overlays, Alerts, Automation, Activity'],
+        [`${mod} 1 – 5`, 'Overlays, Alerts, Automation, Activity, Interact'],
         [`${mod} ,`, 'Settings'],
         [`${mod} +  /  ${mod} -`, 'Zoom in and out'],
         [`${mod} 0`, 'Reset zoom'],
@@ -28,6 +28,16 @@
         ['Esc', 'Deselect'],
         [`Hold ${mod} while dragging`, 'Skip snapping'],
         ['Alt click', 'Pick the layer underneath']
+      ]
+    },
+    {
+      title: 'Chat, with a message focused',
+      keys: [
+        ['↑  /  ↓', 'Move between messages'],
+        ['Enter', 'Message actions'],
+        ['D', 'Delete message'],
+        ['T', 'Time out for 10 minutes'],
+        ['B', 'Ban (asks first)']
       ]
     },
     {

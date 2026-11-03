@@ -7,6 +7,7 @@ import type { LayerKind } from '$lib/bindings/LayerKind';
 import type { Overlay } from '$lib/bindings/Overlay';
 import type { TextStyle } from '$lib/bindings/TextStyle';
 import { DEFAULT_BOX, DEFAULT_ITEM_CARD } from '$lib/overlay/styles';
+import { defaultSceneRule } from '$lib/overlay/scenes';
 
 export type LayerType = LayerKind['type'];
 export type KindOf<T extends LayerType> = Extract<LayerKind, { type: T }>;
@@ -22,6 +23,7 @@ export const LAYER_TYPES: ReadonlyArray<{ type: LayerType; label: string; hint: 
   { type: 'counter', label: 'Counter', hint: 'A number from a variable' },
   { type: 'timer', label: 'Timer', hint: 'Countdown, stopwatch, clock or uptime' },
   { type: 'event_list', label: 'Event list', hint: 'Recent follows, subs and more' },
+  { type: 'poll', label: 'Poll / prediction', hint: 'Live results with bars and a countdown' },
   { type: 'custom', label: 'Custom widget', hint: 'Your own HTML, CSS and JavaScript' }
 ];
 
@@ -128,6 +130,19 @@ export function kindDefaults<T extends LayerType>(type: T): KindOf<T> {
       item_box: defaultBoxStyle(),
       item_card: defaultItemCard()
     },
+    poll: {
+      type: 'poll',
+      show: 'both',
+      result_s: 8,
+      show_title: true,
+      show_timer: true,
+      show_totals: true,
+      bar_color: '',
+      track_color: '',
+      style: defaultTextStyle(),
+      item_box: defaultBoxStyle(),
+      item_card: defaultItemCard()
+    },
     custom: { type: 'custom', html: '', css: '', js: '', fields: {}, values: {} }
   };
   return k[type] as KindOf<T>;
@@ -148,6 +163,7 @@ export function baseLayer(): Layer {
     visible: true,
     locked: false,
     visible_when: { mode: 'all', conditions: [] },
+    scenes: defaultSceneRule(),
     box_style: defaultBoxStyle(),
     enter: defaultAnimation(),
     exit: defaultAnimation(),
@@ -270,6 +286,20 @@ function preset(type: LayerType): Preset {
           max_items: 6,
           item_format: '{{name}} · {{label}}',
           style: small()
+        },
+        box: panelBox()
+      };
+    case 'poll':
+      return {
+        name: 'Poll',
+        w: 520,
+        h: 250,
+        kind: {
+          ...kindDefaults('poll'),
+          bar_color: '#9147ff',
+          track_color: 'rgba(255,255,255,0.14)',
+          style: small({ font_weight: 600 }),
+          item_card: { ...defaultItemCard(), gap: 10 }
         },
         box: panelBox()
       };

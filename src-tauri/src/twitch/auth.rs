@@ -9,6 +9,8 @@ pub const BROADCASTER_SCOPES: &[&str] = &[
     "channel:read:subscriptions",
     "bits:read",
     "moderator:read:followers",
+    "moderator:manage:chat_settings",
+    "moderator:manage:shield_mode",
     "channel:read:redemptions",
     "channel:manage:redemptions",
     "channel:read:hype_train",
@@ -30,6 +32,17 @@ pub const BROADCASTER_SCOPES: &[&str] = &[
     "moderator:manage:banned_users",
     "moderator:manage:chat_messages",
     "moderator:read:chatters",
+];
+
+/// Only channel points, polls and predictions need these. A sign-in without
+/// them still works for everything else.
+pub const INTERACT_SCOPES: &[&str] = &[
+    "channel:read:redemptions",
+    "channel:manage:redemptions",
+    "channel:read:polls",
+    "channel:manage:polls",
+    "channel:read:predictions",
+    "channel:manage:predictions",
 ];
 
 pub const BOT_SCOPES: &[&str] = &["user:read:chat", "user:write:chat", "user:bot"];

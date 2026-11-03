@@ -106,8 +106,8 @@ test('automation: chat command built in the flow, run and log', async ({ page })
   const name = page.getByLabel('Action name');
   await expect(name).toHaveValue('New action');
   await name.fill('Hug');
-  await page.getByLabel('Group').fill('Chat commands');
-  await page.getByLabel('Group').press('Tab');
+  await page.getByLabel('Group', { exact: true }).fill('Chat commands');
+  await page.getByLabel('Group', { exact: true }).press('Tab');
 
   const canvas = page.getByRole('region', { name: 'Flow of Hug' });
   await expect(canvas.getByText('Start with a trigger')).toBeVisible();

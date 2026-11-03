@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BellRing, Code, Film, Hash, Image, ListOrdered, MessageSquare, Square, Target, Timer, Type } from '@lucide/svelte';
+  import { BellRing, ChartColumn, Code, Film, Hash, Image, ListOrdered, MessageSquare, Square, Target, Timer, Type } from '@lucide/svelte';
   import type { LayerType } from '../layers';
 
   let { type, size = 15 }: { type: LayerType; size?: number } = $props();
@@ -15,6 +15,7 @@
     counter: Hash,
     timer: Timer,
     event_list: ListOrdered,
+    poll: ChartColumn,
     custom: Code
   } as const;
 

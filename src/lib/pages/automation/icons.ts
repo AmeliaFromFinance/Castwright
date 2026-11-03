@@ -1,7 +1,15 @@
 import {
   Bell,
   BellOff,
+  ChartColumn,
   Bookmark,
+  CircleCheck,
+  Coins,
+  Flag,
+  Gift,
+  Lock,
+  SquareX,
+  Trophy,
   Braces,
   Clapperboard,
   Clock,
@@ -15,6 +23,7 @@ import {
   Layers,
   Megaphone,
   MessageSquare,
+  MessageSquareX,
   MicOff,
   MonitorPlay,
   OctagonX,
@@ -23,6 +32,7 @@ import {
   Repeat,
   Scissors,
   ScrollText,
+  ShieldCheck,
   SkipForward,
   Split,
   Sparkles,
@@ -48,6 +58,8 @@ export const STEP_ICONS: Record<StepType, Icon> = {
   run_ad: Tv,
   set_stream_info: Type,
   timeout_user: UserX,
+  delete_message: MessageSquareX,
+  set_chat_mode: ShieldCheck,
   delay: Hourglass,
   set_variable: Variable,
   add_to_variable: Hash,
@@ -65,6 +77,13 @@ export const STEP_ICONS: Record<StepType, Icon> = {
   run_script: Code,
   if: Split,
   run_action: Workflow,
+  finish_redemption: CircleCheck,
+  set_reward_state: Gift,
+  set_reward_cost: Coins,
+  start_poll: ChartColumn,
+  end_poll: SquareX,
+  start_prediction: Trophy,
+  end_prediction: Lock,
   stop: OctagonX,
   log: ScrollText
 };
@@ -76,7 +95,12 @@ export const TRIGGER_ICONS: Record<TriggerType, Icon> = {
   stream_online: Radio,
   stream_offline: RadioTower,
   scene_changed: MonitorPlay,
-  manual: Hand
+  manual: Hand,
+  redemption: Gift,
+  poll_begin: ChartColumn,
+  poll_end: Flag,
+  prediction_begin: Trophy,
+  prediction_end: Flag
 };
 
 /** Colour family of a step, from its menu group. */
@@ -85,6 +109,7 @@ export type Tone = 'chat' | 'twitch' | 'obs' | 'media' | 'vars' | 'logic' | 'adv
 const TONES: Record<string, Tone> = {
   Chat: 'chat',
   Twitch: 'twitch',
+  'Points & polls': 'twitch',
   OBS: 'obs',
   'Overlays & alerts': 'media',
   Variables: 'vars',
@@ -100,6 +125,7 @@ export function stepTone(type: StepType): Tone {
 export const GROUP_ICONS: Record<string, Icon> = {
   Chat: MessageSquare,
   Twitch: Tv,
+  'Points & polls': Gift,
   OBS: Clapperboard,
   'Overlays & alerts': Layers,
   Variables: Variable,

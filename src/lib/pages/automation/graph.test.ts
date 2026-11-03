@@ -97,6 +97,8 @@ describe('converting step lists', () => {
 
 describe('runs', () => {
   const g: Graph = {
+    notes: [],
+    frames: [],
     nodes: [trig('t', 0), trig('o', 400, online), step('if', 0, 150, iff()), step('yes', 0, 300), step('no', 300, 300), step('join', 0, 450)],
     edges: [line('t', 'if'), line('o', 'if'), line('if', 'yes', 'then'), line('if', 'no', 'otherwise'), line('yes', 'join'), line('no', 'join')]
   };
@@ -106,7 +108,7 @@ describe('runs', () => {
     expect(startPlan(g, null)).toEqual({ fired: ['t'], first: ['if'] });
     const noButton = { ...g, nodes: g.nodes.map((n) => (n.id === 't' ? trig('t', 0, online) : n)) };
     expect(startPlan(noButton, null)).toEqual({ fired: ['t', 'o'], first: ['if'] });
-    expect(startPlan({ nodes: [step('a', 0, 0), step('b', 0, 100)], edges: [line('a', 'b')] }, null).first).toEqual(['a']);
+    expect(startPlan({ nodes: [step('a', 0, 0), step('b', 0, 100)], edges: [line('a', 'b')], notes: [], frames: [] }, null).first).toEqual(['a']);
   });
 
   it('follows the branch the If chose and marks the other skipped', () => {
@@ -128,6 +130,8 @@ describe('runs', () => {
 
   it('runs a merge each time it is reached, depth first by position', () => {
     const fan: Graph = {
+      notes: [],
+      frames: [],
       nodes: [trig('t', 0), step('low', 0, 300), step('high', 300, 200), step('m', 0, 400)],
       edges: [line('t', 'low'), line('t', 'high'), line('low', 'm'), line('high', 'm')]
     };
@@ -136,18 +140,18 @@ describe('runs', () => {
   });
 
   it('stops loops at the budget and at Stop', () => {
-    const loop: Graph = { nodes: [trig('t', 0), step('a', 0, 100), step('b', 0, 200)], edges: [line('t', 'a'), line('a', 'b'), line('b', 'a')] };
+    const loop: Graph = { nodes: [trig('t', 0), step('a', 0, 100), step('b', 0, 200)], edges: [line('t', 'a'), line('a', 'b'), line('b', 'a')], notes: [], frames: [] };
     const run = planRun(loop, 0, () => true, { budget: 10 });
     expect(run.order).toHaveLength(10);
     expect(run.errors[0]).toMatch(/Stopped after/);
-    const stop: Graph = { nodes: [trig('t', 0), step('s', 0, 100, { type: 'stop' }), step('x', 300, 200)], edges: [line('t', 's'), line('t', 'x')] };
+    const stop: Graph = { nodes: [trig('t', 0), step('s', 0, 100, { type: 'stop' }), step('x', 300, 200)], edges: [line('t', 's'), line('t', 'x')], notes: [], frames: [] };
     expect(planRun(stop, 0, () => true).order).toEqual(['s']);
   });
 
   it('finds nodes no trigger reaches', () => {
     expect(unreachable(g)).toEqual([]);
     expect(unreachable(removeNodes(g, ['if']))).toEqual(['yes', 'no', 'join']);
-    expect(unreachable({ nodes: [step('a', 0, 0)], edges: [] })).toEqual([]);
+    expect(unreachable({ nodes: [step('a', 0, 0)], edges: [], notes: [], frames: [] })).toEqual([]);
   });
 });
 
@@ -182,7 +186,7 @@ describe('geometry', () => {
   });
 
   it('hit tests handles, nodes and sides', () => {
-    const g: Graph = { nodes: [step('a', 0, 0), step('b', 400, 0)], edges: [] };
+    const g: Graph = { nodes: [step('a', 0, 0), step('b', 400, 0)], edges: [], notes: [], frames: [] };
     const sizes = { a: 100 };
     expect(hitNode(g, sizes, { x: 10, y: 90 })).toBe('a');
     expect(hitNode(g, sizes, { x: 10, y: 99.5 + DEFAULT_H })).toBeNull();
@@ -197,7 +201,7 @@ describe('geometry', () => {
   });
 
   it('selects with a box drawn either way', () => {
-    const g: Graph = { nodes: [step('a', 0, 0), step('b', 400, 0), step('c', 0, 400)], edges: [] };
+    const g: Graph = { nodes: [step('a', 0, 0), step('b', 400, 0), step('c', 0, 400)], edges: [], notes: [], frames: [] };
     expect(rectFrom({ x: 50, y: 50 }, { x: 10, y: 0 })).toEqual({ x: 10, y: 0, w: 40, h: 50 });
     expect(inBox(g, {}, rectFrom({ x: 500, y: 50 }, { x: 200, y: -20 }))).toEqual(['a', 'b']);
     expect(inBox(g, {}, rectFrom({ x: -50, y: 150 }, { x: -10, y: 160 }))).toEqual([]);
@@ -229,7 +233,7 @@ describe('geometry', () => {
 });
 
 describe('editing', () => {
-  const base = (): Graph => ({ nodes: [trig('t', 0), step('if', 0, 150, iff()), step('a', 0, 300), step('b', 300, 300)], edges: [line('t', 'if')] });
+  const base = (): Graph => ({ nodes: [trig('t', 0), step('if', 0, 150, iff()), step('a', 0, 300), step('b', 300, 300)], edges: [line('t', 'if')], notes: [], frames: [] });
   const edge = (from: string, to: string) => ({ from, from_side: 'right' as const, to, to_side: 'left' as const });
 
   it('gives lines from an If Then first, then Otherwise', () => {
@@ -297,6 +301,8 @@ describe('tidy up', () => {
 
   it('puts triggers on top, If branches side by side and joins below', () => {
     const g: Graph = {
+      notes: [],
+      frames: [],
       nodes: [step('join', 900, 40), step('no', -300, 700), trig('t', 500), step('if', 20, 900, iff()), step('yes', 40, 20)],
       edges: [line('t', 'if'), line('if', 'yes', 'then'), line('if', 'no', 'otherwise'), line('yes', 'join'), line('no', 'join')]
     };
@@ -317,6 +323,8 @@ describe('tidy up', () => {
 
   it('never overlaps nodes in a layer and sends loops back on the right', () => {
     const g: Graph = {
+      notes: [],
+      frames: [],
       nodes: [trig('t', 0), step('a', 0, 0), step('b', 0, 0), step('c', 0, 0), step('d', 0, 0)],
       edges: [line('t', 'a'), line('t', 'b'), line('t', 'c'), line('c', 'd'), line('d', 'c')]
     };
@@ -330,7 +338,7 @@ describe('tidy up', () => {
 describe('history', () => {
   it('a drag is one undo step however long it takes', () => {
     const h = new ActionHistory(100, 1000);
-    const act = (x: number) => ({ id: 'a', graph: { nodes: [step('n', x, 0)], edges: [] } }) as unknown as Action;
+    const act = (x: number) => ({ id: 'a', graph: { nodes: [step('n', x, 0)], edges: [], notes: [], frames: [] } }) as unknown as Action;
     h.record(act(0), 'a:g.drag', 0, Infinity);
     h.record(act(10), 'a:g.drag', 5000, Infinity);
     h.record(act(20), 'a:g.drag', 9000, Infinity);

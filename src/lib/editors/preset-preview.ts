@@ -8,6 +8,7 @@ import type { TextStyle } from '$lib/bindings/TextStyle';
 import { presetBox, presetCard, presetText, type BoxPreset, type PresetTarget } from '$lib/overlay/presets';
 import type { ActiveAlert } from '$lib/overlay/state';
 import { DEFAULT_BOX, DEFAULT_TEXT } from '$lib/overlay/styles';
+import { defaultSceneRule } from '$lib/overlay/scenes';
 
 export const PREVIEW_W = 320;
 export const PREVIEW_H: Record<PresetTarget, number> = { layer: 140, chat: 170, events: 150, alert: 200 };
@@ -29,6 +30,7 @@ function layer(id: string, kind: LayerKind, x: number, y: number, w: number, h: 
     visible: true,
     locked: false,
     visible_when: { mode: 'all', conditions: [] },
+    scenes: defaultSceneRule(),
     box_style: structuredClone(box),
     enter: { ...none },
     exit: { ...none },

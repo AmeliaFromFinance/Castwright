@@ -12,9 +12,11 @@
   import ResizeHandle from '$lib/ui/ResizeHandle.svelte';
   import IconButton from '$lib/ui/IconButton.svelte';
   import { appAssetUrl } from '$lib/widgets/assets.svelte';
+  import { knownScenes } from '$lib/overlay/scenes';
   import {
     ArrowLeft,
     Check,
+    Clapperboard,
     CircleAlert,
     Eye,
     EyeOff,
@@ -186,6 +188,7 @@
   }
 
   const zoomPct = $derived(`${Math.round(store.zoom * 100)}%`);
+  const scenes = $derived(knownScenes(app.obs.scenes, store.doc.layers));
 </script>
 
 <svelte:window {onkeydown} bind:innerWidth={winW} />
@@ -242,6 +245,14 @@
         {#if store.animate}<Pause />{:else}<Play />{/if}
       </IconButton>
     </div>
+    <label class="scene" class:on={!!store.previewScene} title="Preview as scene: dims layers this scene hides">
+      <Clapperboard size={14} aria-hidden="true" />
+      <select aria-label="Preview as scene" bind:value={store.previewScene}>
+        <option value="">All scenes</option>
+        {#each scenes as name (name)}<option value={name}>{name}</option>{/each}
+        {#if store.previewScene && !scenes.includes(store.previewScene)}<option value={store.previewScene}>{store.previewScene}</option>{/if}
+      </select>
+    </label>
     <span class="sep"></span>
     <TestMenu
       {kinds}
@@ -357,6 +368,35 @@
   .zoom-btn:hover,
   .zoom-btn[aria-expanded='true'] {
     background: var(--bg-3);
+  }
+  .scene {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 4px 0 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-2);
+    color: var(--text-muted);
+  }
+  .scene.on {
+    border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+    color: var(--accent-text);
+  }
+  .scene select {
+    max-width: 150px;
+    height: 26px;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .scene select:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+    border-radius: 4px;
   }
   .status {
     display: flex;

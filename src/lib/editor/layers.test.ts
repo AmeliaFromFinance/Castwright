@@ -17,7 +17,7 @@ import { newOverlay, starterLayers } from './starter';
 
 const ANIM_PRESETS = ['none', 'fade', 'slide_up', 'slide_down', 'slide_left', 'slide_right', 'zoom', 'pop', 'bounce', 'flip', 'pulse', 'float', 'shake', 'spin'];
 const EASINGS = ['linear', 'ease_in', 'ease_out', 'ease_in_out', 'spring', 'back'];
-const LAYER_KEYS = ['id', 'name', 'kind', 'x', 'y', 'w', 'h', 'rotation', 'opacity', 'visible', 'locked', 'visible_when', 'box_style', 'enter', 'exit', 'idle', 'css'].sort();
+const LAYER_KEYS = ['id', 'name', 'kind', 'x', 'y', 'w', 'h', 'rotation', 'opacity', 'visible', 'locked', 'visible_when', 'scenes', 'box_style', 'enter', 'exit', 'idle', 'css'].sort();
 const TEXT_KEYS = ['font_family', 'font_size', 'font_weight', 'color', 'align', 'line_height', 'letter_spacing', 'uppercase', 'italic', 'shadow', 'stroke_width', 'stroke_color'].sort();
 // As in BoxStyle::default() in src-tauri/src/model/overlay.rs.
 const RUST_DEFAULT_BOX = {
@@ -89,6 +89,7 @@ const KIND_KEYS: Record<LayerType, string[]> = {
   counter: ['var', 'format', 'style'],
   timer: ['mode', 'duration_s', 'anchor_var', 'style', 'prefix'],
   event_list: ['kinds', 'max_items', 'direction', 'item_format', 'style', 'item_box', 'item_card'],
+  poll: ['show', 'result_s', 'show_title', 'show_timer', 'show_totals', 'bar_color', 'track_color', 'style', 'item_box', 'item_card'],
   custom: ['html', 'css', 'js', 'fields', 'values']
 };
 
@@ -145,6 +146,8 @@ describe('defaults match the backend', () => {
       visible: true,
       locked: false,
       visible_when: { mode: 'all', conditions: [] },
+      // As in SceneRule::default().
+      scenes: { mode: 'all', scenes: [], transition: 'fade', duration_ms: 300 },
       box_style: RUST_DEFAULT_BOX,
       enter: { preset: 'none', duration_ms: 0, delay_ms: 0, easing: 'ease_in_out' },
       exit: { preset: 'none', duration_ms: 0, delay_ms: 0, easing: 'ease_in_out' },

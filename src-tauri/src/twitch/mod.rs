@@ -5,7 +5,10 @@ pub mod auth;
 mod badges;
 mod eventsub;
 mod helix;
+pub mod moderation;
 pub mod normalize;
+mod points;
+mod polls;
 mod stream;
 
 #[cfg(test)]

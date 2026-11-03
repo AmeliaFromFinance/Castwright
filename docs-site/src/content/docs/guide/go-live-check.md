@@ -14,7 +14,7 @@ Open it from **Go-live check** in the status bar, or search for it in the comman
 | **OBS** | Castwright is connected to OBS. |
 | **Overlays in OBS** | Each Castwright overlay in OBS uses the current link (port and secret) and is loaded. |
 | **Overlay server** | The server is running on the port set in Settings. |
-| **Twitch** | Your channel is signed in with every permission Castwright needs, and events are coming in. |
+| **Twitch** | Your channel is signed in with every permission Castwright needs, and events are coming in. A sign-in from before channel points, polls and predictions only warns. |
 | **Stream title** and **Category** | Both are set on Twitch. |
 | **Alerts** | The alert queue isn't paused. |
 | **Alert sound** | Alert sound isn't muted. |

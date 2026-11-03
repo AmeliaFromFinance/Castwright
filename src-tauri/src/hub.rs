@@ -23,10 +23,12 @@ pub mod ui {
     pub const PROJECT: &str = "cw://project";
     pub const SERVER: &str = "cw://server";
     pub const CHAT_DELETE: &str = "cw://chat-delete";
+    pub const CHAT_MODES: &str = "cw://chat-modes";
     pub const ACTION_RUN: &str = "cw://action-run";
     pub const ACTION_PROGRESS: &str = "cw://action-progress";
     pub const GOLIVE_OPEN: &str = "cw://golive-open";
     pub const SESSION: &str = "cw://session";
+    pub const REDEMPTION: &str = "cw://redemption";
 }
 
 /// Where window events go. The real app uses the Tauri handle; tests use a recorder.

@@ -9,6 +9,7 @@ import type { Token } from '$lib/editors/tokens';
 import { tokensFor } from '../alerts/alerts';
 import { TRIGGER_LABELS } from './defaults';
 import { commandName } from './validate';
+import { MODE_LABELS } from '$lib/widgets/chat/moderation';
 
 export function every(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
@@ -28,6 +29,8 @@ export function describeTrigger(t: Trigger): string {
       return `Every ${every(t.interval_s)}`;
     case 'scene_changed':
       return t.scene ? `Scene: ${t.scene}` : 'Any scene change';
+    case 'redemption':
+      return t.reward_title.trim() ? `Redeem: ${t.reward_title.trim()}` : 'Any reward redeemed';
     default:
       return TRIGGER_LABELS[t.type];
   }
@@ -68,6 +71,37 @@ const COMMAND_TOKENS: Token[] = [
   { token: 'input', label: 'Everything after the command' }
 ];
 
+const REDEMPTION_TOKENS: Token[] = [
+  { token: 'user', label: 'Who redeemed it' },
+  { token: 'reward', label: 'Reward title' },
+  { token: 'cost', label: 'Points spent' },
+  { token: 'input', label: 'Their message' }
+];
+
+const POLL_TOKENS: Token[] = [
+  { token: 'poll.title', label: 'Poll question' },
+  { token: 'poll.choices', label: 'All choices' },
+  { token: 'poll.winner', label: 'Winning choice (at the end)' },
+  { token: 'poll.winner_votes', label: 'Votes for the winner' },
+  { token: 'poll.total_votes', label: 'Votes in total' }
+];
+
+const PREDICTION_TOKENS: Token[] = [
+  { token: 'prediction.title', label: 'Prediction question' },
+  { token: 'prediction.outcomes', label: 'All outcomes' },
+  { token: 'prediction.winner', label: 'Winning outcome (at the end)' },
+  { token: 'prediction.total_points', label: 'Points in total' },
+  { token: 'prediction.total_users', label: 'Viewers who predicted' }
+];
+
+/** Extra values redemption, poll and prediction events give an action. */
+function interactTokens(kind: string): Token[] {
+  if (kind === 'redemption') return REDEMPTION_TOKENS;
+  if (kind.startsWith('poll_')) return POLL_TOKENS;
+  if (kind.startsWith('prediction_')) return PREDICTION_TOKENS;
+  return [];
+}
+
 /** Template chips for an action, based on what its triggers provide. */
 export function tokensForAction(a: Action): Token[] {
   const out: Token[] = [];
@@ -76,8 +110,9 @@ export function tokensForAction(a: Action): Token[] {
   };
   for (const t of a.triggers) {
     if (t.type === 'command') COMMAND_TOKENS.forEach(add);
-    else if (t.type === 'event') tokensFor(t.kind).forEach(add);
+    else if (t.type === 'event') [...tokensFor(t.kind), ...interactTokens(t.kind)].forEach(add);
     else if (t.type === 'scene_changed') add({ token: 'scene', label: 'New scene' });
+    else interactTokens(t.type).forEach(add);
   }
   add({ token: 'stream.title', label: 'Stream title' });
   add({ token: 'stream.uptime_text', label: 'Time live' });
@@ -120,6 +155,16 @@ export function describeStep(s: Step, ctx: { actions?: readonly Action[]; overla
       return [s.title.trim() && `Title ${quote(s.title)}`, s.category.trim() && `Category ${quote(s.category)}`].filter(Boolean).join(' · ');
     case 'timeout_user':
       return s.user.trim() ? `${s.user.trim()} for ${every(s.duration_s)}` : '';
+    case 'delete_message':
+      return s.message_id.trim() ? `Message ${s.message_id.trim()}` : 'The message that started this';
+    case 'set_chat_mode': {
+      const name = MODE_LABELS[s.mode];
+      if (s.state === 'toggle') return `Toggle ${name.toLowerCase()}`;
+      if (s.state === 'off') return `${name} off`;
+      if (s.mode === 'slow') return `${name} on, ${s.value || 30} s`;
+      if (s.mode === 'followers') return `${name} on${s.value ? `, ${every(s.value * 60)}` : ''}`;
+      return `${name} on`;
+    }
     case 'delay':
       return `Wait ${seconds(s.ms)}`;
     case 'set_variable':
@@ -161,5 +206,23 @@ export function describeStep(s: Step, ctx: { actions?: readonly Action[]; overla
     }
     case 'stop':
       return 'End this run';
+    case 'finish_redemption':
+      return s.refund ? 'Refund the points' : 'Mark it complete';
+    case 'set_reward_state': {
+      const verb = { enable: 'Turn on', disable: 'Turn off', pause: 'Pause', resume: 'Resume' }[s.state];
+      return s.reward_title.trim() ? `${verb} ${quote(s.reward_title)}` : '';
+    }
+    case 'set_reward_cost':
+      return s.reward_title.trim() && s.cost.trim() ? `${quote(s.reward_title)} costs ${s.cost.trim()}` : '';
+    case 'start_poll':
+      return s.title.trim() ? `${quote(s.title)} for ${every(s.duration_s)}` : '';
+    case 'end_poll':
+      return 'End the poll and show the result';
+    case 'start_prediction':
+      return s.title.trim() ? `${quote(s.title)}, open ${every(s.window_s)}` : '';
+    case 'end_prediction':
+      if (s.action === 'lock') return 'Lock the prediction';
+      if (s.action === 'cancel') return 'Cancel and refund';
+      return s.winner.trim() ? `${quote(s.winner)} wins` : '';
   }
 }

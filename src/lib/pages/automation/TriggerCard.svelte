@@ -11,9 +11,11 @@
   import IconButton from '$lib/ui/IconButton.svelte';
   import Switch from '$lib/ui/Switch.svelte';
   import ConditionEditor from '$lib/widgets/ConditionEditor.svelte';
-  import { Clock, Command, Copy, Hand, Play, Radio, RadioTower, Clapperboard, Zap } from '@lucide/svelte';
+  import { Copy, Play } from '@lucide/svelte';
   import { fieldsFor } from '../alerts/alerts';
   import { TRIGGER_LABELS, triggerKinds } from './defaults';
+  import { TRIGGER_ICONS } from './icons';
+  import RewardPicker from './RewardPicker.svelte';
   import { commandPreview, every } from './describe';
   import { graphSteps } from './graph';
   import { MIN_TIMER_S, commandName, type Issue } from './validate';
@@ -36,8 +38,7 @@
     ['moderator', 'Moderators and the streamer'],
     ['broadcaster', 'Only the streamer']
   ];
-  const ICONS = { event: Zap, command: Command, timer: Clock, stream_online: Radio, stream_offline: RadioTower, scene_changed: Clapperboard, manual: Hand };
-  const Icon = $derived(ICONS[t.type]);
+  const Icon = $derived(TRIGGER_ICONS[t.type]);
   const runUrl = $derived(
     app.server ? `${app.server.base_url}/api/actions/${action.id}/run?token=${encodeURIComponent(app.server.token)}` : ''
   );
@@ -250,6 +251,22 @@
       </div>
     </div>
     <p class="hint">Keep this address private: it includes your access token.</p>
+  {:else if t.type === 'redemption'}
+    <div class="f narrow">
+      <label for="{uid}-reward">Reward</label>
+      <RewardPicker id="{uid}-reward" any rewardId={t.reward_id} rewardTitle={t.reward_title} onchange={(id, title) => onpatch({ reward_id: id, reward_title: title })} />
+    </div>
+    <p class="hint">Gives <code>{'{{user}}'}</code>, <code>{'{{reward}}'}</code>, <code>{'{{cost}}'}</code> and <code>{'{{input}}'}</code>. Rewards made on Twitch work too.</p>
+  {:else if t.type === 'poll_begin' || t.type === 'poll_end'}
+    <p class="hint">
+      Runs when a poll {t.type === 'poll_begin' ? 'starts' : 'ends'}, from Castwright or Twitch.
+      {#if t.type === 'poll_end'}<code>{'{{poll.winner}}'}</code> is the winning choice (empty on a tie).{/if}
+    </p>
+  {:else if t.type === 'prediction_begin' || t.type === 'prediction_end'}
+    <p class="hint">
+      Runs when a prediction {t.type === 'prediction_begin' ? 'starts' : 'is resolved or canceled'}.
+      {#if t.type === 'prediction_end'}<code>{'{{prediction.winner}}'}</code> is the winning outcome; <code>{'{{prediction.status}}'}</code> is resolved or canceled.{/if}
+    </p>
   {:else if t.type === 'stream_online'}
     <p class="hint">Runs when the stream goes live on Twitch.</p>
   {:else if t.type === 'stream_offline'}

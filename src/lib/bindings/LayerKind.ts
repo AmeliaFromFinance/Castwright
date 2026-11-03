@@ -4,6 +4,7 @@ import type { EventKind } from "./EventKind";
 import type { ItemCard } from "./ItemCard";
 import type { ListDirection } from "./ListDirection";
 import type { MediaFit } from "./MediaFit";
+import type { PollSource } from "./PollSource";
 import type { ShapeKind } from "./ShapeKind";
 import type { TextStyle } from "./TextStyle";
 import type { TimerMode } from "./TimerMode";
@@ -43,6 +44,22 @@ anchor_var: string, style: TextStyle, prefix: string, } | { "type": "event_list"
 item_format: string, style: TextStyle, 
 /**
  * The card around each row.
+ */
+item_box: BoxStyle, item_card: ItemCard, } | { "type": "poll", show: PollSource, 
+/**
+ * Seconds the result stays on screen after it ends.
+ */
+result_s: number, show_title: boolean, 
+/**
+ * Time left while it runs.
+ */
+show_timer: boolean, 
+/**
+ * Votes or points per choice and in total.
+ */
+show_totals: boolean, bar_color: string, track_color: string, style: TextStyle, 
+/**
+ * The card around each choice.
  */
 item_box: BoxStyle, item_card: ItemCard, } | { "type": "custom", html: string, css: string, js: string, 
 /**

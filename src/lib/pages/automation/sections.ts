@@ -17,6 +17,11 @@ export function sectionOf(a: Action): string {
     case 'stream_online':
     case 'stream_offline':
     case 'scene_changed':
+    case 'redemption':
+    case 'poll_begin':
+    case 'poll_end':
+    case 'prediction_begin':
+    case 'prediction_end':
       return 'Stream events';
     default:
       return 'Buttons and Stream Deck';

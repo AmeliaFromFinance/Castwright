@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { whatsNew } from '$lib/whatsnew/whatsnew.svelte';
   import { tick } from 'svelte';
   import { app, type Page } from '$lib/state/app.svelte';
   import { api } from '$lib/api';
@@ -67,6 +68,7 @@
       { group: 'Go to', label: 'Alerts', hint: 'Ctrl 2', run: () => go('alerts') },
       { group: 'Go to', label: 'Automation', hint: 'Ctrl 3', run: () => go('automation') },
       { group: 'Go to', label: 'Activity', hint: 'Ctrl 4', run: () => go('activity') },
+      { group: 'Go to', label: 'Interact', hint: 'Ctrl 5', run: () => go('interact') },
       { group: 'Go to', label: 'Settings', hint: 'Ctrl ,', run: () => go('settings') }
     ];
     for (const [id, label] of [
@@ -132,6 +134,7 @@
         run: () => updateAppearance({ theme: app.theme?.spec.base === 'light' ? 'dark' : 'light' })
       },
       { group: 'Help', label: 'Keyboard shortcuts', hint: 'Ctrl /', run: onshortcuts },
+      { group: 'Help', label: "What's new", run: () => whatsNew.show(app.info?.version ?? '') },
       { group: 'Stream', label: 'Go-live check', run: () => golive.show() },
       { group: 'Stream', label: 'Last stream summary', run: () => sessions.showLatest() },
       {

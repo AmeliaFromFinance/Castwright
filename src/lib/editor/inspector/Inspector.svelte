@@ -37,6 +37,11 @@
   import CardsEditor from './CardsEditor.svelte';
   import CssHelp from './CssHelp.svelte';
   import ContentEditor from './ContentEditor.svelte';
+  import SceneRuleEditor from './SceneRuleEditor.svelte';
+  import type { SceneRule } from '$lib/bindings/SceneRule';
+  import { hasAnimation } from '$lib/overlay/anim';
+  import { defaultSceneRule, hasSceneRule, knownScenes, sceneBadge } from '$lib/overlay/scenes';
+  import { app } from '$lib/state/app.svelte';
 
   interface Props {
     store: EditorStore;
@@ -49,7 +54,7 @@
 
   let { store, vars, wide, onpreview, ontestalert, ontogglewide }: Props = $props();
 
-  const open = $state({ layout: true, content: true, cards: false, style: false, visibility: false, animation: false, advanced: false });
+  const open = $state({ layout: true, content: true, cards: false, style: false, visibility: false, scenes: false, animation: false, advanced: false });
   let cssEditor = $state<CodeEditor>();
 
   const layer = $derived(store.selected);
@@ -84,6 +89,12 @@
     const rule = ruleFor(selector);
     cssEditor?.insert(rule, rule.indexOf('\n  ') + 3);
   }
+  const setScenes = (fn: (r: SceneRule) => void, key: string) =>
+    change((l) => {
+      l.scenes ??= defaultSceneRule();
+      fn(l.scenes);
+    }, `scenes:${key}`);
+  const sceneList = $derived(knownScenes(app.obs.scenes, store.doc.layers));
   const setAnim = (phase: 'enter' | 'exit' | 'idle') => (fn: (a: Animation) => void, key: string) =>
     change((l) => fn(l[phase]), `${phase}:${key}`);
 
@@ -166,8 +177,8 @@
         {/key}
       </Section>
 
-      {#if layer.kind.type === 'chat' || layer.kind.type === 'event_list'}
-        <Section title="Cards" bind:open={open.cards} note={layer.kind.type === 'chat' ? 'Each message' : 'Each event'}>
+      {#if layer.kind.type === 'chat' || layer.kind.type === 'event_list' || layer.kind.type === 'poll'}
+        <Section title="Cards" bind:open={open.cards} note={layer.kind.type === 'chat' ? 'Each message' : layer.kind.type === 'poll' ? 'Each choice' : 'Each event'}>
           {#key layer.id}
             <CardsEditor kind={layer.kind} {uid} set={setKind} />
           {/key}
@@ -193,6 +204,20 @@
             onchange={(g) => change((l) => { l.visible_when = g; }, 'cond')}
           />
         </Prop>
+      </Section>
+
+      <Section title="Scenes" bind:open={open.scenes} note={sceneBadge(layer.scenes) ?? undefined}>
+        <SceneRuleEditor
+          rule={layer.scenes}
+          scenes={sceneList}
+          obsConnected={app.obs.state === 'connected'}
+          ownAnimations={hasAnimation(layer.enter) && hasAnimation(layer.exit)}
+          {uid}
+          set={setScenes}
+        />
+        {#if hasSceneRule(layer.scenes)}
+          <p class="hint">Shows only when Visible is on, the conditions above match and the scene allows it.</p>
+        {/if}
       </Section>
 
       <Section title="Animation" bind:open={open.animation} note={animNote ? `${animNote} set` : undefined}>

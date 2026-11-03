@@ -16,7 +16,7 @@ export interface VariableInfo {
   description: string;
 }
 
-const TEXT_KINDS: readonly LayerType[] = ['text', 'goal', 'counter', 'timer', 'event_list', 'alerts'];
+const TEXT_KINDS: readonly LayerType[] = ['text', 'goal', 'counter', 'timer', 'event_list', 'alerts', 'poll'];
 
 export const SELECTORS: readonly SelectorInfo[] = [
   { selector: ':scope', kinds: [], description: 'This layer’s box' },
@@ -84,13 +84,36 @@ export const SELECTORS: readonly SelectorInfo[] = [
   { selector: '.cw-ticker-item', kinds: ['event_list'], description: 'An item in ticker mode' },
   { selector: '.cw-ticker-sep', kinds: ['event_list'], description: 'The dot between ticker items' },
 
+  { selector: '.cw-poll', kinds: ['poll'], description: 'The whole poll or prediction' },
+  { selector: '.cw-poll[data-type="prediction"]', kinds: ['poll'], description: 'Only while it shows a prediction (poll for polls)' },
+  { selector: '.cw-open', kinds: ['poll'], description: 'Added to .cw-poll while viewers can vote' },
+  { selector: '.cw-ended', kinds: ['poll'], description: 'Added to .cw-poll while it shows the result' },
+  { selector: '.cw-poll-head', kinds: ['poll'], description: 'The question row' },
+  { selector: '.cw-poll-title', kinds: ['poll'], description: 'The question' },
+  { selector: '.cw-poll-choices', kinds: ['poll'], description: 'The list of choices' },
+  { selector: '.cw-poll-choice', kinds: ['poll'], description: 'Each choice card' },
+  { selector: '.cw-winner', kinds: ['poll'], description: 'Added to the winning choice at the end' },
+  { selector: '.cw-loser', kinds: ['poll'], description: 'Added to the other choices once there is a winner' },
+  { selector: '.cw-poll-row', kinds: ['poll'], description: 'Name and numbers row of a choice' },
+  { selector: '.cw-poll-label', kinds: ['poll'], description: 'The choice name' },
+  { selector: '.cw-poll-nums', kinds: ['poll'], description: 'Count and percentage of a choice' },
+  { selector: '.cw-poll-count', kinds: ['poll'], description: 'Votes or points for a choice' },
+  { selector: '.cw-poll-pct', kinds: ['poll'], description: 'The percentage' },
+  { selector: '.cw-poll-track', kinds: ['poll'], description: 'The bar background' },
+  { selector: '.cw-poll-fill', kinds: ['poll'], description: 'The filled part of the bar' },
+  { selector: '.cw-poll-foot', kinds: ['poll'], description: 'Time left and total row' },
+  { selector: '.cw-poll-timer', kinds: ['poll'], description: 'Time left, or the result line' },
+  { selector: '.cw-poll-total', kinds: ['poll'], description: 'Votes or points in total' },
+
   { selector: '.cw-custom', kinds: ['custom'], description: 'The widget frame. Its own HTML has the widget’s CSS' }
 ];
 
 export const VARIABLES: readonly VariableInfo[] = [
   { name: '--cw-name', kinds: ['chat', 'event_list'], description: 'Name colour on each card (set when tint or a name stripe is on)' },
-  { name: '--cw-tint', kinds: ['chat', 'event_list'], description: 'Tint colour on each card' },
-  { name: '--cw-lean', kinds: ['chat', 'event_list'], description: '1 or -1 when cards lean in turn' },
+  { name: '--cw-name', kinds: ['poll'], description: 'Bar colour on each choice (set when tint or a name stripe is on)' },
+  { name: '--cw-tint', kinds: ['chat', 'event_list', 'poll'], description: 'Tint colour on each card' },
+  { name: '--cw-lean', kinds: ['chat', 'event_list', 'poll'], description: '1 or -1 when cards lean in turn' },
+  { name: '--cw-pct', kinds: ['poll'], description: 'The choice’s share, e.g. 42%, on .cw-poll-choice' },
   { name: '--cw-accent', kinds: ['alerts'], description: 'Accent colour, on .cw-alert' },
   { name: '--cw-w', kinds: ['alerts'], description: 'Layer width inside its padding, on .cw-alert-wrap' },
   { name: '--cw-h', kinds: ['alerts'], description: 'Layer height inside its padding, on .cw-alert-wrap' },
@@ -124,6 +147,7 @@ const KIND_NAMES: Record<LayerType, string> = {
   counter: 'Counter',
   timer: 'Timer',
   event_list: 'Event list',
+  poll: 'Poll / prediction',
   custom: 'Custom widget'
 };
 

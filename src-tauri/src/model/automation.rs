@@ -1,5 +1,7 @@
 use super::condition::ConditionGroup;
 use super::event::EventKind;
+use super::interact::{PredictionAction, RewardState};
+use super::moderation::ChatMode;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -53,6 +55,18 @@ pub enum Trigger {
     },
     /// Run from the app, the local API or a Stream Deck button.
     Manual,
+    /// A channel point reward is redeemed. No id and no title means any reward.
+    Redemption {
+        #[serde(default)]
+        reward_id: String,
+        /// Matched too, so actions shared from another channel find their reward.
+        #[serde(default)]
+        reward_title: String,
+    },
+    PollBegin,
+    PollEnd,
+    PredictionBegin,
+    PredictionEnd,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
@@ -122,6 +136,19 @@ pub enum Step {
         duration_s: u32,
         #[serde(default)]
         reason: String,
+    },
+    DeleteMessage {
+        /// Empty = the chat message that started the action.
+        #[serde(default)]
+        message_id: String,
+    },
+    SetChatMode {
+        mode: ChatMode,
+        #[serde(default)]
+        state: Toggle,
+        /// Slow mode seconds or follower-only minutes.
+        #[serde(default)]
+        value: u32,
     },
     Delay {
         ms: u32,
@@ -210,6 +237,51 @@ pub enum Step {
     RunAction {
         action_id: String,
     },
+    /// Complete or refund the channel point redemption that started the run.
+    FinishRedemption {
+        #[serde(default)]
+        refund: bool,
+    },
+    SetRewardState {
+        #[serde(default)]
+        reward_id: String,
+        #[serde(default)]
+        reward_title: String,
+        #[serde(default)]
+        state: RewardState,
+    },
+    SetRewardCost {
+        #[serde(default)]
+        reward_id: String,
+        #[serde(default)]
+        reward_title: String,
+        /// A number; templates allowed.
+        cost: String,
+    },
+    StartPoll {
+        title: String,
+        choices: Vec<String>,
+        #[serde(default = "default_poll_s")]
+        duration_s: u32,
+        /// Extra votes for channel points. 0 = off.
+        #[serde(default)]
+        points_per_vote: u32,
+    },
+    /// End the running poll early and show the result.
+    EndPoll,
+    StartPrediction {
+        title: String,
+        outcomes: Vec<String>,
+        #[serde(default = "default_poll_s")]
+        window_s: u32,
+    },
+    EndPrediction {
+        #[serde(default)]
+        action: PredictionAction,
+        /// Winning outcome when resolving: its title or number from 1.
+        #[serde(default)]
+        winner: String,
+    },
     /// Stop this run here.
     Stop,
     Log {
@@ -222,6 +294,9 @@ fn default_alert_ms() -> u32 {
 }
 fn default_volume() -> u8 {
     70
+}
+fn default_poll_s() -> u32 {
+    120
 }
 
 /// Side of a node a line leaves or enters.
@@ -280,12 +355,92 @@ pub struct GraphEdge {
     pub branch: EdgeBranch,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum CanvasColor {
+    #[default]
+    Yellow,
+    Orange,
+    Pink,
+    Purple,
+    Blue,
+    Green,
+    Gray,
+}
+
+/// A sticky note on the canvas. Runs ignore it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default)]
+#[ts(export)]
+pub struct GraphNote {
+    pub id: String,
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+    /// Bold, italics, links and lists, markdown style.
+    pub text: String,
+    pub color: CanvasColor,
+}
+
+impl Default for GraphNote {
+    fn default() -> Self {
+        GraphNote {
+            id: crate::util::new_id(),
+            x: 0.0,
+            y: 0.0,
+            w: 240.0,
+            h: 160.0,
+            text: String::new(),
+            color: CanvasColor::Yellow,
+        }
+    }
+}
+
+/// A labelled box behind nodes that moves them together. Runs ignore it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default)]
+#[ts(export)]
+pub struct GraphFrame {
+    pub id: String,
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+    pub label: String,
+    pub color: CanvasColor,
+    /// Only the title bar shows; the nodes inside are hidden.
+    pub collapsed: bool,
+    /// Ids of the nodes and notes inside.
+    pub members: Vec<String>,
+}
+
+impl Default for GraphFrame {
+    fn default() -> Self {
+        GraphFrame {
+            id: crate::util::new_id(),
+            x: 0.0,
+            y: 0.0,
+            w: 400.0,
+            h: 300.0,
+            label: "Group".into(),
+            color: CanvasColor::Blue,
+            collapsed: false,
+            members: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS, Default)]
 #[serde(default)]
 #[ts(export)]
 pub struct Graph {
     pub nodes: Vec<GraphNode>,
     pub edges: Vec<GraphEdge>,
+    /// Comments and groups for people reading the flow. Added in 0.6, no format change.
+    pub notes: Vec<GraphNote>,
+    pub frames: Vec<GraphFrame>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]

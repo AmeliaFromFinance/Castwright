@@ -23,6 +23,23 @@ Sign your channel in or out, and optionally a **bot account**. Automation chat m
 
 If Twitch refuses some event types (usually after new permissions were added), sign out and in again.
 
+### Twitch permissions
+
+Your channel account asks Twitch for these permissions (scopes):
+
+| For | Scopes |
+| --- | --- |
+| Events | `bits:read`, `channel:read:subscriptions`, `moderator:read:followers`, `channel:read:redemptions`, `channel:read:hype_train`, `channel:read:polls`, `channel:read:predictions`, `channel:read:charity`, `channel:read:ads`, `moderator:read:shoutouts` |
+| Chat | `user:read:chat`, `user:write:chat`, `channel:bot`, `moderator:manage:announcements`, `moderator:read:chatters` |
+| Mod tools | `moderator:manage:banned_users`, `moderator:manage:chat_messages`, `moderator:manage:chat_settings`, `moderator:manage:shield_mode` |
+| Stream | `channel:manage:broadcast`, `channel:edit:commercial`, `clips:edit`, `channel:manage:redemptions`, `channel:manage:polls`, `channel:manage:predictions`, `moderator:manage:shoutouts` |
+
+The bot account asks for `user:read:chat`, `user:write:chat` and `user:bot`.
+
+[Channel points, polls and predictions](/guide/interact/) use the redemption, poll and prediction scopes.
+
+When a new version needs a new permission, Castwright keeps working with your old sign-in. You're only asked to sign in again when you use something that needs it.
+
 ### Use your own Twitch app
 
 Official builds come with a client ID, so you can skip this. If yours doesn't, or you prefer your own:
@@ -161,7 +178,11 @@ See [Files and data](/reference/files/#backups) for where they're stored.
 
 ## About
 
-Version, where settings are stored and links to this guide. **Check for updates** asks GitHub for a newer release. Castwright also checks once a day and shows a link in the status bar when one is out.
+Version, where settings are stored and links to this guide. **Check for updates** asks GitHub for a newer release. Castwright also checks once a day and shows a link in the status bar when one is out. Click **What's new** next to it to read that release's notes.
+
+### What's new
+
+After an update, Castwright shows what changed in the new version once. It doesn't show on a new install. To see it again, click **What's new** in About, or pick **What's new** in the command palette (<kbd>Ctrl</kbd> + <kbd>K</kbd>). Every version is listed in the [changelog](/changelog/).
 
 ### Portable mode
 

@@ -25,6 +25,60 @@ To delete the history, use **Settings → Backups and data → Clear history**.
 
 A full-size chat view with Twitch and 7TV badges, 7TV name paints and 7TV, BetterTTV and FrankerFaceZ emotes. The options button turns each of those on or off. You can send messages as yourself or as your bot.
 
+### Mod tools
+
+Hover a message and click **⋯**, or right-click it, to open its menu:
+
+| | |
+| --- | --- |
+| **Reply** | Your next message replies to it. <kbd>Esc</kbd> cancels. |
+| **Copy message** | Copies the text. |
+| **Viewer card** | See below. |
+| **Shoutout** | Official Twitch shoutout. Only while you're live. |
+| **Delete message** | Removes it from Twitch chat. |
+| **Time out** | 1 minute, 10 minutes, 1 hour or 24 hours. **…** picks any length up to 14 days, with a reason. |
+| **Ban…** | Asks first, with an optional reason. Shows **Unban** once they're banned. |
+
+Deleted messages stay in the panel, crossed out and marked **deleted**. This also happens when another mod deletes a message, times someone out or clears chat. They disappear from overlay chat layers right away.
+
+**Keyboard:** click a message (or <kbd>Tab</kbd> into chat), then use <kbd>↑</kbd> and <kbd>↓</kbd> to move.
+
+| Key | Does |
+| --- | --- |
+| <kbd>D</kbd> | Delete the message |
+| <kbd>T</kbd> | Time out the sender for 10 minutes |
+| <kbd>B</kbd> | Ban the sender (asks first) |
+| <kbd>Enter</kbd> | Open the message menu |
+
+### Viewer card
+
+Click a name in chat to open their card:
+
+- how old the account is, how long they've followed and their sub tier
+- their badges
+- their messages from this session
+- timeout, ban and shoutout buttons
+- **Mod note**: your own note about them. It's only saved on this computer.
+
+### Chat modes
+
+The icons at the top of the chat panel turn chat modes on and off. A highlighted icon is on.
+
+| Icon | Mode |
+| --- | --- |
+| Shield | Shield mode |
+| Timer | Slow mode. Pick the wait between messages, 3 seconds to 2 minutes. |
+| Heart | Followers-only. Pick how long people must have followed, from any follower to 3 months. |
+| Star | Subs-only |
+| Smile | Emote-only |
+| Fingerprint | Unique chat (no repeated messages) |
+
+Changes made on Twitch show up within a minute.
+
+:::note
+Mod tools need Twitch permissions that older sign-ins don't have. If you signed in before version 0.6, Castwright asks you to sign out and in again the first time you use one.
+:::
+
 ## Sessions and summary
 
 Each stream you do is saved as a **session**, from going live to going offline. When the stream ends, a **Stream summary ready** message pops up. Click **View** to open it.

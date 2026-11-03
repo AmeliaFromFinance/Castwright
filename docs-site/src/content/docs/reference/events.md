@@ -101,10 +101,10 @@ Read these as `data.<key>`. Keys marked "if sent" only appear when Twitch includ
 | `resub` | `is_prime`, `duration_months` (if sent), `streak_months` (if the viewer shares it), `system_message` |
 | `gift_sub` | `is_prime`, `duration_months` (if sent), `cumulative_total` (if sent), `community_gift_id` (when part of a community gift), `system_message` |
 | `community_gift` | `is_prime`, `cumulative_total` (if sent), `community_gift_id`, `system_message` |
-| `redemption` | `reward_title`, `reward_id`, `redemption_id`, `status` |
+| `redemption` | `reward_title`, `reward_id`, `redemption_id`, `status` (`unfulfilled`, or `fulfilled` for rewards that skip the queue) |
 | `power_up` | `power_up_type`, `emote_name` (if sent) |
 | `hype_train_begin`, `_progress`, `_end` | `hype_train_id`, `level`, `total`, `goal` and `progress` (if sent), `is_golden_kappa`, `top_contributions` |
-| `poll_begin`, `_progress`, `_end` | `poll_id`, `title`, `choices`, `status`, `started_at`, `ends_at`, `ended_at` (times if sent) |
+| `poll_begin`, `_progress`, `_end` | `poll_id`, `title`, `choices`, `status`, `points_per_vote` (0 when channel points voting is off), `started_at`, `ends_at`, `ended_at` (times if sent) |
 | `prediction_begin`, `_progress`, `_lock`, `_end` | `prediction_id`, `title`, `outcomes`, `status`, `winning_outcome_id` (if set), `started_at`, `locks_at`, `locked_at`, `ended_at` (times if sent) |
 | `ad_break` | `is_automatic` |
 | `charity` | `charity_name`, `campaign_id` |
@@ -127,8 +127,12 @@ Pick an item by its position, starting at 0: `data.choices.0.title` is the first
 
 ### Status values
 
-- Polls: `status` is Twitch's value, or `active` when Twitch sends none.
+- Polls: `status` is Twitch's value, or `active` when Twitch sends none. `poll_end` comes with `completed` or `terminated`, and again with `archived` when the result is hidden.
 - Predictions: `status` is Twitch's value. When it's missing, it's `locked` for `prediction_lock` and `active` otherwise.
+
+## Redemption updates
+
+When a redemption is completed or refunded (in Castwright, on Twitch or by another app), Twitch sends `channel.channel_points_custom_reward_redemption.update`. Castwright uses it to keep the [redemption queue](/guide/interact/#redemption-queue) current. It's not a new event, so it doesn't play alerts or run actions.
 
 ## Good to know
 

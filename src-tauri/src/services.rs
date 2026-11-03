@@ -3,6 +3,8 @@
 
 use crate::error::AppResult;
 use crate::model::automation::Toggle;
+use crate::model::interact::{PollDraft, PredictionAction, PredictionDraft, RewardState};
+use crate::model::moderation::ChatMode;
 use async_trait::async_trait;
 use std::sync::Mutex;
 
@@ -21,6 +23,24 @@ pub trait TwitchActions: Send + Sync {
     /// Empty strings leave that field unchanged. `category` is a name, matched by search.
     async fn set_stream_info(&self, title: &str, category: &str) -> AppResult<()>;
     async fn timeout_user(&self, login: &str, duration_s: u32, reason: &str) -> AppResult<()>;
+    async fn delete_message(&self, message_id: &str) -> AppResult<()>;
+    /// `value` is slow mode seconds or follower minutes.
+    async fn set_chat_mode(&self, mode: ChatMode, state: Toggle, value: u32) -> AppResult<()>;
+    /// Complete (or with `refund`, cancel) one channel point redemption.
+    async fn finish_redemption(
+        &self,
+        reward_id: &str,
+        redemption_id: &str,
+        refund: bool,
+    ) -> AppResult<()>;
+    /// The reward is found by id, or by title when the id is unknown.
+    async fn set_reward_state(&self, id: &str, title: &str, state: RewardState) -> AppResult<()>;
+    async fn set_reward_cost(&self, id: &str, title: &str, cost: u32) -> AppResult<()>;
+    async fn start_poll(&self, draft: &PollDraft) -> AppResult<()>;
+    async fn end_poll(&self) -> AppResult<()>;
+    async fn start_prediction(&self, draft: &PredictionDraft) -> AppResult<()>;
+    /// `winner`: outcome id, title or number from 1. Only used to resolve.
+    async fn end_prediction(&self, action: PredictionAction, winner: &str) -> AppResult<()>;
 }
 
 #[async_trait]
@@ -87,6 +107,51 @@ impl TwitchActions for Recorder {
     }
     async fn timeout_user(&self, login: &str, duration_s: u32, reason: &str) -> AppResult<()> {
         self.push(format!("timeout {login} {duration_s} {reason}"))
+    }
+    async fn delete_message(&self, message_id: &str) -> AppResult<()> {
+        self.push(format!("delete {message_id}"))
+    }
+    async fn set_chat_mode(&self, mode: ChatMode, state: Toggle, value: u32) -> AppResult<()> {
+        self.push(format!("mode {mode:?} {state:?} {value}"))
+    }
+    async fn finish_redemption(
+        &self,
+        reward_id: &str,
+        redemption_id: &str,
+        refund: bool,
+    ) -> AppResult<()> {
+        self.push(format!(
+            "redemption {reward_id}/{redemption_id} refund={refund}"
+        ))
+    }
+    async fn set_reward_state(&self, id: &str, title: &str, state: RewardState) -> AppResult<()> {
+        self.push(format!("reward {id}|{title} {state:?}"))
+    }
+    async fn set_reward_cost(&self, id: &str, title: &str, cost: u32) -> AppResult<()> {
+        self.push(format!("reward {id}|{title} cost={cost}"))
+    }
+    async fn start_poll(&self, draft: &PollDraft) -> AppResult<()> {
+        self.push(format!(
+            "poll {} [{}] {}s points={}",
+            draft.title,
+            draft.choices.join(","),
+            draft.duration_s,
+            draft.points_per_vote
+        ))
+    }
+    async fn end_poll(&self) -> AppResult<()> {
+        self.push("end poll".into())
+    }
+    async fn start_prediction(&self, draft: &PredictionDraft) -> AppResult<()> {
+        self.push(format!(
+            "prediction {} [{}] {}s",
+            draft.title,
+            draft.outcomes.join(","),
+            draft.window_s
+        ))
+    }
+    async fn end_prediction(&self, action: PredictionAction, winner: &str) -> AppResult<()> {
+        self.push(format!("prediction {action:?} {winner}"))
     }
 }
 

@@ -1,7 +1,8 @@
 // In-browser stand-in for the Rust backend. Used when the UI runs outside the
 // desktop app: development in a browser, end-to-end tests and documentation
 // screenshots. Add `?demo=static` to the URL to turn off the simulated activity,
-// `&setup` to start at first-time setup, and `&ended` to have the stream just end.
+// `&setup` to start at first-time setup, `&ended` to have the stream just end and
+// `&oldscopes` for a Twitch sign-in made before the mod tools.
 
 import type { Backend, Unlisten } from './backend';
 import starter from './fixtures/starter-project.json';
@@ -28,6 +29,9 @@ import type { Project } from '$lib/bindings/Project';
 import type { QueueState } from '$lib/bindings/QueueState';
 import type { Settings } from '$lib/bindings/Settings';
 import type { TwitchStatus } from '$lib/bindings/TwitchStatus';
+import type { ChatMode } from '$lib/bindings/ChatMode';
+import type { ChatModes } from '$lib/bindings/ChatModes';
+import type { ViewerCard } from '$lib/bindings/ViewerCard';
 import { evaluateGroup } from '$lib/logic/condition';
 import { planRun } from '$lib/pages/automation/graph';
 import { applyImport, buildPackage, parsePackage } from '$lib/pages/automation/sharing';
@@ -36,6 +40,7 @@ import type { ImportChoices } from '$lib/bindings/ImportChoices';
 import { render } from '$lib/logic/template';
 import { ACTION_LABELS, findConflict } from '$lib/pages/settings/hotkeys';
 import { DEFAULT_SOCIAL_TEMPLATE } from '$lib/sessions/summary';
+import { createInteractMock } from './mock-interact';
 import { listItem, liveActivity, pastSessions, summarize, type DemoSession, type MakeEvent } from './mock-sessions';
 
 type Listener = (payload: unknown) => void;
@@ -88,6 +93,7 @@ function demoEvent(kind: EventKind, i: number, ago: number): Event {
   base.ts = now() - ago;
   base.test = false;
   if (base.user) base.user = { id: String(1000 + i), login: name.toLowerCase(), display_name: name };
+  if (kind === 'redemption') base.data = { ...base.data, redemption_id: uid(), status: 'unfulfilled' };
   return base;
 }
 
@@ -181,6 +187,8 @@ const BROADCASTER_SCOPES = [
   'channel:read:subscriptions',
   'bits:read',
   'moderator:read:followers',
+  'moderator:manage:chat_settings',
+  'moderator:manage:shield_mode',
   'channel:read:redemptions',
   'channel:manage:redemptions',
   'channel:read:hype_train',
@@ -316,14 +324,21 @@ export function createDemoBackend(): Backend {
     twitch.broadcaster = null;
     twitch.bot = null;
   }
+  // A sign-in from before the mod tools existed.
+  if (query.has('oldscopes') && twitch.broadcaster) {
+    twitch.broadcaster.scopes = twitch.broadcaster.scopes.filter((s) => !/chat_settings|shield_mode/.test(s));
+  }
   const queue: QueueState = { paused: false, muted: settings.alerts_muted, playing: null, waiting: [], last: null };
   const logs: LogEntry[] = [
     { ts: now() - 5_100_000, level: 'info', source: 'obs', message: 'Connected to OBS 32.1.0' },
-    { ts: now() - 5_095_000, level: 'info', source: 'twitch', message: 'Listening for 27 kinds of Twitch events' },
+    { ts: now() - 5_095_000, level: 'info', source: 'twitch', message: 'Listening for 28 kinds of Twitch events' },
     { ts: now() - 5_025_000, level: 'info', source: 'twitch', message: 'Stream went live' }
   ];
   const history: Event[] = [];
   const chat: Event[] = [];
+  const modes: ChatModes = { shield: false, slow: false, slow_wait_s: 0, followers: false, followers_minutes: 0, subscribers: false, emotes: false, unique: false };
+  /** Banned user ids, with when a timeout ends (null = permanent). */
+  const banned = new Map<string, number | null>();
   const kinds: Array<[EventKind, number]> = [
     ['follow', 0],
     ['sub', 1],
@@ -565,13 +580,17 @@ export function createDemoBackend(): Backend {
       }
     }
     emit('cw://event', e);
+    interact.onRedemption(e);
   };
+  const interact = createInteractMock({ emit, publish, uid, staticMode, viewers: VIEWERS.map(([name]) => name) });
 
   if (!staticMode && typeof window !== 'undefined') {
     let n = 0;
     setInterval(() => {
       n++;
-      publish(chatEvent(n + 18));
+      const line = chatEvent(n + 18);
+      const until = banned.get(line.user!.id);
+      if (until === undefined || (until !== null && until < now())) publish(line);
       if (n % 9 === 0) {
         const pick: EventKind[] = ['follow', 'sub', 'cheer', 'follow', 'redemption'];
         publish(demoEvent(pick[(n / 9) % pick.length]!, n, 0));
@@ -886,7 +905,7 @@ export function createDemoBackend(): Backend {
       settings.twitch.client_id = String(clientId);
     },
     app_info: () => ({
-      version: '0.5.0',
+      version: '0.6.0',
       os: 'demo',
       project_dir: '~/Castwright/Projects/Default',
       config_dir: '~/.config/castwright',
@@ -949,13 +968,62 @@ export function createDemoBackend(): Backend {
       twitch.stream.tags = tags as string[];
       emit('cw://twitch', twitch);
     },
-    twitch_send_chat: ({ message }) => {
+    twitch_send_chat: ({ message, replyTo }) => {
       const e = chatEvent(0, 0, String(message));
       e.user = { id: '1337', login: 'castwright', display_name: 'Castwright' };
       e.roles.broadcaster = true;
       e.data = { color: '#9DB8FF', badges: ['broadcaster'], sent_by_castwright: true };
+      const parent = replyTo ? chat.find((c) => c.id === replyTo) : undefined;
+      if (parent?.user) e.data.reply_to = parent.user.display_name;
       publish(e);
     },
+    twitch_delete_message: ({ messageId }) => {
+      const i = chat.findIndex((c) => c.id === messageId);
+      if (i >= 0) chat.splice(i, 1);
+      emit('cw://chat-delete', { message_id: String(messageId) });
+    },
+    twitch_ban: ({ userId, durationS, reason }) => {
+      const id = String(userId);
+      banned.set(id, durationS == null ? null : now() + Number(durationS) * 1000);
+      for (let i = chat.length - 1; i >= 0; i--) if (chat[i]!.user?.id === id) chat.splice(i, 1);
+      emit('cw://chat-delete', { user_id: id });
+      const name = VIEWERS[Number(id) - 1000]?.[0] ?? id;
+      log('info', 'twitch', durationS == null ? `Banned ${name}${reason ? `: ${String(reason)}` : ''}` : `Timed out ${name} for ${Number(durationS)} s`);
+    },
+    twitch_unban: ({ userId }) => {
+      banned.delete(String(userId));
+    },
+    twitch_shoutout: ({ login }) => log('info', 'twitch', `Shoutout to ${String(login)}`),
+    twitch_chat_modes: () => modes,
+    twitch_set_chat_mode: ({ mode, on, value }) => {
+      const m = mode as ChatMode;
+      modes[m] = Boolean(on);
+      if (m === 'slow' && on) modes.slow_wait_s = Math.min(120, Math.max(3, Number(value) || 30));
+      if (m === 'followers' && on) modes.followers_minutes = Number(value) || 0;
+      emit('cw://chat-modes', modes);
+      return modes;
+    },
+    twitch_viewer: ({ userId }): ViewerCard => {
+      const id = String(userId);
+      const i = Number(id) - 1000;
+      const v = VIEWERS[i];
+      if (!v) throw { code: 'twitch', message: 'Twitch doesn\'t know this user any more.' };
+      const day = 86_400_000;
+      const until = banned.get(id);
+      return {
+        id,
+        login: v[0].toLowerCase(),
+        display_name: v[0],
+        profile_image_url: '',
+        created_at: now() - (400 + i * 290) * day,
+        followed_at: i % 4 === 3 ? null : now() - (20 + i * 47) * day,
+        sub_tier: i % 2 === 0 ? (i === 4 ? '2000' : '1000') : null,
+        sub_gifted: i === 2,
+        banned: until !== undefined && (until === null || until > now()),
+        banned_until: until ?? null
+      };
+    },
+    ...interact.handlers,
     obs_snapshot: () => obs,
     obs_connect: () => undefined,
     obs_disconnect: () => undefined,

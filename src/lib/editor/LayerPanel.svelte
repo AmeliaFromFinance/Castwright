@@ -1,14 +1,15 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import IconButton from '$lib/ui/IconButton.svelte';
-  import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, GripVertical, Lock, Trash2 } from '@lucide/svelte';
+  import { ArrowDown, ArrowUp, Clapperboard, Copy, Eye, EyeOff, GripVertical, Lock, Trash2 } from '@lucide/svelte';
+  import { sceneAllows, sceneBadge } from '$lib/overlay/scenes';
   import { LAYER_TYPES, typeLabel } from './layers';
   import type { EditorStore } from './store.svelte';
   import LayerIcon from './ui/LayerIcon.svelte';
 
   let { store }: { store: EditorStore } = $props();
 
-  const SHORT: Record<string, string> = { event_list: 'Events', custom: 'Widget' };
+  const SHORT: Record<string, string> = { event_list: 'Events', custom: 'Widget', poll: 'Poll' };
 
   /** Front layer first. */
   const rows = $derived(store.doc.layers.slice().reverse());
@@ -110,6 +111,7 @@
             class="item"
             class:on={l.id === store.selectedId}
             class:hidden={!l.visible}
+            class:scene-off={!!store.previewScene && !sceneAllows(l.scenes, store.previewScene)}
             class:dragging={dragRow === i}
             class:drop-before={dropBefore === i && dragRow !== null && dragRow !== i && dragRow !== i - 1}
             class:drop-after={dropBefore === i + 1 && i === rows.length - 1 && dragRow !== null && dragRow !== i}
@@ -153,6 +155,10 @@
               >
                 <span class="icon"><LayerIcon type={l.kind.type} /></span>
                 <span class="name truncate">{l.name}</span>
+                {#if sceneBadge(l.scenes)}
+                  {@const badge = sceneBadge(l.scenes)}
+                  <span class="badge" title={badge} aria-label="Scene rule: {badge}" data-scene-badge><Clapperboard size={11} /></span>
+                {/if}
               </button>
             {/if}
             <span class="tools">
@@ -323,8 +329,21 @@
     font-weight: 600;
   }
   .hidden .name,
-  .hidden .icon {
+  .hidden .icon,
+  .scene-off .name,
+  .scene-off .icon {
     opacity: 0.5;
+  }
+  .badge {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin-left: auto;
+    border-radius: 5px;
+    background: var(--accent-soft);
+    color: var(--accent-text);
   }
   .rename {
     flex: 1;

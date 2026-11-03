@@ -15,6 +15,7 @@ import { render } from '$lib/logic/template';
 import { DEFAULT_BOX } from '$lib/overlay/styles';
 import { clone, newId } from '$lib/editors/ids';
 import type { Token } from '$lib/editors/tokens';
+import { defaultSceneRule } from '$lib/overlay/scenes';
 
 export function defaultTextStyle(patch: Partial<TextStyle> = {}): TextStyle {
   return {
@@ -415,6 +416,7 @@ export function previewOverlay(width = PREVIEW_SIZE.width, height = PREVIEW_SIZE
         visible: true,
         locked: false,
         visible_when: { mode: 'all', conditions: [] },
+        scenes: defaultSceneRule(),
         box_style: structuredClone(DEFAULT_BOX),
         enter: { ...none },
         exit: { ...none },

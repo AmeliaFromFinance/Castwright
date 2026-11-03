@@ -1,14 +1,20 @@
 <script lang="ts">
+  import type { CanvasColor } from '$lib/bindings/CanvasColor';
+  import { COLORS } from './canvas';
   import type { Point, Rect } from './graph';
+
+  type Colored = Rect & { id: string; color: CanvasColor };
 
   interface Props {
     nodes: Array<Rect & { id: string; trigger: boolean; selected: boolean }>;
+    notes?: Colored[];
+    frames?: Colored[];
     /** The part of the world the canvas shows. */
     visible: Rect;
     onjump: (p: Point) => void;
   }
 
-  let { nodes, visible, onjump }: Props = $props();
+  let { nodes, notes = [], frames = [], visible, onjump }: Props = $props();
 
   const W = 176;
   const H = 112;
@@ -19,7 +25,7 @@
     let y1 = visible.y;
     let x2 = visible.x + visible.w;
     let y2 = visible.y + visible.h;
-    for (const n of nodes) {
+    for (const n of [...nodes, ...notes, ...frames]) {
       x1 = Math.min(x1, n.x);
       y1 = Math.min(y1, n.y);
       x2 = Math.max(x2, n.x + n.w);
@@ -58,6 +64,12 @@
   onpointermove={(e) => dragging && jump(e)}
   onpointerup={() => (dragging = false)}
 >
+  {#each frames as f (f.id)}
+    <rect class="f" x={sx(f.x)} y={sy(f.y)} width={Math.max(2, f.w * box.s)} height={Math.max(2, f.h * box.s)} rx="3" style="--c:{COLORS[f.color]}" />
+  {/each}
+  {#each notes as n (n.id)}
+    <rect class="note" x={sx(n.x)} y={sy(n.y)} width={Math.max(2, n.w * box.s)} height={Math.max(2, n.h * box.s)} rx="1.5" style="--c:{COLORS[n.color]}" />
+  {/each}
   {#each nodes as n (n.id)}
     <rect
       class="n"
@@ -78,6 +90,14 @@
     display: block;
     cursor: pointer;
     touch-action: none;
+  }
+  .f {
+    fill: color-mix(in srgb, var(--c) 12%, transparent);
+    stroke: color-mix(in srgb, var(--c) 55%, transparent);
+    stroke-width: 1;
+  }
+  .note {
+    fill: color-mix(in srgb, var(--c) 60%, transparent);
   }
   .n {
     fill: color-mix(in srgb, var(--text-faint) 45%, transparent);

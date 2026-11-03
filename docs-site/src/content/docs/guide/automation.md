@@ -30,21 +30,54 @@ Nodes can sit anywhere. Lines can go from any side of a node to any side of anot
 - **Tidy up** lines everything up neatly: triggers on top, If branches side by side. One undo brings your layout back.
 - **Test** runs the action now. Each node it reached shows a tick, an error, or a dash if it was skipped.
 
-A dashed node with **Not connected** can't run because no trigger leads to it. The header counts these warnings.
+A dashed node with **Not connected** can't run because no trigger leads to it. The header counts these warnings. Notes and frames never get this warning.
 
 | Keys | Does |
 | --- | --- |
-| <kbd>Delete</kbd> | Remove the selected nodes or line |
-| <kbd>Ctrl</kbd> + <kbd>D</kbd> | Duplicate the selected nodes, with the lines between them |
+| <kbd>Delete</kbd> | Remove the selected nodes, notes, frames or line |
+| <kbd>Ctrl</kbd> + <kbd>D</kbd> | Duplicate the selection, with the lines between its nodes |
 | <kbd>Ctrl</kbd> + <kbd>X</kbd> / <kbd>C</kbd> / <kbd>V</kbd> | Cut, copy, paste where the pointer is |
-| <kbd>Ctrl</kbd> + <kbd>A</kbd> | Select every node |
-| Arrow keys | Nudge the selected nodes (<kbd>Shift</kbd> for a grid step) |
-| <kbd>Enter</kbd> / <kbd>Esc</kbd> | Open or close the settings; <kbd>Esc</kbd> again clears the selection |
+| <kbd>Ctrl</kbd> + <kbd>A</kbd> | Select every node, note and frame |
+| <kbd>Ctrl</kbd> + <kbd>G</kbd> | Put the selection in a frame |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> | Remove the selected frame (or the frame of the selected nodes), keeping what's inside |
+| <kbd>Shift</kbd> + double-click | Add a note there |
+| Arrow keys | Nudge the selection (<kbd>Shift</kbd> for a grid step) |
+| <kbd>Enter</kbd> / <kbd>Esc</kbd> | Open or close the settings (on a note: edit it, on a frame: rename it); <kbd>Esc</kbd> again clears the selection |
 | <kbd>Esc</kbd> while dragging | Stop where you are (a line being drawn is dropped) |
 | <kbd>Esc</kbd> on a past run | Back to the latest run |
 | <kbd>F</kbd> | Fit the whole flow in view |
 | <kbd>Space</kbd> + drag | Move around (so does the middle mouse button) |
 | <kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> | Undo and redo |
+
+## Notes and frames
+
+Notes and frames help you and others read a flow. Runs ignore them.
+
+![Notes and frames](../../../assets/screens/automation-notes.png)
+
+**Sticky notes**
+
+- **Add**: **Note** in the bottom bar, or <kbd>Shift</kbd> + double-click empty space.
+- **Write**: double-click the note. Click outside or press <kbd>Esc</kbd> when done.
+- **Format**: `**bold**`, `*italics*`, `[link text](https://…)`, and lines starting with `- ` or `1. ` for lists.
+- **Colour**: select the note and pick a dot above it.
+- **Resize**: drag the bottom-right corner.
+
+**Frames**
+
+A frame is a labelled box behind a group of nodes.
+
+- **Make one**: select nodes (and notes if you like), then **Group** at the top or <kbd>Ctrl</kbd> + <kbd>G</kbd>.
+- **Move it**: drag the title bar. Everything inside moves with it.
+- **Add or remove nodes**: drop a node over the frame and it joins. Drag it out and it leaves.
+- **Rename**: double-click the title. **Colour**: select the frame and pick a dot.
+- **Resize**: drag the bottom-right corner. Nodes now inside join, nodes now outside leave.
+- **Collapse**: the arrow in the title bar folds the frame down to its title. Its nodes are hidden, and lines to them end at the frame instead. They still run as normal.
+- **Ungroup**: <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> removes the frame and keeps its nodes. Deleting a frame also keeps its nodes.
+
+Copying or duplicating a frame copies everything inside it. **Tidy up** keeps each frame's nodes together and moves the frame as one block. Notes outside frames stay where they are.
+
+Notes and frames are saved with the action and included when you [share it](#share-actions).
 
 ## Watch a run
 
@@ -140,7 +173,7 @@ Imported actions start turned **off**, so nothing runs by surprise. Check them, 
 
 **What's in the file**
 
-- The actions and their flows.
+- The actions and their flows, with their notes and frames.
 - Names and starting values of the variables they use. Counters start at 0.
 - Names of the layers, other actions and files the steps point at. The files themselves aren't included; share those separately.
 

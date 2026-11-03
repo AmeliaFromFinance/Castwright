@@ -90,6 +90,12 @@ const SUBSCRIPTIONS: &[SubSpec] = &[
         Cond::Broadcaster,
         "read channel point redemptions",
     ),
+    sub(
+        "channel.channel_points_custom_reward_redemption.update",
+        V1,
+        Cond::Broadcaster,
+        "see completed and refunded redemptions",
+    ),
     sub("channel.bits.use", V1, Cond::Broadcaster, "read Power-ups"),
     sub(
         "channel.hype_train.begin",
@@ -427,6 +433,7 @@ impl TwitchService {
             Normalized::DeleteChat(id) => self.hub.delete_chat(&id),
             Normalized::ClearUser(id) => self.hub.clear_chat_user(&id),
             Normalized::ClearChat => self.hub.clear_chat(),
+            Normalized::RedemptionUpdate(u) => self.hub.emit_ui(crate::hub::ui::REDEMPTION, &u),
             Normalized::RaidOut {
                 login,
                 name,
@@ -526,7 +533,7 @@ mod tests {
             assert!(seen.insert((s.kind, s.cond)), "{}", s.kind);
             assert!(!s.versions.is_empty());
         }
-        assert_eq!(SUBSCRIPTIONS.len(), 27);
+        assert_eq!(SUBSCRIPTIONS.len(), 28);
     }
 
     #[test]

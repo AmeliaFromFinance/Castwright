@@ -12,6 +12,7 @@ import type { PackageVar } from '$lib/bindings/PackageVar';
 import type { RefKind } from '$lib/bindings/RefKind';
 import type { Step } from '$lib/bindings/Step';
 import { clone, newId } from '$lib/editors/ids';
+import { withExtras } from './canvas';
 import { describeTriggers } from './describe';
 import { isValidVarKey } from './validate';
 
@@ -248,7 +249,8 @@ export function parsePackage(text: string): ActionPackage {
   const variables = (raw.variables ?? [])
     .filter((v) => isValidVarKey(v.name))
     .map((v) => (v.secret || isSecretName(v.name) ? { ...v, secret: true, default: null } : v));
-  return { ...(raw as ActionPackage), variables, refs: raw.refs ?? [] };
+  const actions = (raw.actions as Action[]).map((a) => ({ ...a, graph: withExtras(a.graph ?? { nodes: [], edges: [], notes: [], frames: [] }) }));
+  return { ...(raw as ActionPackage), actions, variables, refs: raw.refs ?? [] };
 }
 
 function freeName(name: string, taken: Set<string>): string {

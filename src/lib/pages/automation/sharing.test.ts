@@ -141,3 +141,31 @@ describe('the demo import', () => {
     expect(actions.map((a) => a.name)).toEqual(['Hype', 'Hype (2)', 'Hype (3)', 'Helper']);
   });
 });
+
+describe('notes and frames', () => {
+  it('travel in the file and come back on import', () => {
+    const s = source();
+    const hype = s.actions[0]!;
+    const ids = hype.graph.nodes.slice(0, 2).map((n) => n.id);
+    hype.graph.notes = [{ id: 'note', x: 0, y: -200, w: 240, h: 160, text: '**Read me**', color: 'pink' }];
+    hype.graph.frames = [{ id: 'frame', x: -40, y: -60, w: 600, h: 400, label: 'Start', color: 'green', collapsed: true, members: [...ids, 'note'] }];
+    const pkg = parsePackage(JSON.stringify(buildPackage(s.actions, [hype.id], s.overlays, s.vars)));
+    const actions: Action[] = [];
+    applyImport(actions, [], [], pkg, importChoices(planImport(pkg, empty()), {}, {}));
+    const g = actions[0]!.graph;
+    expect(g.notes[0]!.text).toBe('**Read me**');
+    expect(g.frames[0]).toMatchObject({ label: 'Start', color: 'green', collapsed: true });
+    expect(g.frames[0]!.members).toEqual([...ids, 'note']);
+  });
+
+  it('files from before them load with empty lists', () => {
+    const { pkg } = exported();
+    const old = JSON.parse(JSON.stringify(pkg));
+    for (const a of old.actions) {
+      delete a.graph.notes;
+      delete a.graph.frames;
+    }
+    const back = parsePackage(JSON.stringify(old));
+    expect(back.actions.every((a) => Array.isArray(a.graph.notes) && Array.isArray(a.graph.frames))).toBe(true);
+  });
+});

@@ -1,0 +1,101 @@
+# Changelog
+
+What changed in each version of Castwright. The newest version is at the top.
+
+## 0.6.0 (2026-11-03)
+
+### New
+
+- **Channel points.** Create and edit rewards, then complete or refund redemptions, one at a time or in bulk. On the new **Interact** page (Ctrl+5).
+- **Polls and predictions.** Start, end, lock and resolve them, with a live **Poll / prediction** overlay layer.
+- **Mod tools in chat.** Hover or right-click a message to delete it, time out or ban the sender, reply, copy it or send a shoutout. D, T and B work on a focused message.
+- **Viewer cards.** Click a name to see account age, follow age, sub status, their messages this stream and your own mod note.
+- **Chat modes** in the chat header: shield mode, slow mode, followers-only, subs-only, emote-only and unique chat.
+- **Scene-aware layers.** Show a layer only in some OBS scenes, or hide it in some. Check any scene with **Preview as scene** in the editor.
+- **Notes and frames** on the automation canvas. Ctrl+G groups nodes in a frame; frames can collapse.
+- **What's new** window after an update. Open it again from Settings → About or the command palette.
+- Automation: triggers for redemptions, polls and predictions, plus steps for rewards, polls, predictions, **Delete message** and **Set chat mode**.
+
+### Improved
+
+- Deleted chat messages stay in the chat panel, marked as deleted. They still disappear from overlays.
+- Settings moved to Ctrl+6. Ctrl+, still opens it.
+
+## 0.5.0 (2026-11-03)
+
+### New
+
+- **Global hotkeys** that work while another app has focus. Set them in Settings → Hotkeys.
+- **Portable mode** for running Castwright from a USB drive.
+- **Stream summary** when a stream ends: time live, viewers, follows, subs, bits, chat and raids. Past streams are listed in Activity → Sessions.
+- Export a summary as an image, CSV or JSON, or copy a short text for socials.
+- **Overlay templates.** Save an overlay as a template and start new ones from it.
+- **Share actions** as `.cwactions` files.
+
+### Fixed
+
+- The hotkey recorder follows your keyboard layout for letters.
+
+## 0.4.0 (2026-11-03)
+
+### New
+
+- **Live run trace.** Watch each node of an action light up as it runs, with the line it took.
+- **Run history** for every action.
+- **Alert controls** in the status bar: pause, mute and replay the last alert.
+- **Go-live check** before you start streaming.
+- **Automatic backups** of your project, with restore.
+
+### Improved
+
+- The flow canvas scrolls when you drag a node or line to its edge.
+
+## 0.3.0 (2026-11-02)
+
+### New
+
+- **Free-form automation canvas.** Drag nodes anywhere and connect any side to any side.
+
+### Improved
+
+- Each node shows its own run result.
+- Pasting from the clipboard works reliably.
+- The old list view is gone. The canvas does everything it did.
+
+### Fixed
+
+- Mistakes in the automation steps reference.
+
+## 0.2.0 (2026-11-02)
+
+### New
+
+- **7TV, BetterTTV and FrankerFaceZ** emotes, plus 7TV name paints and badges, in overlay chat and the app.
+- Twitch badge images on chat messages.
+- **Box styles** for layers, chat and alert cards: shapes, fills, patterns, borders, stripes and shadows. Start from a preset.
+- **Zoom** with Ctrl + and Ctrl -. Large screens get a bigger interface.
+- **Node flow editor** for automation, with undo and drag and drop.
+- **Command palette** (Ctrl K) and a list of keyboard shortcuts (Ctrl /).
+- A notice in the status bar when a newer version is out.
+
+### Improved
+
+- The Studio page is gone. Stream title and category moved to Activity.
+- Panels can be resized and collapsed.
+
+### Fixed
+
+- A crash when clicking Run now on an action.
+
+## 0.1.0 (2026-11-01)
+
+### New
+
+- First release.
+- Overlays with a visual editor, served from your computer to OBS.
+- Alerts with a queue, sounds and variations.
+- Automation: actions with triggers, steps and small scripts.
+- Twitch sign-in, live events and chat.
+- OBS control: scenes, sources, audio, recording and streaming.
+- Activity page with event history, chat and the app log.
+- First-time setup, themes and a theme editor.

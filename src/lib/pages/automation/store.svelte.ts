@@ -7,6 +7,7 @@ import { Autosaver } from '$lib/editors/autosave.svelte';
 import { clone } from '$lib/editors/ids';
 import { app } from '$lib/state/app.svelte';
 import { loadPref, savePref } from '$lib/state/persist';
+import { withExtras } from './canvas';
 import { syncTriggers, type Clip } from './graph';
 import { ActionHistory } from './history';
 import { addToHistory, applyProgress, finishTrace, type Trace } from './trace';
@@ -43,8 +44,10 @@ class ActionsEditor {
   }
 
   sync(): void {
-    const source = app.project?.actions;
-    if (!source || this.dirty) return;
+    const raw = app.project?.actions;
+    if (!raw || this.dirty) return;
+    // Projects from before notes and frames have neither list.
+    const source = raw.map((a) => ({ ...a, graph: withExtras(a.graph) }));
     if (!this.actions || JSON.stringify(source) !== JSON.stringify($state.snapshot(this.actions))) {
       this.actions = clone(source);
     }

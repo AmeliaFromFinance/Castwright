@@ -182,7 +182,7 @@ export function sameAction(a: HotkeyAction, b: HotkeyAction): boolean {
 }
 
 /** Shortcuts the app window uses itself. A global hotkey would take them over. */
-const APP_KEYS = ['K', '1', '2', '3', '4', '5', 'Comma', 'Slash', 'Equal', 'Minus', '0', 'D', 'Z'];
+const APP_KEYS = ['K', '1', '2', '3', '4', '5', '6', 'Comma', 'Slash', 'Equal', 'Minus', '0', 'D', 'Z'];
 const APP_SHORTCUTS = new Set(
   (['Ctrl', 'Super'] as const).flatMap((m) => [...APP_KEYS.map((k) => joinCombo([m], k)), joinCombo([m, 'Shift'], 'Z')])
 );

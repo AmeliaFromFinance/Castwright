@@ -11,4 +11,8 @@ min_chat_lines: number, } | { "type": "stream_online" } | { "type": "stream_offl
 /**
  * Empty = any scene.
  */
-scene: string, } | { "type": "manual" };
+scene: string, } | { "type": "manual" } | { "type": "redemption", reward_id: string, 
+/**
+ * Matched too, so actions shared from another channel find their reward.
+ */
+reward_title: string, } | { "type": "poll_begin" } | { "type": "poll_end" } | { "type": "prediction_begin" } | { "type": "prediction_end" };

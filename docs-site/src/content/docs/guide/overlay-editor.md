@@ -59,10 +59,45 @@ Each layer has these sections on the right:
 | **Content** | What the layer shows: text and font, image, chat options, goal target and so on. |
 | **Style** | Background, border, corners, padding, shadow and backdrop blur. |
 | **Visibility** | **Only show when**: rules that hide the layer unless they match, for example `stream.live is true`. See [conditions](/reference/conditions/). |
+| **Scenes** | Which OBS scenes show the layer. See [Scenes](#scenes). |
 | **Animation** | How the layer enters, leaves and moves while shown. Click the play button next to each to preview it. |
 | **Advanced** | Custom CSS for the layer, and its ID for automation. The list under the CSS box shows which classes this layer has; click one to insert a rule. See [Custom CSS](/reference/styling/). |
 
 Hide a layer with the eye in the Layers list. The **Show/hide overlay layer** automation step can show it at certain moments, like after a raid.
+
+## Scenes
+
+One overlay can change with your OBS scene. For example, hide the webcam frame on your BRB scene, or show a "Starting soon" banner only on the starting scene.
+
+Open **Scenes** on a layer and pick one:
+
+| Option | The layer shows |
+| --- | --- |
+| **Show in all scenes** | Everywhere. This is the default. |
+| **Only in these scenes** | Only in the ticked scenes. |
+| **Hide in these scenes** | Everywhere except the ticked scenes. |
+
+Tick scenes from OBS's list. If OBS isn't connected, type the name and press **Enter**. Names must match OBS exactly, including capitals.
+
+Layers with a rule get a small clapper icon in the Layers list.
+
+**Coming and going.** When the scene changes, the layer plays its own enter and exit animations. If it has none, it uses the **Transition** set here: fade, slide, scale or none, with a duration. If your computer asks for reduced motion, slides and scales become fades.
+
+**Which scene counts.** The program scene: what's live on stream. In Studio Mode, the preview scene doesn't count. While OBS isn't connected, every layer shows as if it had no rule.
+
+**With other visibility settings.** A layer shows only when all of these are true:
+
+1. Its eye is on. The **Show/hide overlay layer** automation step changes this too.
+2. Its **Only show when** conditions match.
+3. Its scene rule allows the current scene.
+
+So an automation step can't show a layer in a scene its rule hides it from. It just stays hidden until the scene allows it.
+
+### Preview as scene
+
+![Preview as scene](../../../assets/screens/overlay-scenes.png)
+
+Pick a scene in **Preview as scene** in the top bar to see the canvas as it looks in that scene. Layers that scene hides are dimmed, not removed, so you can still select and edit them. Pick **All scenes** to go back.
 
 ## Fonts
 
@@ -88,6 +123,7 @@ The play button in the top bar starts and stops layer animations on the canvas.
 | Eye | Show hidden layers on the canvas |
 | Frame | Safe area guide, to keep things away from the edges |
 | ▶ | Play or pause animations |
+| Clapper | **Preview as scene**: dims layers the chosen scene hides |
 | **Test** | Test alerts, chat and values |
 | Link | Copy the OBS link |
 

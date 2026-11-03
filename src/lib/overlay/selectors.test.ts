@@ -46,6 +46,7 @@ describe('selector catalogue', () => {
     expect(selectorsFor('alerts').map((s) => s.selector)).toContain('.cw-alert-title');
     expect(variablesFor('chat').map((v) => v.name)).toEqual(['--cw-name', '--cw-tint', '--cw-lean']);
     expect(variablesFor('image')).toEqual([]);
+    expect(selectorsFor('poll').map((s) => s.selector)).toEqual(expect.arrayContaining(['.cw-poll-choice', '.cw-poll-fill', '.cw-winner', '.cw-text']));
     for (const v of VARIABLES) expect(sources).toContain(v.name);
   });
 
@@ -61,7 +62,7 @@ describe('selector catalogue', () => {
     expect(md).toContain('## Chat');
     expect(md).toContain('| `.cw-chat-line` | Each message card |');
     expect(md).toContain('| `--cw-accent` |');
-    expect(md.split('## ').length - 1).toBe(11);
+    expect(md.split('## ').length - 1).toBe(12);
   });
 });
 
