@@ -1,6 +1,6 @@
 [package]
 name = "castwright"
-version = "0.6.0"
+version = "0.7.0"
 description = "Local-first Twitch broadcaster suite and overlay creator"
 authors = ["karasu"]
 license = "MIT"
@@ -48,6 +48,7 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
 base64 = "0.22"
 async-trait = "0.1"
+regex = "1"
 
 [target.'cfg(any(windows, target_os = "macos"))'.dependencies]
 window-vibrancy = "0.6"

@@ -31,6 +31,8 @@ export function describeTrigger(t: Trigger): string {
       return t.scene ? `Scene: ${t.scene}` : 'Any scene change';
     case 'redemption':
       return t.reward_title.trim() ? `Redeem: ${t.reward_title.trim()}` : 'Any reward redeemed';
+    case 'ad_soon':
+      return `Ad in ${t.minutes_before} min`;
     default:
       return TRIGGER_LABELS[t.type];
   }
@@ -94,9 +96,17 @@ const PREDICTION_TOKENS: Token[] = [
   { token: 'prediction.total_users', label: 'Viewers who predicted' }
 ];
 
-/** Extra values redemption, poll and prediction events give an action. */
+const AD_TOKENS: Token[] = [
+  { token: 'ad.time', label: 'Time until the ad, or left of it' },
+  { token: 'ad.seconds_left', label: 'Same, in seconds' },
+  { token: 'ad.length', label: 'Ad length, like 1:30' },
+  { token: 'ad.length_s', label: 'Ad length in seconds' }
+];
+
+/** Extra values redemption, poll, prediction and ad triggers give an action. */
 function interactTokens(kind: string): Token[] {
   if (kind === 'redemption') return REDEMPTION_TOKENS;
+  if (kind.startsWith('ad_')) return AD_TOKENS;
   if (kind.startsWith('poll_')) return POLL_TOKENS;
   if (kind.startsWith('prediction_')) return PREDICTION_TOKENS;
   return [];
@@ -186,6 +196,11 @@ export function describeStep(s: Step, ctx: { actions?: readonly Action[]; overla
       const layer = ov?.layers.find((l) => l.id === s.layer_id);
       return ov && layer ? `${TOGGLE[s.state][0]} ${quote(layer.name)} in ${ov.name}` : '';
     }
+    case 'roll_credits': {
+      const ov = ctx.overlays?.find((o) => o.id === s.overlay_id);
+      const layer = ov?.layers.find((l) => l.id === s.layer_id);
+      return ov && layer ? `Roll ${quote(layer.name)} in ${ov.name}` : '';
+    }
     case 'play_alert':
       return s.title.trim() || s.message.trim();
     case 'pause_alerts':
@@ -224,5 +239,9 @@ export function describeStep(s: Step, ctx: { actions?: readonly Action[]; overla
       if (s.action === 'lock') return 'Lock the prediction';
       if (s.action === 'cancel') return 'Cancel and refund';
       return s.winner.trim() ? `${quote(s.winner)} wins` : '';
+    case 'snooze_ad':
+      return 'Push the next ad back 5 minutes';
+    case 'post_to_discord':
+      return s.message.trim();
   }
 }

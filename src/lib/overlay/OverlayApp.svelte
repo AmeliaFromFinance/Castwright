@@ -18,6 +18,9 @@
     assetUrl={runtime.assetUrl}
     feed={runtime.feed}
     onWidgetStore={runtime.storeWidgetValue}
+    credits={s.credits}
+    rolls={s.rolls}
+    onLoadCredits={runtime.loadCredits}
     mode="live"
   />
 {/if}

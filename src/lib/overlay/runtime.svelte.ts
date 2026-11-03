@@ -4,7 +4,8 @@ import { assetResolver } from './assets';
 import { backoffDelay, type Endpoint } from './connection';
 import { Feed } from './feed';
 import { baseVisible, currentScene, sceneAllows } from './scenes';
-import { emptyState, parseMsg, reduce, setWidgetValue, type OverlayState } from './state';
+import { emptyState, parseMsg, reduce, setCredits, setWidgetValue, type OverlayState } from './state';
+import type { Credits } from '$lib/bindings/Credits';
 
 export interface RuntimeOptions {
   endpoint: Endpoint;
@@ -79,6 +80,22 @@ export class OverlayRuntime {
     this.#apply(msg);
   }
 
+  #creditsLoading = false;
+
+  /** Fetch fresh names for credits layers. */
+  loadCredits = (): void => {
+    if (this.#creditsLoading || typeof fetch !== 'function') return;
+    const { httpBase, token } = this.#opts.endpoint;
+    this.#creditsLoading = true;
+    fetch(`${httpBase}/api/credits?token=${encodeURIComponent(token)}`)
+      .then((r) => (r.ok ? (r.json() as Promise<Credits>) : null))
+      .then((c) => {
+        if (c && typeof c === 'object') this.state = setCredits(this.state, c);
+      })
+      .catch((err: unknown) => console.warn('[overlay] could not load credits', err))
+      .finally(() => (this.#creditsLoading = false));
+  };
+
   /** Save (or with `undefined`, delete) a custom widget value. */
   storeWidgetValue = (layerId: string, key: string, value: unknown): void => {
     this.state = setWidgetValue(this.state, layerId, key, value);
@@ -114,6 +131,7 @@ export class OverlayRuntime {
           else if (m.type === 'store_delete') next = setWidgetValue(next, m.layer_id, m.key, undefined);
         }
         this.state = next;
+        if (next.overlay?.layers.some((l) => l.kind.type === 'credits')) this.loadCredits();
         const pending = this.#unsent;
         this.#unsent = [];
         for (const m of pending) if (!this.#send(m)) this.#unsent.push(m);

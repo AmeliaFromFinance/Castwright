@@ -1,0 +1,152 @@
+{
+  "kind": "castwright-actions",
+  "version": 1,
+  "app_version": "",
+  "exported_at": 0,
+  "actions": [
+    {
+      "id": "tpl-poll-command",
+      "name": "!poll",
+      "group": "Chat commands",
+      "enabled": false,
+      "triggers": [
+        {
+          "type": "command",
+          "name": "poll",
+          "aliases": [],
+          "permission": "moderator",
+          "user_cooldown_s": 0
+        }
+      ],
+      "steps": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "x": 164,
+            "y": 0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "command",
+                "name": "poll",
+                "aliases": [],
+                "permission": "moderator",
+                "user_cooldown_s": 0
+              }
+            }
+          },
+          {
+            "id": "n2",
+            "x": 164,
+            "y": 168,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "run_script",
+                "code": "// !poll Question | Choice 1 | Choice 2 (up to 5 choices)\nlet out = [];\nfor part in args.input.split(\"|\") {\n    let t = part;\n    t.trim();\n    if t != \"\" { out.push(t); }\n}\nlet ok = out.len() >= 3 && out.len() <= 6;\nset(\"poll_cmd.ok\", ok);\nset(\"poll_cmd.title\", if ok { out[0] } else { \"\" });\nfor i in 1..6 {\n    set(\"poll_cmd.choice\" + i, if ok && i < out.len() { out[i] } else { \"\" });\n}"
+              }
+            }
+          },
+          {
+            "id": "n3",
+            "x": 164,
+            "y": 336,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "if",
+                "conditions": {
+                  "mode": "all",
+                  "conditions": [
+                    {
+                      "field": "poll_cmd.ok",
+                      "op": "is_true",
+                      "value": null
+                    }
+                  ]
+                },
+                "then": [],
+                "else": []
+              }
+            }
+          },
+          {
+            "id": "n4",
+            "x": 0,
+            "y": 504,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "start_poll",
+                "title": "{{poll_cmd.title}}",
+                "choices": [
+                  "{{poll_cmd.choice1}}",
+                  "{{poll_cmd.choice2}}",
+                  "{{poll_cmd.choice3}}",
+                  "{{poll_cmd.choice4}}",
+                  "{{poll_cmd.choice5}}"
+                ],
+                "duration_s": 120,
+                "points_per_vote": 0
+              }
+            }
+          },
+          {
+            "id": "n5",
+            "x": 328,
+            "y": 504,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "chat_send",
+                "message": "Use: !poll Question | Choice 1 | Choice 2 (up to 5 choices)",
+                "as_bot": true,
+                "reply": true
+              }
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e1",
+            "from": "n1",
+            "from_side": "bottom",
+            "to": "n2",
+            "to_side": "top",
+            "branch": "next"
+          },
+          {
+            "id": "e2",
+            "from": "n2",
+            "from_side": "bottom",
+            "to": "n3",
+            "to_side": "top",
+            "branch": "next"
+          },
+          {
+            "id": "e3",
+            "from": "n3",
+            "from_side": "bottom",
+            "to": "n4",
+            "to_side": "top",
+            "branch": "then"
+          },
+          {
+            "id": "e4",
+            "from": "n3",
+            "from_side": "bottom",
+            "to": "n5",
+            "to_side": "top",
+            "branch": "otherwise"
+          }
+        ],
+        "notes": [],
+        "frames": []
+      },
+      "cooldown_s": 0
+    }
+  ],
+  "variables": [],
+  "refs": []
+}

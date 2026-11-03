@@ -5,7 +5,10 @@
   import { openExternal } from '$lib/util/os';
   import { count, duration } from '$lib/format';
   import { golive } from '$lib/state/golive.svelte';
-  import { ListChecks } from '@lucide/svelte';
+  import { HeartPulse, ListChecks } from '@lucide/svelte';
+  import { health } from '$lib/health/store.svelte';
+  import { tooltip } from '$lib/health/health';
+  import AdControl from './AdControl.svelte';
   import AlertControl from './AlertControl.svelte';
   import { tally } from './golive';
 
@@ -63,6 +66,12 @@
       {/if}
     {/if}
   </div>
+  {#if tw?.stream.live && (app.ads.known || app.ads.running_until > 0)}
+    <AdControl />
+  {/if}
+  <button type="button" class="item link health {health.summary.level}" title={tooltip(health.summary)} aria-label="Health: {health.summary.text}" onclick={() => health.show()}>
+    <HeartPulse size={13} />
+  </button>
   <button type="button" class="item link" title="Run the go-live check" onclick={() => golive.show()}>
     {#if checkTone}<i class="dot {checkTone}"></i>{:else}<ListChecks size={12} />{/if}Go-live check
   </button>
@@ -155,6 +164,12 @@
   .dot.live {
     background: var(--live);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--live) 30%, transparent);
+  }
+  .health.warn {
+    color: var(--warn);
+  }
+  .health.bad {
+    color: var(--danger);
   }
   .demo {
     color: var(--warn);

@@ -8,6 +8,12 @@ import type { Overlay } from '$lib/bindings/Overlay';
 import type { TextStyle } from '$lib/bindings/TextStyle';
 import { DEFAULT_BOX, DEFAULT_ITEM_CARD } from '$lib/overlay/styles';
 import { defaultSceneRule } from '$lib/overlay/scenes';
+import { defaultCreditSections } from '$lib/overlay/credits';
+import { findPreset, presetBox } from '$lib/overlay/presets';
+
+/** Same as the backend defaults in model/overlay.rs. */
+export const DEFAULT_AD_SOON_TEXT = 'Ads in {{time}}, back soon';
+export const DEFAULT_AD_RUNNING_TEXT = 'Thanks for sticking around! Back in {{time}}';
 
 export type LayerType = LayerKind['type'];
 export type KindOf<T extends LayerType> = Extract<LayerKind, { type: T }>;
@@ -24,6 +30,8 @@ export const LAYER_TYPES: ReadonlyArray<{ type: LayerType; label: string; hint: 
   { type: 'timer', label: 'Timer', hint: 'Countdown, stopwatch, clock or uptime' },
   { type: 'event_list', label: 'Event list', hint: 'Recent follows, subs and more' },
   { type: 'poll', label: 'Poll / prediction', hint: 'Live results with bars and a countdown' },
+  { type: 'credits', label: 'Credits', hint: 'End-of-stream roll of followers, subs and chatters' },
+  { type: 'ad_break', label: 'Ad break', hint: 'A heads-up before and during ads' },
   { type: 'custom', label: 'Custom widget', hint: 'Your own HTML, CSS and JavaScript' }
 ];
 
@@ -139,6 +147,35 @@ export function kindDefaults<T extends LayerType>(type: T): KindOf<T> {
       show_totals: true,
       bar_color: '',
       track_color: '',
+      style: defaultTextStyle(),
+      item_box: defaultBoxStyle(),
+      item_card: defaultItemCard()
+    },
+    credits: {
+      type: 'credits',
+      sections: defaultCreditSections(),
+      speed: 60,
+      fit_s: 0,
+      repeat: false,
+      start: 'on_load',
+      heading: '',
+      footer: '',
+      names: 'plain',
+      columns: 1,
+      fade_edges: true,
+      show_amounts: true,
+      max_chatters: 10,
+      page_s: 6,
+      style: defaultTextStyle(),
+      title_style: defaultTextStyle(),
+      heading_style: defaultTextStyle(),
+      section_box: defaultBoxStyle()
+    },
+    ad_break: {
+      type: 'ad_break',
+      soon_s: 30,
+      soon_text: DEFAULT_AD_SOON_TEXT,
+      running_text: DEFAULT_AD_RUNNING_TEXT,
       style: defaultTextStyle(),
       item_box: defaultBoxStyle(),
       item_card: defaultItemCard()
@@ -303,6 +340,34 @@ function preset(type: LayerType): Preset {
         },
         box: panelBox()
       };
+    case 'credits':
+      return {
+        name: 'Credits',
+        w: 640,
+        h: 860,
+        kind: {
+          ...kindDefaults('credits'),
+          heading: 'Thanks for watching!',
+          footer: 'See you next stream',
+          style: small({ font_size: 26, align: 'center' }),
+          title_style: small({ font_size: 18, font_weight: 700, align: 'center', uppercase: true, letter_spacing: 2, color: '#9db8ff' }),
+          heading_style: small({ font_size: 40, font_weight: 800, align: 'center' })
+        }
+      };
+    case 'ad_break': {
+      const clean = findPreset('clean');
+      return {
+        name: 'Ad break',
+        w: 900,
+        h: 130,
+        kind: {
+          ...kindDefaults('ad_break'),
+          style: { ...defaultTextStyle(), font_size: 40, font_weight: 700, align: 'center' },
+          item_box: clean ? presetBox(clean, 'events') : panelBox(),
+          item_card: { ...defaultItemCard(), width: 'fit' }
+        }
+      };
+    }
     case 'custom':
       return {
         name: 'Custom widget',

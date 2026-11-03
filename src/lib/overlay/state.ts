@@ -1,4 +1,5 @@
 import type { AlertPlay } from '$lib/bindings/AlertPlay';
+import type { Credits } from '$lib/bindings/Credits';
 import type { Event } from '$lib/bindings/Event';
 import type { Overlay } from '$lib/bindings/Overlay';
 import type { OverlayMsg } from '$lib/bindings/OverlayMsg';
@@ -27,10 +28,14 @@ export interface OverlayState {
   alert: ActiveAlert | null;
   /** `layer_visible` overrides until the next layout update. */
   visibility: Record<string, boolean>;
+  /** Names for credits layers; null until loaded. */
+  credits: Credits | null;
+  /** Times each credits layer was told to roll. A change restarts it. */
+  rolls: Record<string, number>;
 }
 
 export function emptyState(): OverlayState {
-  return { overlay: null, vars: {}, recent: [], chat: [], widgetState: {}, alert: null, visibility: {} };
+  return { overlay: null, vars: {}, recent: [], chat: [], widgetState: {}, alert: null, visibility: {}, credits: null, rolls: {} };
 }
 
 function isObj(v: unknown): v is Record<string, unknown> {
@@ -76,7 +81,9 @@ export function reduce(state: OverlayState, msg: OverlayMsg, now: number = Date.
         chat: tail(msg.chat, CHAT_KEEP),
         widgetState: isObj(msg.widget_state) ? (msg.widget_state as WidgetState) : {},
         alert: state.alert,
-        visibility: {}
+        visibility: {},
+        credits: state.credits,
+        rolls: state.rolls
       };
     }
     case 'overlay':
@@ -118,6 +125,9 @@ export function reduce(state: OverlayState, msg: OverlayMsg, now: number = Date.
     case 'layer_visible':
       if (typeof msg.layer_id !== 'string') return state;
       return { ...state, visibility: { ...state.visibility, [msg.layer_id]: !!msg.visible } };
+    case 'credits_roll':
+      if (typeof msg.layer_id !== 'string' || !isObj(msg.credits)) return state;
+      return { ...state, credits: msg.credits, rolls: { ...state.rolls, [msg.layer_id]: (state.rolls[msg.layer_id] ?? 0) + 1 } };
     case 'play_sound':
     case 'reload':
       return state;
@@ -133,4 +143,8 @@ export function setWidgetValue(state: OverlayState, layerId: string, key: string
   if (value === undefined) delete next[key];
   else next[key] = value;
   return { ...state, widgetState: { ...state.widgetState, [layerId]: next } };
+}
+
+export function setCredits(state: OverlayState, credits: Credits): OverlayState {
+  return { ...state, credits };
 }

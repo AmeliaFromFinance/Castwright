@@ -97,7 +97,7 @@ The run list is kept until Castwright closes. With reduced motion on, nothing pu
 
 ## Start an action
 
-Click **New action** and pick a template (chat command, timer message, raid welcome, deaths counter) or start blank. Every change saves on its own.
+Click **New action** and pick a [template](#templates) or start blank. Every change saves on its own.
 
 | Setting | What it does |
 | --- | --- |
@@ -112,10 +112,11 @@ An action can have several triggers. Each starts the run from its own node, so d
 | Trigger | Fires when |
 | --- | --- |
 | **Chat command** | Someone types the command, like `!so @name`. Set other names it answers to, **who can use it** and a **per-viewer cooldown** (moderators and you skip it). |
-| **Twitch event** | A follow, sub, raid, redemption and so on happens, optionally only when [conditions](/reference/conditions/) match. |
+| **Twitch event** | A follow, sub, raid, redemption and so on happens, optionally only when [conditions](/reference/conditions/) match. **Chat message** fires for every message; add a condition such as *First message ever*. |
 | **Timer** | Every few minutes. Can be limited to while you're live and to when chat has been active. Runs at most every 10 seconds. |
 | **Stream goes live** / **Stream ends** | Your stream starts or stops. |
 | **Scene changes** | OBS switches to a scene (or any scene). |
+| **Ad starting soon** / **Ad break begins** / **Ad break ends** | Some minutes before an ad, or when one starts or ends. See [Ads and Discord](/guide/ads-discord/#automation). |
 | **Button or Stream Deck** | Only runs when you click **Test** or call its [run link](/guide/stream-deck/). **Test** starts here when the action has one. |
 
 Messages from your bot and from Castwright itself never trigger actions, so actions can't set each other off in a loop. Test events from the Alerts page don't run actions either; use **Test** to try one.
@@ -127,10 +128,11 @@ Steps run along the lines from the trigger that fired. Add one from the flow and
 | Group | Steps |
 | --- | --- |
 | **Chat** | Send chat message (as you or the bot, optionally as a reply), announcement |
-| **Twitch** | Shoutout, create clip, stream marker, run ad, set title and category, time out user |
+| **Twitch** | Shoutout, create clip, stream marker, run ad, snooze ad, set title and category, time out user |
 | **OBS** | Switch scene, show/hide source, mute/unmute, recording, save replay |
-| **Overlays & alerts** | Show/hide overlay layer, play a custom alert, play sound |
+| **Overlays & alerts** | Show/hide overlay layer, roll credits, play a custom alert, play sound |
 | **Variables** | Set variable, add to variable |
+| **Discord** | Post to Discord |
 | **Logic** | If, wait, run another action, stop |
 | **Advanced** | Web request, run a [script](/reference/scripting/), write to the log |
 
@@ -147,6 +149,27 @@ Every step and option is described in the [automation steps reference](/referenc
 **Deaths counter**: trigger *Chat command* `death`; steps *Add to variable* `counter.deaths` by 1, connected to *Send chat message* `Deaths: {{counter.deaths}}`. Show it on stream with a **Counter** layer.
 
 **Raid welcome**: trigger *Twitch event* `Raid` when `amount is at least 10`; steps *Switch scene* to "Raid", *Wait* 15 seconds, *Switch scene* back.
+
+## Templates
+
+**New action** opens the template picker. Each card shows what the template does and a small preview of its flow.
+
+![Action templates](../../../assets/screens/action-templates.png)
+
+| Template | What it does |
+| --- | --- |
+| **Shoutout on raid** | Raids of 5 or more viewers get an announcement and a `/shoutout`. Change the number in the trigger. |
+| **Death counter** | `!death` adds one (mods), `!deaths` shows the total, `!resetdeaths` starts over (mods). Creates `counter.deaths`. |
+| **Hydrate reminder** | A water reminder in chat every 45 minutes while live. |
+| **First-time chatter welcome** | Greets people the first time they chat. Castwright counts from when it first saw them, so everyone is new on a fresh install. |
+| **Lurk command** | `!lurk` thanks the viewer. |
+| **Socials command** | `!socials` posts your links. Edit the message to add yours. |
+| **Redemption sound** | A reward named "Play a sound" plays a sound, then completes the redemption. Pick your own reward in the trigger. |
+| **Poll from chat** | Mods type `!poll Question \| Choice 1 \| Choice 2` (up to 5 choices). |
+| **Roll credits** | Rolls a [credits layer](/guide/overlay-editor/#credits-layer) when OBS switches to a scene named "Ending", or from a button. |
+| **Clip command** | `!clip` saves a clip and posts the link. |
+
+A template opens in the same window as an import, so you can link the sound or layer it uses. Templates start turned **off**. Switch on **Turn on now** to run it right away; this works once everything is linked.
 
 ## Share actions
 

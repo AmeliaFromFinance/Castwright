@@ -1,0 +1,95 @@
+{
+  "kind": "castwright-actions",
+  "version": 1,
+  "app_version": "",
+  "exported_at": 0,
+  "actions": [
+    {
+      "id": "tpl-roll-credits",
+      "name": "Roll credits",
+      "group": "Stream events",
+      "enabled": false,
+      "triggers": [
+        {
+          "type": "scene_changed",
+          "scene": "Ending"
+        },
+        {
+          "type": "manual"
+        }
+      ],
+      "steps": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "x": 4,
+            "y": 0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "scene_changed",
+                "scene": "Ending"
+              }
+            }
+          },
+          {
+            "id": "n2",
+            "x": 332,
+            "y": 0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "manual"
+              }
+            }
+          },
+          {
+            "id": "n3",
+            "x": 168,
+            "y": 168,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "roll_credits",
+                "overlay_id": "tpl-ending",
+                "layer_id": "tpl-credits"
+              }
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e1",
+            "from": "n1",
+            "from_side": "bottom",
+            "to": "n3",
+            "to_side": "top",
+            "branch": "next"
+          },
+          {
+            "id": "e2",
+            "from": "n2",
+            "from_side": "bottom",
+            "to": "n3",
+            "to_side": "top",
+            "branch": "next"
+          }
+        ],
+        "notes": [],
+        "frames": []
+      },
+      "cooldown_s": 0
+    }
+  ],
+  "variables": [],
+  "refs": [
+    {
+      "kind": "layer",
+      "id": "tpl-credits",
+      "name": "Credits",
+      "overlay_id": "tpl-ending",
+      "overlay_name": "Ending"
+    }
+  ]
+}

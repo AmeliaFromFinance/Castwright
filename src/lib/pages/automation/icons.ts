@@ -1,6 +1,11 @@
 import {
+  AlarmClockOff,
   Bell,
   BellOff,
+  CircleStop,
+  Send,
+  Timer,
+  TvMinimalPlay,
   ChartColumn,
   Bookmark,
   CircleCheck,
@@ -42,7 +47,8 @@ import {
   Variable,
   Volume2,
   Workflow,
-  Zap
+  Zap,
+  Film
 } from '@lucide/svelte';
 import type { Component } from 'svelte';
 import { STEP_GROUPS, type StepType, type TriggerType } from './defaults';
@@ -69,6 +75,7 @@ export const STEP_ICONS: Record<StepType, Icon> = {
   recording: Radio,
   save_replay: Repeat,
   set_layer_visible: Layers,
+  roll_credits: Film,
   play_alert: Bell,
   pause_alerts: BellOff,
   skip_alert: SkipForward,
@@ -84,6 +91,8 @@ export const STEP_ICONS: Record<StepType, Icon> = {
   end_poll: SquareX,
   start_prediction: Trophy,
   end_prediction: Lock,
+  snooze_ad: AlarmClockOff,
+  post_to_discord: Send,
   stop: OctagonX,
   log: ScrollText
 };
@@ -100,7 +109,10 @@ export const TRIGGER_ICONS: Record<TriggerType, Icon> = {
   poll_begin: ChartColumn,
   poll_end: Flag,
   prediction_begin: Trophy,
-  prediction_end: Flag
+  prediction_end: Flag,
+  ad_soon: Timer,
+  ad_begin: TvMinimalPlay,
+  ad_end: CircleStop
 };
 
 /** Colour family of a step, from its menu group. */
@@ -113,6 +125,7 @@ const TONES: Record<string, Tone> = {
   OBS: 'obs',
   'Overlays & alerts': 'media',
   Variables: 'vars',
+  Discord: 'chat',
   Logic: 'logic',
   Advanced: 'advanced'
 };
@@ -129,6 +142,7 @@ export const GROUP_ICONS: Record<string, Icon> = {
   OBS: Clapperboard,
   'Overlays & alerts': Layers,
   Variables: Variable,
+  Discord: Send,
   Logic: Split,
   Advanced: Braces
 };

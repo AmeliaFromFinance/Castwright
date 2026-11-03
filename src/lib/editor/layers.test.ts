@@ -90,6 +90,26 @@ const KIND_KEYS: Record<LayerType, string[]> = {
   timer: ['mode', 'duration_s', 'anchor_var', 'style', 'prefix'],
   event_list: ['kinds', 'max_items', 'direction', 'item_format', 'style', 'item_box', 'item_card'],
   poll: ['show', 'result_s', 'show_title', 'show_timer', 'show_totals', 'bar_color', 'track_color', 'style', 'item_box', 'item_card'],
+  credits: [
+    'sections',
+    'speed',
+    'fit_s',
+    'repeat',
+    'start',
+    'heading',
+    'footer',
+    'names',
+    'columns',
+    'fade_edges',
+    'show_amounts',
+    'max_chatters',
+    'page_s',
+    'style',
+    'title_style',
+    'heading_style',
+    'section_box'
+  ],
+  ad_break: ['soon_s', 'soon_text', 'running_text', 'style', 'item_box', 'item_card'],
   custom: ['html', 'css', 'js', 'fields', 'values']
 };
 

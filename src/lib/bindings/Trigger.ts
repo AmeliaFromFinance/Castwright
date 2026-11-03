@@ -15,4 +15,4 @@ scene: string, } | { "type": "manual" } | { "type": "redemption", reward_id: str
 /**
  * Matched too, so actions shared from another channel find their reward.
  */
-reward_title: string, } | { "type": "poll_begin" } | { "type": "poll_end" } | { "type": "prediction_begin" } | { "type": "prediction_end" };
+reward_title: string, } | { "type": "poll_begin" } | { "type": "poll_end" } | { "type": "prediction_begin" } | { "type": "prediction_end" } | { "type": "ad_soon", minutes_before: number, } | { "type": "ad_begin" } | { "type": "ad_end" };

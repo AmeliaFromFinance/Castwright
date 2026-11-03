@@ -124,6 +124,26 @@ The log says which one happened.
 A project saved by a newer version of Castwright counts as unreadable in an older version, so an older version restores a backup instead. Your newer file is kept as `project.unreadable-<time>.json`.
 :::
 
+## Logs
+
+Castwright writes its log to a `logs` folder in the data folder:
+
+| System | Logs folder |
+| --- | --- |
+| Windows | `%APPDATA%\com.castwright.studio\logs\` |
+| macOS | `~/Library/Application Support/com.castwright.studio/logs/` |
+| Linux | `~/.local/share/com.castwright.studio/logs/` |
+| Portable | `data/logs/` |
+
+| File | Holds |
+| --- | --- |
+| `castwright.log` | The log of this run and earlier ones |
+| `castwright.1.log`, `castwright.2.log` | Older log. When `castwright.log` reaches 1 MB it becomes `castwright.1.log`, and the oldest is deleted. |
+| `crash.json` | Written when Castwright hits an error it can't recover from. If it's still there at the next start, Castwright offers a bug report. |
+| `last-crash.json` | The last crash, once seen. Added to bug reports. |
+
+These files may hold private details like overlay links, so don't share them as they are. A [bug report](/guide/health/#save-a-bug-report) removes secrets first.
+
 ## Secrets
 
 Twitch sign-ins and the OBS password are kept in the system keychain:
@@ -168,7 +188,8 @@ All data then goes in `data`:
 | `Projects/Default/` | The default [project folder](#project-folder) |
 | `backups/` | [Backups](#backups) |
 | `webview/` | The app window's own storage, like panel sizes (Windows and Linux) |
-| `cache/`, `logs/` | Made if needed |
+| `logs/` | [Log files and the crash file](#logs) |
+| `cache/` | Made if needed |
 
 On macOS the app window's storage stays in the usual place, because macOS doesn't let apps move it.
 

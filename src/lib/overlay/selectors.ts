@@ -16,7 +16,7 @@ export interface VariableInfo {
   description: string;
 }
 
-const TEXT_KINDS: readonly LayerType[] = ['text', 'goal', 'counter', 'timer', 'event_list', 'alerts', 'poll'];
+const TEXT_KINDS: readonly LayerType[] = ['text', 'goal', 'counter', 'timer', 'event_list', 'alerts', 'poll', 'credits', 'ad_break'];
 
 export const SELECTORS: readonly SelectorInfo[] = [
   { selector: ':scope', kinds: [], description: 'This layer’s box' },
@@ -45,12 +45,12 @@ export const SELECTORS: readonly SelectorInfo[] = [
   { selector: '.cw-chat-line', kinds: ['chat'], description: 'Each message card' },
   { selector: '.cw-chat-line[data-user-id]', kinds: ['chat'], description: 'Messages from one chatter (by Twitch user id)' },
   // Chat content. Keep classes used inside a message together here.
-  { selector: '.cw-chat-badge', kinds: ['chat'], description: 'Any badge' },
-  { selector: '.cw-badge-twitch', kinds: ['chat'], description: 'A Twitch badge (moderator, subscriber…)' },
-  { selector: '.cw-badge-7tv', kinds: ['chat'], description: 'A 7TV badge' },
-  { selector: '.cw-badge-role', kinds: ['chat'], description: 'A built-in role icon, used when a badge image is missing' },
+  { selector: '.cw-chat-badge', kinds: ['chat', 'credits'], description: 'Any badge' },
+  { selector: '.cw-badge-twitch', kinds: ['chat', 'credits'], description: 'A Twitch badge (moderator, subscriber…)' },
+  { selector: '.cw-badge-7tv', kinds: ['chat', 'credits'], description: 'A 7TV badge' },
+  { selector: '.cw-badge-role', kinds: ['chat', 'credits'], description: 'A built-in role icon, used when a badge image is missing' },
   { selector: '.cw-chat-name', kinds: ['chat'], description: 'The name' },
-  { selector: '.cw-paint', kinds: ['chat'], description: 'A name with a 7TV paint' },
+  { selector: '.cw-paint', kinds: ['chat', 'credits'], description: 'A name with a 7TV paint' },
   { selector: '.cw-chat-sep', kinds: ['chat'], description: 'The colon after the name' },
   { selector: '.cw-chat-msg', kinds: ['chat'], description: 'The message text' },
   { selector: '.cw-emote', kinds: ['chat'], description: 'An emote' },
@@ -105,6 +105,30 @@ export const SELECTORS: readonly SelectorInfo[] = [
   { selector: '.cw-poll-timer', kinds: ['poll'], description: 'Time left, or the result line' },
   { selector: '.cw-poll-total', kinds: ['poll'], description: 'Votes or points in total' },
 
+  { selector: '.cw-credits', kinds: ['credits'], description: 'The whole roll, clipped to the layer' },
+  { selector: '.cw-rolling', kinds: ['credits'], description: 'Added to .cw-credits while it moves' },
+  { selector: '.cw-done', kinds: ['credits'], description: 'Added to .cw-credits once it has stopped at the end' },
+  { selector: '.cw-paged', kinds: ['credits'], description: 'Added to .cw-credits when reduced motion shows pages' },
+  { selector: '.cw-fade', kinds: ['credits'], description: 'Added to .cw-credits when the edges fade' },
+  { selector: '.cw-waiting', kinds: ['credits'], description: 'Added to .cw-credits while it waits for the Roll credits step (hidden)' },
+  { selector: '.cw-two', kinds: ['credits'], description: 'Added to .cw-credits with two columns' },
+  { selector: '.cw-credits-roll', kinds: ['credits'], description: 'Everything that moves' },
+  { selector: '.cw-credits-heading', kinds: ['credits'], description: 'The heading' },
+  { selector: '.cw-credits-section', kinds: ['credits'], description: 'Each section card' },
+  { selector: '.cw-credits-section[data-kind="followers"]', kinds: ['credits'], description: 'One section (followers, subscribers, gifters, cheerers, raiders, moderators, vips, chatters)' },
+  { selector: '.cw-credits-title', kinds: ['credits'], description: 'A section title' },
+  { selector: '.cw-credits-names', kinds: ['credits'], description: 'The names in a section' },
+  { selector: '.cw-credits-row', kinds: ['credits'], description: 'One name with its amount' },
+  { selector: '.cw-credits-name', kinds: ['credits'], description: 'The name' },
+  { selector: '.cw-credits-amount', kinds: ['credits'], description: 'Months, gifts, bits, viewers or messages' },
+  { selector: '.cw-credits-footer', kinds: ['credits'], description: 'The footer' },
+  { selector: '.cw-ad', kinds: ['ad_break'], description: 'The whole heads-up' },
+  { selector: '.cw-ad-soon', kinds: ['ad_break'], description: 'Added to .cw-ad before the ad' },
+  { selector: '.cw-ad-running', kinds: ['ad_break'], description: 'Added to .cw-ad while the ad runs' },
+  { selector: '.cw-ad[data-phase="running"]', kinds: ['ad_break'], description: 'Same as .cw-ad-running (soon before the ad)' },
+  { selector: '.cw-ad-card', kinds: ['ad_break'], description: 'The card around the message' },
+  { selector: '.cw-ad-text', kinds: ['ad_break'], description: 'The message' },
+
   { selector: '.cw-custom', kinds: ['custom'], description: 'The widget frame. Its own HTML has the widget’s CSS' }
 ];
 
@@ -148,6 +172,8 @@ const KIND_NAMES: Record<LayerType, string> = {
   timer: 'Timer',
   event_list: 'Event list',
   poll: 'Poll / prediction',
+  credits: 'Credits',
+  ad_break: 'Ad break',
   custom: 'Custom widget'
 };
 

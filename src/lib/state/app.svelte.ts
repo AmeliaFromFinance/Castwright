@@ -7,6 +7,8 @@ import type { Project } from '$lib/bindings/Project';
 import type { QueueState } from '$lib/bindings/QueueState';
 import type { ServerInfo } from '$lib/bindings/ServerInfo';
 import type { Settings } from '$lib/bindings/Settings';
+import type { AdSchedule } from '$lib/bindings/AdSchedule';
+import { countdown } from '$lib/overlay/ads';
 import type { TwitchStatus } from '$lib/bindings/TwitchStatus';
 import type { WindowEffect } from '$lib/bindings/WindowEffect';
 import { applyTheme, watchSystemTheme } from '$lib/theme/apply';
@@ -57,6 +59,20 @@ export function emptyObs(): ObsSnapshot {
   };
 }
 
+export function emptyAds(): AdSchedule {
+  return {
+    known: false,
+    next_ad_at: 0,
+    length_s: 0,
+    last_ad_at: 0,
+    preroll_free_s: 0,
+    snoozes: 0,
+    snooze_refresh_at: 0,
+    running_until: 0,
+    running_length_s: 0
+  };
+}
+
 /** Deleted chat stays in the panel, marked as deleted. */
 export function markDeleted(chat: Event[], d: { message_id?: string; user_id?: string; all?: boolean }): Event[] {
   const hit = (c: Event) => !!d.all || (!!d.message_id && c.id === d.message_id) || (!!d.user_id && c.user?.id === d.user_id);
@@ -79,6 +95,7 @@ class AppState {
   levels = $state<Record<string, number[]>>({});
   twitch = $state<TwitchStatus | null>(null);
   queue = $state<QueueState>({ paused: false, muted: false, playing: null, waiting: [], last: null });
+  ads = $state<AdSchedule>(emptyAds());
   vars = $state<Vars>({});
   chat = $state<Event[]>([]);
   feed = $state<Event[]>([]);
@@ -105,6 +122,7 @@ class AppState {
         api.getLogs()
       ]);
       Object.assign(this, { project, settings, info, server, obs, twitch, queue, vars, chat, feed, logs });
+      this.ads = await api.adSchedule().catch(() => emptyAds());
       this.applyAppearance();
       watchSystemTheme(() => this.applyAppearance());
       await this.subscribe();
@@ -163,7 +181,11 @@ class AppState {
       }),
       on('cw://log', (l) => {
         this.logs = [...this.logs.slice(-(LOG_KEEP - 1)), l];
+        // A deleted webhook shouldn't go unnoticed until the next stream.
+        if (l.source === 'discord' && l.level === 'error') toasts.show(l.message, 'error', 12_000, 'discord');
       }),
+      on('cw://ads', (s) => (this.ads = s)),
+      on('cw://ad-warning', (s) => this.adWarning(s)),
       on('cw://obs', (s) => (this.obs = s)),
       on('cw://obs-levels', (levels) => {
         const next: Record<string, number[]> = {};
@@ -183,6 +205,23 @@ class AppState {
         this.project = await api.getProject();
       })
     ]);
+  }
+
+  /** The heads-up before an ad, with a Snooze button when one is left. */
+  adWarning(s: AdSchedule) {
+    const secs = Math.max(0, Math.ceil((s.next_ad_at - Date.now()) / 1000));
+    const msg = `Ad break in ${countdown(secs)}, ${countdown(s.length_s)} long.`;
+    const snooze = s.snoozes > 0 ? { label: 'Snooze', run: () => void this.snoozeAd() } : undefined;
+    toasts.show(s.snoozes > 0 ? msg : `${msg} No snoozes left.`, 'info', 20_000, 'ad-warning', snooze);
+  }
+
+  async snoozeAd() {
+    try {
+      this.ads = await api.snoozeAd();
+      toasts.success(`Snoozed. ${this.ads.snoozes} snooze${this.ads.snoozes === 1 ? '' : 's'} left.`);
+    } catch (e) {
+      toasts.error(e);
+    }
   }
 
   async reloadProject() {

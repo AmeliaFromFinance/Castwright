@@ -10,4 +10,8 @@ conflicts: { [key in string]?: ConflictChoice },
  * By reference key: the local id to use (layers `overlay_id/layer_id`, assets the
  * file name), or null to leave it unlinked. Missing = the same id if it exists here.
  */
-links: { [key in string]?: string | null }, };
+links: { [key in string]?: string | null }, 
+/**
+ * Turn the actions on. Imports start off unless this is set (templates).
+ */
+enable: boolean, };

@@ -2,7 +2,9 @@
   import { onDestroy, tick, untrack } from 'svelte';
   import { onFlush } from '$lib/state/flush';
   import { api } from '$lib/api';
+  import type { Credits } from '$lib/bindings/Credits';
   import type { EventKind } from '$lib/bindings/EventKind';
+  import { hasCreditNames } from '$lib/overlay/credits';
   import type { Overlay } from '$lib/bindings/Overlay';
   import type { Phase } from '$lib/overlay/anim';
   import type OverlayStage from '$lib/overlay/OverlayStage.svelte';
@@ -68,6 +70,17 @@
   const assetUrl = (p: string) => appAssetUrl(p, app.server?.base_url, app.server?.asset_key);
   const kinds = $derived(testableKinds(app.project?.alerts));
   const hasTestData = $derived(!!store.testAlert || store.testEvents.length > 0 || store.testChat.length > 0 || Object.keys(store.varOverrides).length > 0);
+
+  // Credits layers show the current or last stream's names; sample names until there are some.
+  let credits = $state<Credits | null>(null);
+  const hasCredits = $derived(store.doc.layers.some((l) => l.kind.type === 'credits'));
+  $effect(() => {
+    if (!hasCredits) return;
+    api
+      .sessionCredits()
+      .then((c) => (credits = hasCreditNames(c) ? c : null))
+      .catch(() => (credits = null));
+  });
 
   // Pick up changes saved elsewhere, but never over local edits.
   $effect(() => {
@@ -282,9 +295,9 @@
   <div class="body" style="grid-template-columns:{leftW}px auto minmax(0, 1fr) auto {rightShown}px">
     <LayerPanel {store} />
     <ResizeHandle bind:size={leftW} id="editor.layers" min={180} max={480} initial={248} panel="before" label="Resize layers panel" />
-    <Canvas bind:this={canvas} bind:stage {store} {vars} {recent} {chat} {assetUrl} onedit={editContent} />
+    <Canvas bind:this={canvas} bind:stage {store} {vars} {recent} {chat} {credits} {assetUrl} onedit={editContent} />
     <ResizeHandle bind:size={rightW} id="editor.properties" min={280} max={760} initial={336} panel="after" label="Resize properties panel" />
-    <Inspector {store} {vars} {wide} onpreview={preview} ontestalert={() => playAlert(kinds[0] ?? 'follow')} ontogglewide={() => (wide = !wide)} />
+    <Inspector {store} {vars} {wide} onpreview={preview} ontestalert={() => playAlert(kinds[0] ?? 'follow')} ontogglewide={() => (wide = !wide)} onroll={(id) => stage?.rollCredits(id)} />
   </div>
 </div>
 

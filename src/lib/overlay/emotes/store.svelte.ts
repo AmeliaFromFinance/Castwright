@@ -4,7 +4,7 @@
 import { CosmeticsCache, type Cosmetics } from './cache';
 import { cosmeticsQuery, parseCosmetics, parseStyles, SEVENTV_GQL, stylesQuery } from './cosmetics';
 import { SevenTvEvents } from './events';
-import { EmoteLoader } from './loader';
+import { EmoteLoader, type ProviderStatus } from './loader';
 import type { FetchFn } from './providers';
 import type { EmoteMap, EmoteOptions } from './types';
 
@@ -73,6 +73,12 @@ class ChatExtras {
     void this.version;
     if (!this.#loader || !(o.seventv || o.bttv || o.ffz)) return EMPTY;
     return this.#loader.map(o);
+  }
+
+  /** Reactive. Empty until chat has asked for emotes. */
+  providers(): ProviderStatus[] {
+    void this.version;
+    return this.#loader?.status() ?? [];
   }
 
   /** Call from an effect: looks up 7TV paints and badges for these chatters. */

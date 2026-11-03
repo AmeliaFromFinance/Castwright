@@ -14,12 +14,13 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use futures_util::{SinkExt, StreamExt};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::{Arc, Mutex, RwLock};
 use tokio::sync::{broadcast, oneshot};
 use tower::ServiceExt;
+use ts_rs::TS;
 
 #[derive(rust_embed::Embed)]
 #[folder = "../dist"]
@@ -37,22 +38,67 @@ struct Ctx {
     project: Arc<ProjectStore>,
     automation: Arc<Automation>,
     token: Arc<RwLock<String>>,
-    /// Open overlay pages per overlay id.
-    clients: Arc<Mutex<HashMap<String, usize>>>,
+    clients: Arc<Mutex<Connections>>,
+}
+
+/// One open overlay page.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct PageConnection {
+    /// Short browser name, like "OBS 32" or "Chrome".
+    pub agent: String,
+    #[ts(type = "number")]
+    pub since: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct OverlayConnections {
+    pub overlay_id: String,
+    pub pages: Vec<PageConnection>,
+    pub last_connect: Option<i64>,
+    pub last_disconnect: Option<i64>,
+}
+
+/// Open overlay pages per overlay id, and when they came and went.
+#[derive(Default)]
+struct Connections {
+    next: u64,
+    overlays: HashMap<String, OverlayConns>,
+}
+
+#[derive(Default)]
+struct OverlayConns {
+    open: Vec<(u64, PageConnection)>,
+    last_connect: Option<i64>,
+    last_disconnect: Option<i64>,
 }
 
 /// Counts an overlay page while its socket is open.
 struct ClientGuard {
-    clients: Arc<Mutex<HashMap<String, usize>>>,
+    clients: Arc<Mutex<Connections>>,
     id: String,
+    conn: u64,
 }
 
 impl ClientGuard {
-    fn new(clients: &Arc<Mutex<HashMap<String, usize>>>, id: &str) -> Self {
-        *clients.lock().unwrap().entry(id.to_string()).or_default() += 1;
+    fn new(clients: &Arc<Mutex<Connections>>, id: &str, agent: &str) -> Self {
+        let now = crate::util::now_ms();
+        let mut map = clients.lock().unwrap();
+        map.next += 1;
+        let conn = map.next;
+        let o = map.overlays.entry(id.to_string()).or_default();
+        o.open.push((
+            conn,
+            PageConnection {
+                agent: short_agent(agent),
+                since: now,
+            },
+        ));
+        o.last_connect = Some(now);
         ClientGuard {
             clients: clients.clone(),
             id: id.to_string(),
+            conn,
         }
     }
 }
@@ -60,12 +106,52 @@ impl ClientGuard {
 impl Drop for ClientGuard {
     fn drop(&mut self) {
         let mut map = self.clients.lock().unwrap();
-        if let Some(n) = map.get_mut(&self.id) {
-            *n = n.saturating_sub(1);
-            if *n == 0 {
-                map.remove(&self.id);
-            }
+        if let Some(o) = map.overlays.get_mut(&self.id) {
+            o.open.retain(|(c, _)| *c != self.conn);
+            o.last_disconnect = Some(crate::util::now_ms());
         }
+    }
+}
+
+/// "OBS 32", "Chrome", "Firefox" and so on, from a browser's User-Agent header.
+pub fn short_agent(ua: &str) -> String {
+    let version_of = |name: &str| -> Option<String> {
+        let rest = &ua[ua.find(name)? + name.len()..];
+        let major: String = rest.chars().take_while(char::is_ascii_digit).collect();
+        Some(major)
+    };
+    let named = |label: &str, marker: &str| match version_of(marker) {
+        Some(v) if !v.is_empty() => format!("{label} {v}"),
+        _ => label.to_string(),
+    };
+    if ua.contains("OBS/") {
+        named("OBS", "OBS/")
+    } else if ua.contains("Streamlabs") || ua.contains("SLOBS") {
+        "Streamlabs".into()
+    } else if ua.contains("XSplit") {
+        "XSplit".into()
+    } else if ua.contains("Edg/") {
+        "Edge".into()
+    } else if ua.contains("OPR/") {
+        "Opera".into()
+    } else if ua.contains("Firefox/") {
+        "Firefox".into()
+    } else if ua.contains("Chrome/") || ua.contains("Chromium/") {
+        "Chrome".into()
+    } else if ua.contains("Safari/") {
+        "Safari".into()
+    } else if ua.trim().is_empty() {
+        "Unknown".into()
+    } else {
+        ua.split_whitespace()
+            .next()
+            .unwrap_or_default()
+            .split('/')
+            .next()
+            .unwrap_or_default()
+            .chars()
+            .take(24)
+            .collect()
     }
 }
 
@@ -140,7 +226,7 @@ impl OverlayServer {
                 project,
                 automation,
                 token: Arc::new(RwLock::new(token)),
-                clients: Arc::new(Mutex::new(HashMap::new())),
+                clients: Arc::new(Mutex::new(Connections::default())),
             },
             info: RwLock::new(ServerInfo::default()),
             stop: std::sync::Mutex::new(None),
@@ -175,7 +261,7 @@ impl OverlayServer {
                     let (tx, rx) = oneshot::channel();
                     *self.stop.lock().unwrap() = Some(tx);
                     let app = router(self.ctx.clone());
-                    tokio::spawn(async move {
+                    crate::util::spawn(async move {
                         let _ = axum::serve(listener, app)
                             .with_graceful_shutdown(async {
                                 let _ = rx.await;
@@ -243,9 +329,23 @@ impl OverlayServer {
             .clients
             .lock()
             .unwrap()
+            .overlays
             .get(overlay_id)
-            .copied()
-            .unwrap_or(0)
+            .map_or(0, |o| o.open.len())
+    }
+
+    /// Open pages and recent comings and goings for one overlay.
+    pub fn connections(&self, overlay_id: &str) -> OverlayConnections {
+        let map = self.ctx.clients.lock().unwrap();
+        let o = map.overlays.get(overlay_id);
+        OverlayConnections {
+            overlay_id: overlay_id.to_string(),
+            pages: o
+                .map(|o| o.open.iter().map(|(_, p)| p.clone()).collect())
+                .unwrap_or_default(),
+            last_connect: o.and_then(|o| o.last_connect),
+            last_disconnect: o.and_then(|o| o.last_disconnect),
+        }
     }
 
     pub fn overlay_url(&self, overlay_id: &str) -> Option<String> {
@@ -267,6 +367,7 @@ fn router(ctx: Ctx) -> Router {
         .route("/assets/{name}", get(asset))
         .route("/api/overlay/{id}", get(overlay_json))
         .route("/api/actions/{id}/run", post(run_action))
+        .route("/api/credits", get(credits_json))
         .route("/api/alerts", get(alerts_status))
         .route("/api/alerts/{command}", post(alerts_command))
         .route("/_app/{*path}", get(static_file))
@@ -419,6 +520,26 @@ async fn overlay_json(
     }
 }
 
+/// Names for credits layers, from the live stream or the last one.
+async fn credits_json(
+    State(ctx): State<Ctx>,
+    Query(q): Query<TokenQuery>,
+    headers: HeaderMap,
+) -> Response {
+    if !origin_ok(&headers) {
+        return wrong_origin();
+    }
+    if !authorized(&ctx, q.token.as_deref(), &headers) {
+        return forbidden();
+    }
+    let hub = ctx.hub.clone();
+    match tokio::task::spawn_blocking(move || hub.sessions.credits()).await {
+        Ok(Ok(c)) => axum::Json(c).into_response(),
+        Ok(Err(e)) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
 async fn run_action(
     State(ctx): State<Ctx>,
     Path(id): Path<String>,
@@ -524,6 +645,11 @@ async fn ws_upgrade(
     let Some(overlay_id) = q.overlay.filter(|o| !o.is_empty()) else {
         return (StatusCode::BAD_REQUEST, "overlay id missing").into_response();
     };
+    let agent = headers
+        .get(header::USER_AGENT)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
     let token = q
         .token
         .or_else(|| {
@@ -534,7 +660,7 @@ async fn ws_upgrade(
         })
         .unwrap_or_default();
     ws.max_message_size(MAX_CLIENT_MSG)
-        .on_upgrade(move |socket| overlay_socket(ctx, overlay_id, token, socket))
+        .on_upgrade(move |socket| overlay_socket(ctx, overlay_id, token, agent, socket))
 }
 
 fn hello(ctx: &Ctx, overlay_id: &str) -> Option<OverlayMsg> {
@@ -553,10 +679,16 @@ fn hello(ctx: &Ctx, overlay_id: &str) -> Option<OverlayMsg> {
     })
 }
 
-async fn overlay_socket(ctx: Ctx, overlay_id: String, token: String, socket: WebSocket) {
+async fn overlay_socket(
+    ctx: Ctx,
+    overlay_id: String,
+    token: String,
+    agent: String,
+    socket: WebSocket,
+) {
     // Subscribe before building the hello so nothing sent in between is lost.
     let mut rx = ctx.hub.subscribe_overlays();
-    let _counted = ClientGuard::new(&ctx.clients, &overlay_id);
+    let _counted = ClientGuard::new(&ctx.clients, &overlay_id, &agent);
     let (mut tx, mut incoming) = socket.split();
     let Some(first) = hello(&ctx, &overlay_id) else {
         let _ = tx.send(Message::Close(None)).await;

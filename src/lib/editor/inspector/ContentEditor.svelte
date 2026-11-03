@@ -16,7 +16,11 @@
   import { BellRing } from '@lucide/svelte';
   import NumberInput from '../ui/NumberInput.svelte';
   import Prop from '../ui/Prop.svelte';
+  import CreditsEditor from './CreditsEditor.svelte';
   import CustomWidgetEditor from './CustomWidgetEditor.svelte';
+  import TemplateField from '$lib/editors/TemplateField.svelte';
+  import { AD_TOKENS } from '$lib/overlay/ads';
+  import { adPreview } from '$lib/overlay/ad-preview.svelte';
   import TextStyleEditor from './TextStyleEditor.svelte';
 
   interface Props {
@@ -28,9 +32,11 @@
     set: (fn: (k: LayerKind) => void, key: string) => void;
     ontestalert: () => void;
     ontogglewide: () => void;
+    /** Credits layers: start the roll on the canvas. */
+    onroll: () => void;
   }
 
-  let { layer, uid, varNames, wide, set, ontestalert, ontogglewide }: Props = $props();
+  let { layer, uid, varNames, wide, set, ontestalert, ontogglewide, onroll }: Props = $props();
 
   const k = $derived(layer.kind);
   const fit = [
@@ -327,6 +333,39 @@
     <ColorInput label="Track colour" value={k.track_color} onchange={(v) => set((x) => x.type === 'poll' && (x.track_color = v), 'track')} />
   </Prop>
   <p class="hint">The editor shows a sample poll. Start one on the Interact page to see it live.</p>
+  {@render textGroup(k.style)}
+{:else if k.type === 'credits'}
+  <CreditsEditor kind={k} {uid} {onroll} set={(fn, key) => set((x) => x.type === 'credits' && fn(x), key)} />
+{:else if k.type === 'ad_break'}
+  <Prop label="Preview">
+    <Segmented
+      label="Preview on the canvas"
+      value={adPreview.phase}
+      options={[
+        { value: 'soon', label: 'Before the ad' },
+        { value: 'running', label: 'During the ad' }
+      ]}
+      onchange={(v) => (adPreview.phase = v)}
+    />
+  </Prop>
+  <Prop label="Show before" hint="Seconds before the ad. 0 shows it only during the ad.">
+    <NumberInput label="Seconds before the ad" unit="s" min={0} max={600} value={k.soon_s} oninput={(v) => set((x) => x.type === 'ad_break' && (x.soon_s = Math.max(0, Math.round(v))), 'soon')} />
+  </Prop>
+  <TemplateField
+      label="Before the ad"
+      value={k.soon_text}
+      tokens={AD_TOKENS}
+      hint="Empty: nothing shows before the ad."
+      onchange={(v) => set((x) => x.type === 'ad_break' && (x.soon_text = v), 'soontext')}
+    />
+  <TemplateField
+      label="During the ad"
+      value={k.running_text}
+      tokens={AD_TOKENS}
+      hint="Subscribers and Turbo viewers see this, since they skip ads. Empty: hidden during the ad."
+      onchange={(v) => set((x) => x.type === 'ad_break' && (x.running_text = v), 'runtext')}
+    />
+  <p class="hint">Hidden when no ad is coming. Change the card under Cards.</p>
   {@render textGroup(k.style)}
 {:else if k.type === 'custom'}
   <CustomWidgetEditor kind={k} {uid} {wide} {ontogglewide} set={(fn, key) => set((x) => x.type === 'custom' && fn(x), key)} />

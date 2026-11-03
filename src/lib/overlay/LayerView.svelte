@@ -11,6 +11,10 @@
   import CustomLayer from './layers/CustomLayer.svelte';
   import EventListLayer from './layers/EventListLayer.svelte';
   import PollLayer from './layers/PollLayer.svelte';
+  import CreditsLayer from './layers/CreditsLayer.svelte';
+  import AdBreakLayer from './layers/AdBreakLayer.svelte';
+  import { adPhase, sampleAdPhase, scheduleFromVars } from './ads';
+  import { adPreview } from './ad-preview.svelte';
   import { clock, useClock } from './clock.svelte';
   import { layerLive, samplePoll } from './interact';
   import GoalLayer from './layers/GoalLayer.svelte';
@@ -32,14 +36,22 @@
 
   const kind = $derived(layer.kind);
   const isPoll = $derived(kind.type === 'poll');
+  const isAd = $derived(kind.type === 'ad_break');
   $effect(() => {
-    if (isPoll) return useClock();
+    if (isPoll || isAd) return useClock();
   });
   // Poll layers hide themselves while nothing runs; the editor shows a sample instead.
   const pollLive = $derived(
     kind.type === 'poll' ? (layerLive(ctx.recent, kind.show, kind.result_s, clock.now) ?? (ctx.mode === 'editor' ? samplePoll(clock.now) : null)) : null
   );
-  const present = $derived((shown && (!isPoll || !!pollLive)) || ghost);
+  // Ad break layers show only before and during an ad, and only for a phase with text.
+  const adNow = $derived.by(() => {
+    if (kind.type !== 'ad_break') return null;
+    const p = ctx.mode === 'editor' ? sampleAdPhase(adPreview.phase, clock.now, kind.soon_s) : adPhase(scheduleFromVars(ctx.vars), clock.now, kind.soon_s);
+    if (!p) return null;
+    return (p.phase === 'running' ? kind.running_text : kind.soon_text).trim() ? p : null;
+  });
+  const present = $derived((shown && (!isPoll || !!pollLive) && (!isAd || !!adNow)) || ghost);
   let rendered = $state(untrack(() => present));
   let animEl = $state<HTMLDivElement>();
   let idleEl = $state<HTMLDivElement>();
@@ -193,6 +205,10 @@
             <EventListLayer {kind} />
           {:else if kind.type === 'poll'}
             <PollLayer {kind} live={pollLive} now={clock.now} />
+          {:else if kind.type === 'credits'}
+            <CreditsLayer {kind} layerId={layer.id} />
+          {:else if kind.type === 'ad_break'}
+            <AdBreakLayer {kind} phase={adNow} />
           {:else if kind.type === 'custom'}
             <CustomLayer layerId={layer.id} {kind} />
           {/if}

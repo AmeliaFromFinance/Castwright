@@ -214,6 +214,104 @@ test('chat with 7TV', async ({ page }) => {
   await shot(page, 'chat');
 });
 
+async function openChat(page: Page) {
+  await open(page);
+  await nav(page, 'Activity');
+  await page.getByRole('radio', { name: 'Chat' }).click();
+  await page.waitForTimeout(2500);
+  return page.getByRole('listbox', { name: 'Chat messages' });
+}
+
+test('mod tools', async ({ page }) => {
+  const chat = await openChat(page);
+  const msg = chat.getByRole('option', { name: /^nova_kat:/ }).nth(1);
+  await msg.hover();
+  await msg.getByRole('button', { name: 'Message actions' }).click();
+  await page.getByRole('menu', { name: /Message actions for nova_kat/ }).waitFor();
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: out('mod-tools') });
+});
+
+test('viewer card', async ({ page }) => {
+  const chat = await openChat(page);
+  await chat.getByRole('option', { name: /^nova_kat:/ }).last().getByRole('button', { name: 'nova_kat' }).click();
+  const card = page.getByRole('dialog', { name: 'Viewer card: nova_kat' });
+  await card.getByLabel('Mod note').fill('Regular, asks good questions');
+  await page.waitForTimeout(600);
+  await shot(page, 'viewer-card');
+});
+
+test('scene preview', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Overlays');
+  await page.locator('[data-overlay-card]').first().getByRole('button', { name: 'Edit', exact: true }).click();
+  const row = page.locator('[data-layer-row]').filter({ has: page.locator('.name', { hasText: /^Chat$/ }) });
+  await row.locator('button.pick').click();
+  const props = page.getByRole('complementary', { name: 'Properties' });
+  await props.getByRole('button', { name: 'Scenes' }).click();
+  await props.getByLabel('Show', { exact: true }).selectOption('only');
+  await props.getByRole('checkbox', { name: 'Gameplay' }).check();
+  await props.getByRole('checkbox', { name: 'Just Chatting' }).check();
+  await page.getByLabel('Preview as scene').selectOption('BRB');
+  await page.waitForTimeout(2500);
+  await shot(page, 'overlay-scenes');
+});
+
+test('alert controls', async ({ page }) => {
+  await open(page);
+  const status = page.getByRole('contentinfo', { name: 'Status' });
+  const trigger = status.getByRole('button', { name: /^Alert controls/ });
+  await trigger.click();
+  const pop = page.getByRole('dialog', { name: 'Alert controls' });
+  await pop.getByRole('button', { name: 'Pause alerts' }).click();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Control+k');
+  await page.getByRole('combobox', { name: 'Search commands' }).fill('test follow alert');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(600);
+  await trigger.click();
+  await pop.getByRole('button', { name: 'Mute alert sound' }).click();
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: out('alert-controls') });
+});
+
+test('go-live check', async ({ page }) => {
+  await open(page);
+  const status = page.getByRole('contentinfo', { name: 'Status' });
+  await status.getByRole('button', { name: /^Alert controls/ }).click();
+  const pop = page.getByRole('dialog', { name: 'Alert controls' });
+  await pop.getByRole('button', { name: 'Pause alerts' }).click();
+  await pop.getByRole('button', { name: 'Mute alert sound' }).click();
+  await page.keyboard.press('Escape');
+  await status.getByRole('button', { name: 'Go-live check' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Go-live check' });
+  await dlg.getByRole('checkbox', { name: 'Mic on and not muted' }).check();
+  await page.waitForTimeout(1500);
+  await shot(page, 'golive-check');
+});
+
+test('health', async ({ page }) => {
+  await open(page);
+  await page.getByRole('contentinfo', { name: 'Status' }).getByRole('button', { name: /^Health:/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Health' });
+  await dialog.getByRole('heading', { name: 'Recent problems' }).waitFor();
+  await page.waitForTimeout(600);
+  // Taller window so every section fits without scrolling.
+  await page.setViewportSize({ width: 1440, height: 1040 });
+  await page.waitForTimeout(400);
+  await shot(page, 'health');
+});
+
+test('bug report', async ({ page }) => {
+  await open(page);
+  await page.keyboard.press('Control+k');
+  await page.getByRole('combobox', { name: 'Search commands' }).fill('save bug report');
+  await page.keyboard.press('Enter');
+  await page.getByRole('dialog', { name: 'Save a bug report' }).getByRole('list', { name: 'Files in the report' }).waitFor();
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await shot(page, 'bug-report');
+});
+
 test('comic chat cards', async ({ page }) => {
   await open(page);
   await nav(page, 'Overlays');
@@ -269,4 +367,58 @@ test('poll layer', async ({ page }) => {
   await page.getByRole('button', { name: 'Add poll / prediction layer' }).click();
   await page.locator('.cw-stage .cw-poll').waitFor();
   await shot(page, 'interact-poll-layer');
+});
+
+test('credits layer', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Overlays');
+  await page.getByRole('button', { name: 'New overlay' }).first().click();
+  const dlg = page.getByRole('dialog', { name: 'New overlay' });
+  await dlg.getByLabel('Name', { exact: true }).fill('Ending');
+  await dlg.locator('label', { has: dlg.page().getByRole('radio', { name: 'Ending', exact: true }) }).click();
+  await dlg.getByRole('button', { name: 'Create overlay' }).click();
+  await page.locator('[data-layer-row]').filter({ hasText: 'Credits' }).click();
+  await page.getByRole('radio', { name: 'Like chat' }).click();
+  await page.getByRole('button', { name: 'Roll now' }).click();
+  await page.waitForTimeout(15000);
+  await shot(page, 'credits-layer');
+});
+
+test('action templates', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Automation');
+  await page.getByRole('button', { name: 'New action' }).click();
+  await page.getByRole('dialog', { name: 'New action' }).locator('.mini svg').last().waitFor();
+  await shot(page, 'action-templates');
+});
+
+test('ad popover', async ({ page }) => {
+  await open(page);
+  const status = page.getByRole('contentinfo', { name: 'Status' });
+  await status.getByRole('button', { name: /^Ad in / }).click();
+  await page.getByTestId('ad-popover').waitFor();
+  await shot(page, 'ads-popover');
+});
+
+test('ad break layer', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Overlays');
+  await page.locator('[data-overlay-card]').first().getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.getByRole('button', { name: 'Add ad break layer' }).click();
+  await page.getByRole('radio', { name: 'During the ad' }).click();
+  await page.locator('.cw-stage .cw-ad-running').waitFor();
+  await page.getByRole('button', { name: /^Cards/ }).click();
+  await page.getByRole('list', { name: 'Styles' }).first().getByRole('button', { name: /^Neon style/ }).click();
+  await page.getByRole('button', { name: /^Cards/ }).scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1500);
+  await shot(page, 'ad-break-layer');
+});
+
+test('discord settings', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Settings');
+  await page.getByRole('button', { name: 'Discord', exact: true }).click();
+  await page.locator('[data-webhook]').first().waitFor();
+  await page.waitForTimeout(800);
+  await shot(page, 'discord-settings');
 });

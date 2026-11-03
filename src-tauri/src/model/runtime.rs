@@ -3,6 +3,7 @@
 use super::alert::AlertLayout;
 use super::event::{Event, EventKind};
 use super::overlay::{Animation, BoxStyle, Overlay, TextStyle};
+use super::session::Credits;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -270,6 +271,11 @@ pub enum OverlayMsg {
     LayerVisible {
         layer_id: String,
         visible: bool,
+    },
+    /// Start (or restart) a credits layer with these names.
+    CreditsRoll {
+        layer_id: String,
+        credits: Credits,
     },
     Reload,
 }

@@ -123,6 +123,8 @@ pub struct ImportChoices {
     /// By reference key: the local id to use (layers `overlay_id/layer_id`, assets the
     /// file name), or null to leave it unlinked. Missing = the same id if it exists here.
     pub links: HashMap<String, Option<String>>,
+    /// Turn the actions on. Imports start off unless this is set (templates).
+    pub enable: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, TS, Default)]
@@ -303,6 +305,10 @@ pub fn build(
                     overlay_id,
                     layer_id,
                     ..
+                }
+                | Step::RollCredits {
+                    overlay_id,
+                    layer_id,
                 } => {
                     let found = project
                         .overlays
@@ -555,6 +561,10 @@ pub fn apply(
                 overlay_id,
                 layer_id,
                 ..
+            }
+            | Step::RollCredits {
+                overlay_id,
+                layer_id,
             } if !layer_id.is_empty() => {
                 let to = resolve(
                     project,
@@ -585,7 +595,7 @@ pub fn apply(
             }
             _ => {}
         });
-        action.enabled = false;
+        action.enabled = choices.enable;
         action.normalize();
         match fate {
             Fate::Skip => report.skipped += 1,
@@ -774,6 +784,101 @@ mod tests {
             state: Toggle::On
         }));
         assert_eq!(vars, vec![("counter.hype".to_string(), json!(0))]);
+    }
+
+    #[test]
+    fn roll_credits_links_its_layer_and_templates_can_start_on() {
+        let (mut p, saved) = source();
+        let (oid, lid) = (p.overlays[0].id.clone(), p.overlays[0].layers[0].id.clone());
+        p.actions.push(action(
+            "Credits",
+            vec![Step::RollCredits {
+                overlay_id: oid.clone(),
+                layer_id: lid.clone(),
+            }],
+        ));
+        let pkg = export(&p, &saved, &["Credits"]);
+        assert_eq!(pkg.refs.len(), 1);
+        assert_eq!(pkg.refs[0].kind, RefKind::Layer);
+
+        let mut target = Project::default();
+        let mut o = Overlay::default();
+        o.layers.push(Layer::default());
+        let (to_o, to_l) = (o.id.clone(), o.layers[0].id.clone());
+        target.overlays.push(o);
+        let mut choices = ImportChoices {
+            enable: true,
+            ..ImportChoices::default()
+        };
+        choices
+            .links
+            .insert(pkg.refs[0].key(), Some(format!("{to_o}/{to_l}")));
+        let (report, _) = apply(&mut target, &pkg, &choices, &[]);
+        assert_eq!((report.added, report.unlinked), (1, 0));
+        let a = &target.actions[0];
+        assert!(a.enabled, "turned on when asked");
+        assert_eq!(
+            step_list(a),
+            vec![Step::RollCredits {
+                overlay_id: to_o,
+                layer_id: to_l
+            }]
+        );
+    }
+
+    /// The action templates in the app are packages too; the backend must read them.
+    #[test]
+    fn action_templates_parse() {
+        macro_rules! templates {
+            ($($name:literal),*) => {
+                [$((
+                    $name,
+                    include_str!(concat!("../../../src/lib/pages/automation/templates/", $name, ".json")),
+                )),*]
+            };
+        }
+        let all = templates!(
+            "shoutout-on-raid",
+            "death-counter",
+            "hydrate-reminder",
+            "first-chatter-welcome",
+            "lurk-command",
+            "socials-command",
+            "redemption-sound",
+            "poll-command",
+            "roll-credits",
+            "clip-command"
+        );
+        let mut poll_code = None;
+        for (name, text) in all {
+            let pkg = parse(text.as_bytes()).unwrap_or_else(|e| panic!("{name}: {e}"));
+            assert!(!pkg.actions.is_empty(), "{name}");
+            for a in &pkg.actions {
+                assert!(!a.triggers.is_empty(), "{name} has a trigger");
+                for s in steps(a) {
+                    if let Step::RunScript { code } = s {
+                        poll_code = Some(code.clone());
+                    }
+                }
+            }
+        }
+
+        let code = poll_code.expect("the poll template has a script");
+        let run = |input: &str| {
+            let args = json!({ "input": input });
+            crate::automation::script::run(&code, args.as_object().unwrap(), Map::new())
+                .unwrap()
+                .set_vars
+                .into_iter()
+                .map(|(k, v, _)| (k, v))
+                .collect::<HashMap<_, _>>()
+        };
+        let ok = run("Next game? | Celeste |  Hollow Knight ");
+        assert_eq!(ok["poll_cmd.ok"], json!(true));
+        assert_eq!(ok["poll_cmd.title"], json!("Next game?"));
+        assert_eq!(ok["poll_cmd.choice2"], json!("Hollow Knight"));
+        assert_eq!(ok["poll_cmd.choice3"], json!(""));
+        assert_eq!(run("Just a question")["poll_cmd.ok"], json!(false));
     }
 
     #[test]

@@ -1,6 +1,7 @@
 //! Twitch: sign-in, EventSub, live stream info and chat/moderation actions.
 
 mod actions;
+mod ads;
 pub mod auth;
 mod badges;
 mod eventsub;
@@ -20,6 +21,7 @@ pub use actions::Category;
 
 use crate::error::{AppError, AppResult};
 use crate::hub::{Hub, ui};
+use crate::model::ads::{AdAlarm, AdSchedule};
 use crate::model::runtime::{
     AccountRole, ConnState, DeviceLogin, LogLevel, StreamInfo, TwitchStatus,
 };
@@ -70,6 +72,10 @@ pub(crate) struct Timing {
     /// Longest wait for a Helix rate limit to reset before giving up.
     pub max_rate_wait: Duration,
     pub badge_refresh: Duration,
+    /// How often the ad schedule is read while live.
+    pub ads_poll: Duration,
+    /// Ad countdown checks (warnings, ad end).
+    pub ads_tick: Duration,
 }
 
 impl Default for Timing {
@@ -84,6 +90,8 @@ impl Default for Timing {
             validate_every: Duration::from_secs(3600),
             max_rate_wait: Duration::from_secs(60),
             badge_refresh: Duration::from_secs(3 * 3600),
+            ads_poll: Duration::from_secs(60),
+            ads_tick: Duration::from_secs(1),
         }
     }
 }
@@ -122,6 +130,7 @@ struct State {
     eventsub: Option<JoinHandle<()>>,
     stream: Option<JoinHandle<()>>,
     badges: Option<JoinHandle<()>>,
+    ads_task: Option<JoinHandle<()>>,
     validate: Option<JoinHandle<()>>,
     /// Live state from the last stream.online/offline event and when it came.
     /// Helix lags behind EventSub, so a poll right after is not trusted.
@@ -129,6 +138,26 @@ struct State {
     stream_failing: bool,
     /// Stream info has been read at least once since start-up.
     stream_known: bool,
+    /// EventSub types Twitch refused or stopped, with the reason.
+    sub_failures: Vec<(String, String)>,
+    /// Subscribing finished for the current EventSub connection.
+    subscribed: bool,
+    last_event_at: Option<i64>,
+    ads: AdSchedule,
+    ads_failing: bool,
+    ad_alarm: AdAlarm,
+}
+
+/// EventSub details for the health panel.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct EventSubHealth {
+    pub total: usize,
+    pub subscribed: bool,
+    pub failed: Vec<(String, String)>,
+    pub last_event_at: Option<i64>,
+    /// When each account's sign-in runs out (ms since epoch, 0 = unknown).
+    pub broadcaster_expires_at: Option<i64>,
+    pub bot_expires_at: Option<i64>,
 }
 
 #[derive(Default)]
@@ -147,6 +176,7 @@ pub struct TwitchService {
     state: Mutex<State>,
     refresh_locks: [tokio::sync::Mutex<()>; 2],
     stream_poke: Notify,
+    ads_poke: Notify,
     seen: Mutex<Seen>,
     badges: Mutex<badges::BadgeCache>,
     /// Ids of chat messages Castwright posted, so their echo never triggers commands.
@@ -206,6 +236,7 @@ impl TwitchService {
             state: Mutex::new(state),
             refresh_locks: Default::default(),
             stream_poke: Notify::new(),
+            ads_poke: Notify::new(),
             seen: Mutex::new(Seen::default()),
             badges: Mutex::default(),
             sent: Mutex::new(std::collections::VecDeque::new()),
@@ -237,6 +268,7 @@ impl TwitchService {
                 st.eventsub.take(),
                 st.stream.take(),
                 st.badges.take(),
+                st.ads_task.take(),
                 st.validate.take(),
                 st.logins[0].take(),
                 st.logins[1].take(),
@@ -301,6 +333,26 @@ impl TwitchService {
         let mut s = self.state.lock().unwrap().status.clone();
         s.has_client_id = self.client_id().is_some();
         s
+    }
+
+    pub fn eventsub_health(&self) -> EventSubHealth {
+        let st = self.state.lock().unwrap();
+        EventSubHealth {
+            total: eventsub::SUBSCRIPTIONS.len(),
+            subscribed: st.subscribed,
+            failed: st.sub_failures.clone(),
+            last_event_at: st.last_event_at,
+            broadcaster_expires_at: st.tokens[0].as_ref().map(|t| t.expires_at),
+            bot_expires_at: st.tokens[1].as_ref().map(|t| t.expires_at),
+        }
+    }
+
+    /// Notes why an event type isn't coming in. Keeps the first reason per type.
+    pub(crate) fn note_sub_failure(&self, kind: &str, reason: &str) {
+        let mut st = self.state.lock().unwrap();
+        if !st.sub_failures.iter().any(|(k, _)| k == kind) {
+            st.sub_failures.push((kind.to_string(), reason.to_string()));
+        }
     }
 
     pub fn client_id(&self) -> Option<String> {
@@ -486,7 +538,11 @@ impl TwitchService {
                 handles.extend(st.eventsub.take());
                 handles.extend(st.stream.take());
                 handles.extend(st.badges.take());
+                handles.extend(st.ads_task.take());
                 st.stream_hint = None;
+                st.sub_failures.clear();
+                st.subscribed = false;
+                st.ads = AdSchedule::default();
             }
             if st.tokens.iter().all(Option::is_none) {
                 handles.extend(st.validate.take());
@@ -616,12 +672,13 @@ impl TwitchService {
     }
 
     fn start_broadcaster_tasks(self: &Arc<Self>) {
-        let (es, stream, badges) = {
-            let (me, me2, me3) = (self.clone(), self.clone(), self.clone());
+        let (es, stream, badges, ads) = {
+            let (me, me2, me3, me4) = (self.clone(), self.clone(), self.clone(), self.clone());
             (
                 spawn(async move { me.eventsub_loop().await }),
                 spawn(async move { me2.stream_loop().await }),
                 spawn(async move { me3.badge_loop().await }),
+                spawn(async move { me4.ads_loop().await }),
             )
         };
         let old = {
@@ -631,6 +688,7 @@ impl TwitchService {
                 st.eventsub.replace(es),
                 st.stream.replace(stream),
                 st.badges.replace(badges),
+                st.ads_task.replace(ads),
             ]
         };
         for h in old.into_iter().flatten() {

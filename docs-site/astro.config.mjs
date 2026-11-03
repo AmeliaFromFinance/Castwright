@@ -31,9 +31,11 @@ export default defineConfig({
             { label: 'Go-live check', slug: 'guide/go-live-check' },
             { label: 'Automation', slug: 'guide/automation' },
             { label: 'Channel points, polls and predictions', slug: 'guide/interact' },
+            { label: 'Ads and Discord', slug: 'guide/ads-discord' },
             { label: 'Activity', slug: 'guide/activity' },
             { label: 'Settings and themes', slug: 'guide/settings' },
             { label: 'Stream Deck and hotkeys', slug: 'guide/stream-deck' },
+            { label: 'Health and bug reports', slug: 'guide/health' },
             { label: 'Troubleshooting', slug: 'guide/troubleshooting' },
             { label: 'FAQ', slug: 'guide/faq' }
           ]

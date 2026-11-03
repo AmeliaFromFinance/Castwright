@@ -19,12 +19,15 @@
   import Appearance from './Appearance.svelte';
   import GoLiveSettings from './GoLiveSettings.svelte';
   import SummarySettings from './SummarySettings.svelte';
+  import AdSettings from './AdSettings.svelte';
+  import DiscordSettings from './DiscordSettings.svelte';
   import Backups from './Backups.svelte';
   import Hotkeys from './Hotkeys.svelte';
+  import { health } from '$lib/health/store.svelte';
+  import { REPO } from '$lib/health/health';
   import { Copy, Eye, EyeOff, FolderOpen, RefreshCw, ExternalLink, TriangleAlert } from '@lucide/svelte';
 
   const SITE = 'https://castwright.sinist3r.lol';
-  const REPO = 'https://github.com/AmeliaFromFinance/castwright';
 
   const sections = [
     { id: 'general', label: 'General' },
@@ -32,6 +35,8 @@
     { id: 'twitch', label: 'Twitch' },
     { id: 'server', label: 'Overlay server' },
     { id: 'golive', label: 'Go-live check' },
+    { id: 'ads', label: 'Ads' },
+    { id: 'discord', label: 'Discord' },
     { id: 'hotkeys', label: 'Hotkeys' },
     { id: 'summary', label: 'Stream summary' },
     { id: 'appearance', label: 'Appearance' },
@@ -283,6 +288,18 @@
         <GoLiveSettings />
       </Section>
 
+      <Section id="ads" title="Ads" description="Shows the next ad in the status bar while you're live. Click it to snooze or run an ad.">
+        <AdSettings />
+      </Section>
+
+      <Section
+        id="discord"
+        title="Discord"
+        description="Post to your Discord when you go live, and a summary when you end. Webhook links stay in your system keychain and are never in backups or exports."
+      >
+        <DiscordSettings />
+      </Section>
+
       <Section
         id="hotkeys"
         title="Hotkeys"
@@ -356,6 +373,8 @@
           <div class="row gap">
             <Button size="sm" busy={checking} onclick={checkUpdates}>Check for updates</Button>
             <Button size="sm" onclick={() => whatsNew.show(app.info?.version ?? '')}>What's new</Button>
+            <Button size="sm" onclick={() => health.show()}>Health</Button>
+            <Button size="sm" onclick={() => health.showReport()}>Save bug report…</Button>
             <Button size="sm" variant="ghost" onclick={() => openExternal(SITE)}>Guide <ExternalLink size={12} /></Button>
             <Button size="sm" variant="ghost" onclick={() => openExternal(REPO)}>Source code <ExternalLink size={12} /></Button>
             <Button size="sm" variant="ghost" onclick={() => openExternal(`${REPO}/issues`)}>Report a problem <ExternalLink size={12} /></Button>

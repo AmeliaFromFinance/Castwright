@@ -22,7 +22,7 @@ struct Inner {
 }
 
 /// Prefixes that describe live state and are never saved.
-const LIVE_PREFIXES: [&str; 3] = ["stream.", "obs.", "twitch."];
+const LIVE_PREFIXES: [&str; 4] = ["stream.", "obs.", "twitch.", "ads."];
 
 fn is_live_key(key: &str) -> bool {
     LIVE_PREFIXES.iter().any(|p| key.starts_with(p))

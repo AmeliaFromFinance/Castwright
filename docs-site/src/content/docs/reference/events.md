@@ -106,11 +106,11 @@ Read these as `data.<key>`. Keys marked "if sent" only appear when Twitch includ
 | `hype_train_begin`, `_progress`, `_end` | `hype_train_id`, `level`, `total`, `goal` and `progress` (if sent), `is_golden_kappa`, `top_contributions` |
 | `poll_begin`, `_progress`, `_end` | `poll_id`, `title`, `choices`, `status`, `points_per_vote` (0 when channel points voting is off), `started_at`, `ends_at`, `ended_at` (times if sent) |
 | `prediction_begin`, `_progress`, `_lock`, `_end` | `prediction_id`, `title`, `outcomes`, `status`, `winning_outcome_id` (if set), `started_at`, `locks_at`, `locked_at`, `ended_at` (times if sent) |
-| `ad_break` | `is_automatic` |
+| `ad_break` | `is_automatic` (`true` for scheduled ads, `false` for ads you started) |
 | `charity` | `charity_name`, `campaign_id` |
 | `stream_online` | `started_at`, `type` |
 | `channel_update` | `title`, `category_name`, `category_id`, `language` |
-| `chat` | `color`, `badges`, `message_type`, `reply_parent_message_id` (replies only), `cheer_bits` (cheers only), `reward_id` (messages sent with a channel point reward), `sent_by_castwright` (messages Castwright sent) |
+| `chat` | `color`, `badges`, `message_type`, `reply_parent_message_id` (replies only), `cheer_bits` (cheers only), `reward_id` (messages sent with a channel point reward), `sent_by_castwright` (messages Castwright sent), `first_chat` (true on the first message Castwright ever saw from this person) |
 
 All times in `data` are Unix timestamps in milliseconds.
 

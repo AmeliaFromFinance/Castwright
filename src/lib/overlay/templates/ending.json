@@ -1,7 +1,7 @@
 {
   "id": "ending",
   "name": "Ending",
-  "description": "Thank you scene with this stream's numbers",
+  "description": "Thank you scene with this stream's numbers and rolling credits",
   "width": 1920,
   "height": 1080,
   "layers": [
@@ -89,7 +89,7 @@
         "text": "Thanks for watching",
         "style": {
           "font_family": "Inter",
-          "font_size": 120,
+          "font_size": 104,
           "font_weight": 900,
           "color": "#ffffff",
           "align": "center",
@@ -98,10 +98,10 @@
           "shadow": "0 8px 40px rgba(0,0,0,0.35)"
         }
       },
-      "x": 160,
-      "y": 300,
-      "w": 1600,
-      "h": 150,
+      "x": 100,
+      "y": 250,
+      "w": 1060,
+      "h": 140,
       "enter": {
         "preset": "slide_up",
         "duration_ms": 700,
@@ -123,9 +123,9 @@
           "shadow": ""
         }
       },
-      "x": 160,
-      "y": 456,
-      "w": 1600,
+      "x": 100,
+      "y": 400,
+      "w": 1060,
       "h": 48
     },
     {
@@ -134,8 +134,8 @@
         "type": "shape",
         "shape": "rect"
       },
-      "x": 488,
-      "y": 560,
+      "x": 158,
+      "y": 500,
       "w": 288,
       "h": 160,
       "box": "glass",
@@ -157,8 +157,8 @@
           "align": "center"
         }
       },
-      "x": 488,
-      "y": 580,
+      "x": 158,
+      "y": 520,
       "w": 288,
       "h": 80
     },
@@ -177,8 +177,8 @@
           "shadow": ""
         }
       },
-      "x": 488,
-      "y": 660,
+      "x": 158,
+      "y": 600,
       "w": 288,
       "h": 36
     },
@@ -188,8 +188,8 @@
         "type": "shape",
         "shape": "rect"
       },
-      "x": 816,
-      "y": 560,
+      "x": 486,
+      "y": 500,
       "w": 288,
       "h": 160,
       "box": "glass",
@@ -211,8 +211,8 @@
           "align": "center"
         }
       },
-      "x": 816,
-      "y": 580,
+      "x": 486,
+      "y": 520,
       "w": 288,
       "h": 80
     },
@@ -231,8 +231,8 @@
           "shadow": ""
         }
       },
-      "x": 816,
-      "y": 660,
+      "x": 486,
+      "y": 600,
       "w": 288,
       "h": 36
     },
@@ -242,8 +242,8 @@
         "type": "shape",
         "shape": "rect"
       },
-      "x": 1144,
-      "y": 560,
+      "x": 814,
+      "y": 500,
       "w": 288,
       "h": 160,
       "box": "glass",
@@ -265,8 +265,8 @@
           "align": "center"
         }
       },
-      "x": 1144,
-      "y": 580,
+      "x": 814,
+      "y": 520,
       "w": 288,
       "h": 80
     },
@@ -285,8 +285,8 @@
           "shadow": ""
         }
       },
-      "x": 1144,
-      "y": 660,
+      "x": 814,
+      "y": 600,
       "w": 288,
       "h": 36
     },
@@ -313,14 +313,60 @@
           "color": "#ffffff"
         }
       },
-      "x": 460,
-      "y": 792,
+      "x": 130,
+      "y": 740,
       "w": 1000,
       "h": 56,
       "box": "glass",
       "box_style": {
         "padding": 12,
         "radius": 16
+      }
+    },
+    {
+      "name": "Credits",
+      "kind": {
+        "type": "credits",
+        "speed": 55,
+        "repeat": true,
+        "heading": "Thank you",
+        "footer": "See you next stream",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 28,
+          "font_weight": 600,
+          "color": "#ffffff",
+          "align": "center",
+          "shadow": "0 2px 10px rgba(0,0,0,0.4)"
+        },
+        "title_style": {
+          "font_family": "Inter",
+          "font_size": 18,
+          "font_weight": 800,
+          "color": "#c9b3ff",
+          "align": "center",
+          "uppercase": true,
+          "letter_spacing": 3,
+          "shadow": ""
+        },
+        "heading_style": {
+          "font_family": "Inter",
+          "font_size": 44,
+          "font_weight": 900,
+          "color": "#ffffff",
+          "align": "center",
+          "letter_spacing": -1,
+          "shadow": "0 6px 30px rgba(0,0,0,0.35)"
+        }
+      },
+      "x": 1260,
+      "y": 60,
+      "w": 580,
+      "h": 960,
+      "box": "glass",
+      "box_style": {
+        "radius": 28,
+        "padding": 28
       }
     },
     {
@@ -337,9 +383,9 @@
           "shadow": ""
         }
       },
-      "x": 160,
+      "x": 100,
       "y": 980,
-      "w": 1600,
+      "w": 1060,
       "h": 40
     },
     {
@@ -347,7 +393,7 @@
       "kind": {
         "type": "alerts"
       },
-      "x": 560,
+      "x": 230,
       "y": 40,
       "w": 800,
       "h": 240

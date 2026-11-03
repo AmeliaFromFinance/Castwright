@@ -4,7 +4,8 @@ use super::activity;
 use crate::error::AppResult;
 use crate::model::event::{Event, EventKind};
 use crate::model::session::{
-    ChatMinute, MarkerEntry, RaidEntry, Ranked, SessionSummary, StreamSession, TimelineMark,
+    ChatMinute, CreditName, Credits, MarkerEntry, RaidEntry, Ranked, SessionSummary, StreamSession,
+    TimelineMark,
 };
 use crate::store::db::Db;
 use rusqlite::params;
@@ -60,24 +61,26 @@ fn who(e: &Event) -> String {
     }
 }
 
-pub fn summarize(db: &Db, session: &StreamSession) -> AppResult<SessionSummary> {
-    let start = session.started_at;
-    let end = session
-        .ended_at
-        .unwrap_or_else(crate::util::now_ms)
-        .max(start);
-    let mut s = SessionSummary {
-        session: session.clone(),
-        duration_ms: end - start,
-        ..Default::default()
-    };
+/// Most names under Top chatters.
+pub const CREDIT_CHATTERS: usize = 25;
 
-    let events: Vec<Event> = db.with_conn(|c| {
-        let placeholders = vec!["?"; KINDS.len()].join(",");
+/// Event kinds the credits read.
+const CREDIT_KINDS: [EventKind; 6] = [
+    EventKind::Follow,
+    EventKind::Sub,
+    EventKind::Resub,
+    EventKind::GiftSub,
+    EventKind::Cheer,
+    EventKind::Raid,
+];
+
+fn events_between(db: &Db, kinds: &[EventKind], start: i64, end: i64) -> AppResult<Vec<Event>> {
+    db.with_conn(|c| {
+        let placeholders = vec!["?"; kinds.len()].join(",");
         let mut stmt = c.prepare(&format!(
             "SELECT json FROM events WHERE kind IN ({placeholders}) AND ts BETWEEN ? AND ? AND test = 0 ORDER BY ts"
         ))?;
-        let mut args: Vec<Box<dyn rusqlite::ToSql>> = KINDS
+        let mut args: Vec<Box<dyn rusqlite::ToSql>> = kinds
             .iter()
             .map(|k| Box::new(k.as_str()) as Box<dyn rusqlite::ToSql>)
             .collect();
@@ -90,7 +93,173 @@ pub fn summarize(db: &Db, session: &StreamSession) -> AppResult<SessionSummary> 
             .filter_map(|r| r.ok())
             .filter_map(|j| serde_json::from_str::<Event>(&j).ok())
             .collect())
+    })
+}
+
+fn credit_name(e: &Event, amount: f64) -> CreditName {
+    let (login, user_id) = match &e.user {
+        Some(u) if !e.is_anonymous => (u.login.clone(), u.id.clone()),
+        _ => (String::new(), String::new()),
+    };
+    CreditName {
+        name: if e.is_anonymous {
+            "Anonymous".into()
+        } else {
+            who(e)
+        },
+        login,
+        user_id,
+        amount,
+    }
+}
+
+fn credit_key(c: &CreditName) -> String {
+    if c.user_id.is_empty() {
+        c.name.to_lowercase()
+    } else {
+        c.user_id.clone()
+    }
+}
+
+/// Adds up amounts per person, keeping first-seen order; `ranked` sorts highest first.
+#[derive(Default)]
+struct CreditList(Vec<CreditName>);
+
+impl CreditList {
+    fn add(&mut self, c: CreditName) {
+        let key = credit_key(&c);
+        match self.0.iter_mut().find(|x| credit_key(x) == key) {
+            Some(x) => x.amount += c.amount,
+            None => self.0.push(c),
+        }
+    }
+
+    /// Keep one entry per person with the latest amount.
+    fn set(&mut self, c: CreditName) {
+        let key = credit_key(&c);
+        match self.0.iter_mut().find(|x| credit_key(x) == key) {
+            Some(x) => x.amount = x.amount.max(c.amount),
+            None => self.0.push(c),
+        }
+    }
+
+    fn ranked(mut self) -> Vec<CreditName> {
+        self.0.sort_by(|a, b| {
+            b.amount
+                .total_cmp(&a.amount)
+                .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+        });
+        self.0
+    }
+}
+
+/// Names for the credits layer.
+pub fn credits(db: &Db, session: &StreamSession) -> AppResult<Credits> {
+    let start = session.started_at;
+    let end = session
+        .ended_at
+        .unwrap_or_else(crate::util::now_ms)
+        .max(start);
+    let mut out = Credits {
+        session_id: session.id,
+        ..Default::default()
+    };
+    let (mut follows, mut subs, mut gifts, mut cheers, mut raids) = (
+        CreditList::default(),
+        CreditList::default(),
+        CreditList::default(),
+        CreditList::default(),
+        CreditList::default(),
+    );
+    for e in events_between(db, &CREDIT_KINDS, start, end)? {
+        let amount = e.amount.unwrap_or(0.0).max(0.0);
+        match e.kind {
+            EventKind::Follow => follows.set(credit_name(&e, 0.0)),
+            // Gifted subs are thanked under the gifter.
+            EventKind::Sub if !e.is_gift => subs.set(credit_name(&e, 0.0)),
+            EventKind::Resub => subs.set(credit_name(&e, e.months.unwrap_or(0) as f64)),
+            EventKind::GiftSub => gifts.add(credit_name(&e, 1.0)),
+            EventKind::Cheer => cheers.add(credit_name(&e, amount)),
+            EventKind::Raid => raids.add(credit_name(&e, amount)),
+            _ => {}
+        }
+    }
+    out.followers = follows.0;
+    out.subscribers = subs.0;
+    out.gifters = gifts.ranked();
+    out.cheerers = cheers.ranked();
+    out.raiders = raids.ranked();
+
+    let rows = db.with_conn(|c| {
+        let mut stmt = c.prepare(
+            "SELECT user_key, MAX(name), COUNT(*) AS n, MAX(text = ?4), MAX(text = ?5)
+             FROM session_activity WHERE kind = ?1 AND ts BETWEEN ?2 AND ?3
+             GROUP BY user_key ORDER BY n DESC, MAX(name)",
+        )?;
+        stmt.query_map(
+            params![
+                activity::CHAT,
+                start,
+                end,
+                activity::ROLE_MOD,
+                activity::ROLE_VIP
+            ],
+            |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(2)?,
+                    r.get::<_, bool>(3)?,
+                    r.get::<_, bool>(4)?,
+                ))
+            },
+        )?
+        .collect::<rusqlite::Result<Vec<_>>>()
     })?;
+    for (key, name, n, moderator, vip) in rows {
+        let numeric = !key.is_empty() && key.bytes().all(|b| b.is_ascii_digit());
+        let login = if !numeric {
+            key.clone()
+        } else if name.is_ascii() {
+            name.to_lowercase()
+        } else {
+            String::new()
+        };
+        let person = |amount: f64| CreditName {
+            name: name.clone(),
+            login: login.clone(),
+            user_id: if numeric { key.clone() } else { String::new() },
+            amount,
+        };
+        if moderator {
+            out.moderators.push(person(0.0));
+        } else if vip {
+            out.vips.push(person(0.0));
+        }
+        if out.chatters.len() < CREDIT_CHATTERS {
+            out.chatters.push(person(n as f64));
+        }
+    }
+    let by_name =
+        |a: &CreditName, b: &CreditName| a.name.to_lowercase().cmp(&b.name.to_lowercase());
+    out.moderators.sort_by(by_name);
+    out.vips.sort_by(by_name);
+    Ok(out)
+}
+
+pub fn summarize(db: &Db, session: &StreamSession) -> AppResult<SessionSummary> {
+    let start = session.started_at;
+    let end = session
+        .ended_at
+        .unwrap_or_else(crate::util::now_ms)
+        .max(start);
+    let mut s = SessionSummary {
+        session: session.clone(),
+        duration_ms: end - start,
+        ..Default::default()
+    };
+
+    let events = events_between(db, &KINDS, start, end)?;
 
     let (mut gifters, mut cheerers, mut donors) =
         (Tally::default(), Tally::default(), Tally::default());

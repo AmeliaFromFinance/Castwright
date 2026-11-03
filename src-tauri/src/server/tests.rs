@@ -427,3 +427,84 @@ async fn overlays_hear_the_program_scene() {
         }
     }
 }
+
+async fn connect_as(
+    r: &Rig,
+    agent: &str,
+) -> tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>> {
+    let url = format!(
+        "{}/ws?token={TOKEN}&overlay={}",
+        r.base.replace("http", "ws"),
+        r.overlay_id
+    );
+    let mut req = url.into_client_request().unwrap();
+    req.headers_mut()
+        .insert("user-agent", agent.parse().unwrap());
+    let (mut ws, _) = tokio_tungstenite::connect_async(req).await.unwrap();
+    next_msg(&mut ws).await;
+    ws
+}
+
+const OBS_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 OBS/32.0.1";
+
+#[tokio::test]
+async fn connections_are_tracked_per_page() {
+    let r = rig().await;
+    let before = r.server.connections(&r.overlay_id);
+    assert!(before.pages.is_empty());
+    assert_eq!(before.last_connect, None);
+    assert_eq!(before.last_disconnect, None);
+
+    let mut obs = connect_as(&r, OBS_UA).await;
+    let _chrome = connect_as(
+        &r,
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    )
+    .await;
+    let c = r.server.connections(&r.overlay_id);
+    let agents: Vec<_> = c.pages.iter().map(|p| p.agent.as_str()).collect();
+    assert_eq!(agents, ["OBS 32", "Chrome"]);
+    assert!(c.last_connect.is_some());
+    assert_eq!(c.last_disconnect, None);
+    assert_eq!(r.server.overlay_clients(&r.overlay_id), 2);
+
+    obs.close(None).await.unwrap();
+    for _ in 0..100 {
+        if r.server.overlay_clients(&r.overlay_id) == 1 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    let c = r.server.connections(&r.overlay_id);
+    assert_eq!(c.pages.len(), 1);
+    assert_eq!(c.pages[0].agent, "Chrome");
+    assert!(c.last_disconnect.is_some());
+    assert!(
+        r.server.connections("other").pages.is_empty(),
+        "other overlays are separate"
+    );
+}
+
+#[test]
+fn user_agents_are_shortened() {
+    let cases = [
+        (OBS_UA, "OBS 32"),
+        ("Mozilla/5.0 Chrome/120.0 Safari/537.36 Edg/120.0", "Edge"),
+        ("Mozilla/5.0 Chrome/120.0 Safari/537.36 OPR/105.0", "Opera"),
+        (
+            "Mozilla/5.0 (Windows NT 10.0; rv:131.0) Gecko/20100101 Firefox/131.0",
+            "Firefox",
+        ),
+        (
+            "Mozilla/5.0 (Macintosh) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15",
+            "Safari",
+        ),
+        ("Mozilla/5.0 Chrome/120.0 Streamlabs Desktop", "Streamlabs"),
+        ("", "Unknown"),
+        ("curl/8.5.0", "curl"),
+        ("OBS/", "OBS"),
+    ];
+    for (ua, want) in cases {
+        assert_eq!(short_agent(ua), want, "{ua}");
+    }
+}

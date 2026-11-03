@@ -118,6 +118,14 @@ export function validateAction(a: Action, all: readonly Action[], overlays: read
         else if (overlays.length && (!o || !o.layers.some((l) => l.id === s.layer_id))) add('That layer no longer exists.');
         break;
       }
+      case 'roll_credits': {
+        const o = overlays.find((x) => x.id === s.overlay_id);
+        const l = o?.layers.find((x) => x.id === s.layer_id);
+        if (!s.overlay_id || !s.layer_id) add('Pick an overlay and a credits layer.');
+        else if (overlays.length && !l) add('That layer no longer exists.');
+        else if (l && l.kind.type !== 'credits') add("That layer isn't a credits layer.");
+        break;
+      }
       case 'play_sound':
         if (!s.src.trim()) add('Pick a sound.');
         break;
@@ -158,6 +166,10 @@ export function validateAction(a: Action, all: readonly Action[], overlays: read
       }
       case 'end_prediction':
         if (s.action === 'resolve' && !s.winner.trim()) add('Say which outcome won: its name or number.');
+        break;
+      case 'post_to_discord':
+        if (!s.webhook_id) add('Pick a webhook.');
+        if (!s.message.trim()) add('Type the message.');
         break;
       default:
         break;

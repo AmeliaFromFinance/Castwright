@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Credits } from '$lib/bindings/Credits';
   import type { Event } from '$lib/bindings/Event';
   import type { Layer } from '$lib/bindings/Layer';
   import { evaluateGroup } from '$lib/logic/condition';
@@ -28,11 +29,12 @@
     vars: Record<string, unknown>;
     recent: readonly Event[];
     chat: readonly Event[];
+    credits?: Credits | null;
     assetUrl: (path: string) => string;
     onedit?: (layerId: string) => void;
   }
 
-  let { store, stage = $bindable(), vars, recent, chat, assetUrl, onedit }: Props = $props();
+  let { store, stage = $bindable(), vars, recent, chat, credits = null, assetUrl, onedit }: Props = $props();
 
   const PAD = 40;
   const ZOOM_MIN = 0.05;
@@ -204,6 +206,7 @@
         {vars}
         {recent}
         {chat}
+        {credits}
         alert={store.testAlert}
         widgetState={store.widgetState}
         {assetUrl}

@@ -364,6 +364,7 @@ impl TwitchActions for TwitchService {
             Some(429) => AppError::Twitch("Ads are on cooldown. Try again later.".into()),
             _ => e.into_app("run ads"),
         })?;
+        self.poke_ads();
         Ok(())
     }
 
@@ -453,6 +454,10 @@ impl TwitchActions for TwitchService {
 
     async fn end_prediction(&self, action: PredictionAction, winner: &str) -> AppResult<()> {
         self.finish_prediction(action, winner).await.map(|_| ())
+    }
+
+    async fn snooze_next_ad(&self) -> AppResult<()> {
+        self.snooze_ad().await.map(|_| ())
     }
 }
 

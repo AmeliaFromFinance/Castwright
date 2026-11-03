@@ -1,5 +1,7 @@
 // Stream sessions for the browser demo. Mirrors src-tauri/src/sessions/stats.rs.
 
+import type { CreditName } from '$lib/bindings/CreditName';
+import type { Credits } from '$lib/bindings/Credits';
 import type { Event } from '$lib/bindings/Event';
 import type { EventKind } from '$lib/bindings/EventKind';
 import type { MarkerEntry } from '$lib/bindings/MarkerEntry';
@@ -216,7 +218,7 @@ function fromPlan(p: Plan, id: number, now: number, names: string[], make: MakeE
   };
   for (let i = 0; i < p.follows; i++) push('follow', i + p.seed);
   for (let i = 0; i < p.subs; i++) push('sub', i + 3);
-  for (let i = 0; i < p.resubs; i++) push('resub', i + 5);
+  for (let i = 0; i < p.resubs; i++) push('resub', i + 5).months = 2 + ((i * 7 + p.seed) % 23);
   if (p.gift) {
     const ts = when();
     push('community_gift', 6, ts).amount = p.gift;
@@ -288,4 +290,52 @@ export function liveActivity(start: number, now: number, viewers: readonly strin
 export function pastSessions(now: number, viewers: readonly string[], make: MakeEvent): DemoSession[] {
   const names = [...viewers, ...EXTRA_CHATTERS];
   return PLANS.map((p, i) => fromPlan(p, PLANS.length - i, now, names, make)).reverse();
+}
+
+export interface DemoPerson {
+  user_id: string;
+  login: string;
+  role: 'mod' | 'vip' | '';
+}
+
+/** Names for credits layers. Mirrors `credits` in src-tauri/src/sessions/stats.rs. */
+export function credits(d: DemoSession, now: number, person: (name: string) => DemoPerson): Credits {
+  const start = d.session.started_at;
+  const end = Math.max(start, d.session.ended_at ?? now);
+  const out: Credits = { session_id: d.session.id, followers: [], subscribers: [], gifters: [], cheerers: [], raiders: [], moderators: [], vips: [], chatters: [] };
+  const key = (c: CreditName) => c.user_id || c.name.toLowerCase();
+  const nameOf = (e: Event, amount: number): CreditName =>
+    e.is_anonymous
+      ? { name: 'Anonymous', login: '', user_id: '', amount }
+      : { name: who(e), login: e.user?.login ?? '', user_id: e.user?.id ?? '', amount };
+  const add = (list: CreditName[], c: CreditName, sum: boolean) => {
+    const x = list.find((y) => key(y) === key(c));
+    if (!x) list.push(c);
+    else x.amount = sum ? x.amount + c.amount : Math.max(x.amount, c.amount);
+  };
+  const ranked = (list: CreditName[]) => list.sort((a, b) => b.amount - a.amount || a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  const events = d.events.filter((e) => !e.test && e.ts >= start && e.ts <= end).sort((a, b) => a.ts - b.ts);
+  for (const e of events) {
+    const amount = Math.max(0, e.amount ?? 0);
+    if (e.kind === 'follow') add(out.followers, nameOf(e, 0), false);
+    else if (e.kind === 'sub' && !e.is_gift) add(out.subscribers, nameOf(e, 0), false);
+    else if (e.kind === 'resub') add(out.subscribers, nameOf(e, e.months ?? 0), false);
+    else if (e.kind === 'gift_sub') add(out.gifters, nameOf(e, 1), true);
+    else if (e.kind === 'cheer') add(out.cheerers, nameOf(e, amount), true);
+    else if (e.kind === 'raid') add(out.raiders, nameOf(e, amount), true);
+  }
+  ranked(out.gifters);
+  ranked(out.cheerers);
+  ranked(out.raiders);
+  const counts = new Map<string, number>();
+  for (const c of d.chat) if (c.ts >= start && c.ts <= end) counts.set(c.name, (counts.get(c.name) ?? 0) + 1);
+  const chatters = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  for (const [name, n] of chatters) {
+    const p = person(name);
+    const c = { name, login: p.login, user_id: p.user_id, amount: n };
+    if (p.role === 'mod') out.moderators.push({ ...c, amount: 0 });
+    else if (p.role === 'vip') out.vips.push({ ...c, amount: 0 });
+    if (out.chatters.length < 25) out.chatters.push(c);
+  }
+  return out;
 }

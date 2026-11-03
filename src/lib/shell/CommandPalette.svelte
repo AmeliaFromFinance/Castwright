@@ -9,6 +9,7 @@
   import { stepZoom } from '$lib/state/zoom';
   import { golive } from '$lib/state/golive.svelte';
   import { sessions } from '$lib/sessions/store.svelte';
+  import { health } from '$lib/health/store.svelte';
   import { updateAppearance } from '$lib/pages/settings/theme-settings.svelte';
   import { fuzzyFilter } from './fuzzy';
   import { Search, CornerDownLeft } from '@lucide/svelte';
@@ -135,6 +136,8 @@
       },
       { group: 'Help', label: 'Keyboard shortcuts', hint: 'Ctrl /', run: onshortcuts },
       { group: 'Help', label: "What's new", run: () => whatsNew.show(app.info?.version ?? '') },
+      { group: 'Help', label: 'Health', run: () => health.show() },
+      { group: 'Help', label: 'Save bug report…', run: () => health.showReport() },
       { group: 'Stream', label: 'Go-live check', run: () => golive.show() },
       { group: 'Stream', label: 'Last stream summary', run: () => sessions.showLatest() },
       {

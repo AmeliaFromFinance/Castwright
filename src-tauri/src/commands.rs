@@ -4,16 +4,17 @@ use crate::core::Core;
 use crate::error::{AppError, AppResult, user_err};
 use crate::hotkeys::{HotkeyReport, HotkeyStatus, Hotkeys};
 use crate::hub::ui;
+use crate::model::ads::AdSchedule;
 use crate::model::alert::AlertConfig;
 use crate::model::automation::Action;
 use crate::model::event::{Event, EventKind};
 use crate::model::overlay::Overlay;
 use crate::model::project::Project;
 use crate::model::runtime::{LogEntry, OverlayMsg, QueueState, ServerInfo};
-use crate::model::session::{SessionListItem, SessionSummary};
+use crate::model::session::{Credits, SessionListItem, SessionSummary};
 use crate::model::settings::{
-    AppearanceSettings, BackupSettings, DEFAULT_SOCIAL_TEMPLATE, GoLiveSettings, HotkeySettings,
-    MAX_SOCIAL_TEMPLATE, Settings, SummarySettings, WindowEffect,
+    AdSettings, AppearanceSettings, BackupSettings, DEFAULT_SOCIAL_TEMPLATE, DiscordWebhook,
+    GoLiveSettings, HotkeySettings, MAX_SOCIAL_TEMPLATE, Settings, SummarySettings, WindowEffect,
 };
 use crate::paths::Layout;
 use crate::store::action_package::{self, ActionPackage, ImportChoices, ImportReport};
@@ -434,6 +435,12 @@ pub async fn session_summary(core: Ctx<'_>, id: i64) -> AppResult<SessionSummary
         .ok_or_else(|| AppError::NotFound("stream session".into()))
 }
 
+/// Names for credits layers, from the live stream or the last one.
+#[tauri::command]
+pub async fn session_credits(core: Ctx<'_>) -> AppResult<Credits> {
+    blocking(&core, |c| c.hub.sessions.credits()).await
+}
+
 #[tauri::command]
 pub async fn delete_session(core: Ctx<'_>, id: i64) -> AppResult<()> {
     blocking(&core, move |c| c.hub.sessions.delete(id).map(|_| ())).await
@@ -799,6 +806,57 @@ pub async fn twitch_end_prediction(
     core.twitch.finish_prediction(action, &outcome).await
 }
 
+// ---------- ads ----------
+
+#[tauri::command]
+pub fn twitch_ad_schedule(core: Ctx) -> AdSchedule {
+    core.twitch.ad_schedule()
+}
+
+#[tauri::command]
+pub async fn twitch_snooze_ad(core: Ctx<'_>) -> AppResult<AdSchedule> {
+    core.twitch.snooze_ad().await
+}
+
+/// `length_s` is snapped to a length Twitch allows (30 to 180 seconds).
+#[tauri::command]
+pub async fn twitch_run_ad(core: Ctx<'_>, length_s: u32) -> AppResult<()> {
+    use crate::services::TwitchActions;
+    core.twitch.run_ad(length_s).await
+}
+
+#[tauri::command]
+pub fn save_ad_settings(core: Ctx, ads: AdSettings) -> AppResult<AdSettings> {
+    let ads = ads.clamped();
+    core.settings.update(|s| s.ads = ads.clone())?;
+    Ok(ads)
+}
+
+// ---------- discord ----------
+
+/// `url`: null keeps the saved link, an empty string removes it.
+#[tauri::command]
+pub fn save_discord_webhook(
+    core: Ctx,
+    webhook: DiscordWebhook,
+    url: Option<String>,
+) -> AppResult<DiscordWebhook> {
+    core.discord.save_webhook(webhook, url)
+}
+
+#[tauri::command]
+pub fn delete_discord_webhook(core: Ctx, id: String) -> AppResult<()> {
+    core.discord.delete_webhook(&id)
+}
+
+#[tauri::command]
+pub async fn discord_send_test(core: Ctx<'_>, id: String) -> AppResult<()> {
+    let Some(ch) = crate::discord::Channel::from_status(&core.twitch.status()) else {
+        return user_err("Sign in to Twitch first, so the post can link to your channel.");
+    };
+    core.discord.send_test(&id, &ch).await
+}
+
 // ---------- obs ----------
 
 use crate::model::runtime::ObsSnapshot;
@@ -1009,7 +1067,9 @@ pub async fn obs_add_overlay(core: Ctx<'_>, overlay_id: String, scene: String) -
 
 #[tauri::command]
 pub fn get_settings(core: Ctx) -> Settings {
-    core.settings.get()
+    let mut s = core.settings.get();
+    core.discord.fill_has_url(&mut s.discord);
+    s
 }
 
 #[tauri::command]
@@ -1163,6 +1223,76 @@ pub async fn make_portable(core: Ctx<'_>, layout: State<'_, Layout>) -> AppResul
 #[tauri::command]
 pub async fn restart_app(app: AppHandle) {
     app.restart();
+}
+
+// ---------- health and bug reports ----------
+
+use crate::diag::crash::CrashInfo;
+use crate::diag::health::HealthSnapshot;
+use crate::diag::report::BugReportPreview;
+
+#[tauri::command]
+pub fn health_snapshot(core: Ctx, layout: State<Layout>) -> HealthSnapshot {
+    crate::diag::health::snapshot(&core, layout.portable.is_some())
+}
+
+#[tauri::command]
+pub fn reload_overlay(core: Ctx, id: String) {
+    core.hub.to_overlays(Some(&id), OverlayMsg::Reload);
+}
+
+/// The crash that ended the last run. Returned once.
+#[tauri::command]
+pub fn crash_notice(core: Ctx) -> Option<CrashInfo> {
+    core.crash_notice.lock().unwrap().take()
+}
+
+#[tauri::command]
+pub async fn bug_report_preview(
+    core: Ctx<'_>,
+    layout: State<'_, Layout>,
+    include_project: bool,
+    window: Value,
+) -> AppResult<BugReportPreview> {
+    let core = core.inner().clone();
+    let portable = layout.portable.is_some();
+    tokio::task::spawn_blocking(move || {
+        let files = crate::diag::report_files(&core, portable, include_project, window);
+        BugReportPreview {
+            has_crash: files.iter().any(|f| f.name == "crash.json"),
+            files: crate::diag::report::info(&files),
+            file_name: crate::diag::report::file_name(crate::util::now_ms()),
+        }
+    })
+    .await
+    .map_err(|e| AppError::Other(e.into()))
+}
+
+#[tauri::command]
+pub async fn save_bug_report(
+    core: Ctx<'_>,
+    layout: State<'_, Layout>,
+    path: String,
+    include_project: bool,
+    window: Value,
+) -> AppResult<()> {
+    let path = PathBuf::from(path);
+    if !path
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("zip"))
+    {
+        return user_err("Save the bug report as a .zip file.");
+    }
+    let core = core.inner().clone();
+    let portable = layout.portable.is_some();
+    tokio::task::spawn_blocking(move || -> AppResult<()> {
+        let files = crate::diag::report_files(&core, portable, include_project, window);
+        let bytes = crate::diag::report::zip(&files)?;
+        crate::util::write_atomic(&path, &bytes)?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| AppError::Other(e.into()))?
 }
 
 // ---------- hotkeys ----------

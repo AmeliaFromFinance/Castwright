@@ -85,6 +85,7 @@ function styles(overlay: Overlay): TextStyle[] {
   for (const l of overlay.layers ?? []) {
     const k = l.kind;
     if ('style' in k && k.style) out.push(k.style);
+    if (k.type === 'credits') out.push(...[k.title_style, k.heading_style].filter(Boolean));
   }
   return out;
 }

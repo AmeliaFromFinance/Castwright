@@ -25,6 +25,7 @@ The editor shows your overlay exactly as OBS will, with live chat, events and va
 | **Counter** | A number from a [variable](/reference/variables/), like a death counter. |
 | **Timer** | Countdown, stopwatch, clock or stream uptime. |
 | **Events** | Recent follows, subs, cheers and more, as a list or ticker. |
+| **Credits** | An end-of-stream roll of everyone who followed, subbed, gifted, cheered, raided or chatted. See [Credits layer](#credits-layer). |
 | **Widget** | Your own HTML, CSS and JavaScript. See [custom widgets](/reference/custom-widgets/). |
 
 ## Styles
@@ -64,6 +65,29 @@ Each layer has these sections on the right:
 | **Advanced** | Custom CSS for the layer, and its ID for automation. The list under the CSS box shows which classes this layer has; click one to insert a rule. See [Custom CSS](/reference/styling/). |
 
 Hide a layer with the eye in the Layers list. The **Show/hide overlay layer** automation step can show it at certain moments, like after a raid.
+
+## Credits layer
+
+A movie-style roll of the people who made this stream. Names come from the live stream, or the last one if you're offline.
+
+![Credits layer rolling in the editor](../../../assets/screens/credits-layer.png)
+
+**Sections**: new followers, subscribers (new and resubs, with months), gifted subs (with counts), cheers (with bits), raids (with viewers), moderators and VIPs who chatted, and top chatters (with message counts). Turn each on or off, rename it, or move it up and down. Empty sections are skipped.
+
+| Setting | What it does |
+| --- | --- |
+| **Starts** | **When shown**: rolls as soon as the layer appears. **From an action**: stays empty until the **Roll credits** step runs. |
+| **Speed** | Pixels per second. Or set **Fit to seconds** to make one pass take that long. |
+| **At the end** | **Stop** keeps the last names on screen. **Loop** starts again from the bottom. |
+| **Heading** and **Footer** | Text above and below the names. Live values work, like `{{session.follows}}`. |
+| **Names** | **Plain** uses the name text style. **Like chat** adds chat colours and badges (for people who chatted recently) and 7TV paints. |
+| **Columns**, **Fade edges**, **Amounts** | Names in 1 or 2 columns, a soft fade at the top and bottom, and months, gifts, bits and so on next to names. |
+
+**Roll now** plays it on the canvas. With no stream yet, the editor shows sample names.
+
+With *reduced motion* turned on in the system or browser, the roll shows still pages instead of scrolling. **Page time** sets how long each page stays.
+
+Style the names, section titles and heading under **Content**, and a card around each section under **Section cards**. The **Ending** template already has a credits layer.
 
 ## Scenes
 

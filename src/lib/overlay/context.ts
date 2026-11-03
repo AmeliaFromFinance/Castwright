@@ -1,4 +1,5 @@
 import { getContext, setContext } from 'svelte';
+import type { Credits } from '$lib/bindings/Credits';
 import type { Event } from '$lib/bindings/Event';
 import type { OverlayFeed } from './feed';
 import type { ActiveAlert, WidgetState } from './state';
@@ -18,6 +19,12 @@ export interface StageCtx {
   readonly paused: boolean;
   readonly muted: boolean;
   readonly feed: OverlayFeed | undefined;
+  /** Names for credits layers; null until loaded. */
+  readonly credits: Credits | null;
+  /** Times each credits layer was told to roll. */
+  readonly rolls: Readonly<Record<string, number>>;
+  /** Ask for fresh credits names. */
+  loadCredits(): void;
   /** The alerts layer that plays sound (the first one that's shown). */
   readonly audioLayerId: string | null;
   assetUrl(path: string): string;

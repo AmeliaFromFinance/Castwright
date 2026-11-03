@@ -41,6 +41,13 @@ pub trait TwitchActions: Send + Sync {
     async fn start_prediction(&self, draft: &PredictionDraft) -> AppResult<()>;
     /// `winner`: outcome id, title or number from 1. Only used to resolve.
     async fn end_prediction(&self, action: PredictionAction, winner: &str) -> AppResult<()>;
+    async fn snooze_next_ad(&self) -> AppResult<()>;
+}
+
+#[async_trait]
+pub trait DiscordActions: Send + Sync {
+    /// Post plain text with a saved webhook. Mentions in it never ping.
+    async fn post_text(&self, webhook_id: &str, text: &str) -> AppResult<()>;
 }
 
 #[async_trait]
@@ -152,6 +159,16 @@ impl TwitchActions for Recorder {
     }
     async fn end_prediction(&self, action: PredictionAction, winner: &str) -> AppResult<()> {
         self.push(format!("prediction {action:?} {winner}"))
+    }
+    async fn snooze_next_ad(&self) -> AppResult<()> {
+        self.push("snooze ad".into())
+    }
+}
+
+#[async_trait]
+impl DiscordActions for Recorder {
+    async fn post_text(&self, webhook_id: &str, text: &str) -> AppResult<()> {
+        self.push(format!("discord {webhook_id} {text}"))
     }
 }
 

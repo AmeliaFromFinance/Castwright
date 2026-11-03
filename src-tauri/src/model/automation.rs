@@ -67,6 +67,13 @@ pub enum Trigger {
     PollEnd,
     PredictionBegin,
     PredictionEnd,
+    /// Some minutes before Twitch's next scheduled ad.
+    AdSoon {
+        #[serde(default = "default_ad_minutes")]
+        minutes_before: u32,
+    },
+    AdBegin,
+    AdEnd,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
@@ -192,6 +199,11 @@ pub enum Step {
         #[serde(default)]
         state: Toggle,
     },
+    /// Start or restart a credits layer. Shows the layer if it's hidden.
+    RollCredits {
+        overlay_id: String,
+        layer_id: String,
+    },
     PlayAlert {
         title: String,
         #[serde(default)]
@@ -282,6 +294,13 @@ pub enum Step {
         #[serde(default)]
         winner: String,
     },
+    /// Push the next ad back 5 minutes, if a snooze is left.
+    SnoozeAd,
+    /// Post a message with one of the Discord webhooks from Settings. Nobody is pinged.
+    PostToDiscord {
+        webhook_id: String,
+        message: String,
+    },
     /// Stop this run here.
     Stop,
     Log {
@@ -297,6 +316,9 @@ fn default_volume() -> u8 {
 }
 fn default_poll_s() -> u32 {
     120
+}
+fn default_ad_minutes() -> u32 {
+    1
 }
 
 /// Side of a node a line leaves or enters.

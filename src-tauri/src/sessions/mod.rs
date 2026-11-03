@@ -24,7 +24,7 @@ const SAME_STREAM_MS: i64 = 2 * 60_000;
 /// After a restart, an OBS-only session continues if it was seen this recently.
 const RESUME_MS: i64 = 30 * 60_000;
 /// A stream that comes back this soon after ending continues the last session.
-const MERGE_MS: i64 = 5 * 60_000;
+pub(crate) const MERGE_MS: i64 = 5 * 60_000;
 /// Shorter sessions (a quick test start and stop) are dropped.
 const MIN_SESSION_MS: i64 = 60_000;
 /// How often an open session is saved while live.
@@ -73,6 +73,9 @@ pub mod activity {
     pub const ACTION: &str = "action";
     pub const MARKER: &str = "marker";
     pub const RAID_OUT: &str = "raid_out";
+    /// `text` of a chat row from a moderator or a VIP.
+    pub const ROLE_MOD: &str = "mod";
+    pub const ROLE_VIP: &str = "vip";
 }
 
 #[derive(Debug, Clone)]
@@ -425,15 +428,16 @@ impl Sessions {
     }
 
     /// Count a chat message. Messages from the broadcaster, the bot and the app are skipped.
-    pub fn on_chat(&self, e: &Event) {
+    /// True when Castwright never saw this person chat before.
+    pub fn on_chat(&self, e: &Event) -> bool {
         if e.kind != EventKind::Chat || e.test || e.roles.broadcaster {
-            return;
+            return false;
         }
         if e.data.get("sent_by_castwright").and_then(|v| v.as_bool()) == Some(true) {
-            return;
+            return false;
         }
         let Some(user) = e.user.as_ref() else {
-            return;
+            return false;
         };
         let key = if user.id.is_empty() {
             user.login.as_str()
@@ -441,7 +445,7 @@ impl Sessions {
             user.id.as_str()
         };
         if key.is_empty() || self.ignored.lock().unwrap().iter().any(|i| i == key) {
-            return;
+            return false;
         }
         let name = if user.display_name.is_empty() {
             &user.login
@@ -454,10 +458,22 @@ impl Sessions {
                 params![key, name, e.ts],
             )
         });
-        if let Err(err) = r {
-            tracing::warn!("couldn't save chatter: {err}");
-        }
-        self.record_at(e.ts, activity::CHAT, key, name, None, "");
+        let first = match r {
+            Ok(n) => n > 0,
+            Err(err) => {
+                tracing::warn!("couldn't save chatter: {err}");
+                false
+            }
+        };
+        let role = if e.roles.moderator {
+            activity::ROLE_MOD
+        } else if e.roles.vip {
+            activity::ROLE_VIP
+        } else {
+            ""
+        };
+        self.record_at(e.ts, activity::CHAT, key, name, None, role);
+        first
     }
 
     pub fn on_alert(&self, title: &str) {
@@ -536,6 +552,28 @@ impl Sessions {
             return Ok(Some(s));
         }
         stats::summarize(&self.db, &session).map(Some)
+    }
+
+    /// Names for the credits: the live session, else the last one.
+    pub fn credits(&self) -> AppResult<crate::model::session::Credits> {
+        let session = match self.current() {
+            Some(s) => Some(s),
+            None => self
+                .db
+                .with_conn(|c| {
+                    c.query_row(
+                        &format!("SELECT {COLUMNS} FROM sessions ORDER BY started_at DESC LIMIT 1"),
+                        [],
+                        session_from_row,
+                    )
+                    .optional()
+                })?
+                .map(|r| r.0),
+        };
+        match session {
+            Some(s) => stats::credits(&self.db, &s),
+            None => Ok(Default::default()),
+        }
     }
 
     /// Remove a session and the chat, alert and action counts stored for it.

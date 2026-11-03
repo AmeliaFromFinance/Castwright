@@ -33,6 +33,9 @@ An action is a set of trigger and step nodes joined by lines. A run starts at th
 | Poll ends | `poll_end` | None |
 | Prediction starts | `prediction_begin` | None |
 | Prediction ends | `prediction_end` | None |
+| Ad starting soon | `ad_soon` | Minutes before (1) |
+| Ad break begins | `ad_begin` | None |
+| Ad break ends | `ad_end` | None |
 
 An alert variation can also run an action when its alert starts playing. That run gets the event fields, like an Event trigger.
 
@@ -40,7 +43,7 @@ One event starts an action at most once, even when several of its triggers match
 
 ### Event
 
-Fires for every event of the chosen [kind](/reference/events/#event-kinds) whose fields match the conditions. Test events don't run actions; the log notes the skip. Messages Castwright or the bot account sent never fire chat triggers.
+Fires for every event of the chosen [kind](/reference/events/#event-kinds) whose fields match the conditions. Test events don't run actions; the log notes the skip. Messages Castwright or the bot account sent never fire chat triggers. The `chat` kind fires for every chat message; `data.first_chat is true` matches only someone's first message.
 
 ### Chat command
 
@@ -97,6 +100,16 @@ These triggers add short values for templates and conditions. The same values ar
 | Poll | `poll.title`, `poll.choices`, `poll.status`, `poll.winner` (empty on a tie or before the end), `poll.winner_votes`, `poll.total_votes` |
 | Prediction | `prediction.title`, `prediction.outcomes`, `prediction.status`, `prediction.winner`, `prediction.total_points`, `prediction.total_users` |
 
+### Ads
+
+**Ad starting soon** fires once per ad, the set number of minutes (1 to 60) before Twitch's next scheduled ad. It only fires while you're live. A snooze moves the ad, so it fires again before the new time.
+
+**Ad break begins** fires for every ad, scheduled or run by hand. **Ad break ends** fires when its time is up.
+
+| Trigger | Values |
+| --- | --- |
+| Ad triggers | `ad.time` (like `1:00`: until the ad, or left of it), `ad.seconds_left`, `ad.length` (like `1:30`), `ad.length_s` |
+
 ### Manual
 
 Run from the app, a Stream Deck button or the [local HTTP API](/reference/http-api/). Any action can be run this way, with or without a Manual trigger. Manual runs ignore the Enabled switch and the cooldown. Where they start is explained under [Where a run starts](#where-a-run-starts).
@@ -136,6 +149,15 @@ Twitch only gives these to Affiliates and Partners. See the [guide](/guide/inter
 
 A reward is found by id, or by its title when the id isn't found.
 
+### Ads and Discord
+
+| Step | Type | Options (default) | Notes |
+| --- | --- | --- | --- |
+| Snooze ad | `snooze_ad` | None | Pushes the next ad back 5 minutes. Fails with no snoozes left. Needs the `channel:manage:ads` permission. |
+| Post to Discord | `post_to_discord` | Webhook, message (T) | Uses a webhook from [Settings → Discord](/guide/ads-discord/#discord). Up to 2,000 characters. Mentions in it never ping. Fails when the webhook was removed. |
+
+**Run ad** is under [Chat and Twitch](#chat-and-twitch). Castwright has no step to switch scenes for ads on purpose: see [why](/guide/ads-discord/#castwright-never-switches-scenes-for-ads).
+
 ### OBS
 
 | Step | Type | Options (default) | Notes |
@@ -153,6 +175,7 @@ Every state option also takes `toggle`, which flips the current state.
 | Step | Type | Options (default) | Notes |
 | --- | --- | --- | --- |
 | Show/hide overlay layer | `set_layer_visible` | Overlay, layer, state (`on`) | Changes the layer's visibility switch and saves it in the project. A [scene rule](/guide/overlay-editor/#scenes) can still hide it. |
+| Roll credits | `roll_credits` | Overlay, credits layer | Starts the [credits layer](/guide/overlay-editor/#credits-layer) from the top with the stream's latest names. Shows the layer if it's hidden. Running it again restarts the roll. |
 | Play alert | `play_alert` | Title (T), message (T, empty), image (empty), sound (empty), duration in ms (6000) | Joins the alert queue. Duration is kept between 500 and 120,000 ms. |
 | Pause alerts | `pause_alerts` | State (`on`) | `on` pauses the queue, `off` resumes it. The alert on screen still finishes. |
 | Skip alert | `skip_alert` | None | Ends the alert on screen. Does nothing when no alert is playing. |

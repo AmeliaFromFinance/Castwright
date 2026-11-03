@@ -7,14 +7,16 @@ pub mod script;
 use crate::alerts::AlertEngine;
 use crate::error::{AppResult, user_err};
 use crate::hub::{Hub, Signal, ui};
+use crate::model::ads::{AdAlarm, AdSchedule, clock};
 use crate::model::automation::{
     Action, EdgeBranch, Graph, HttpMethod, NodeKind, Permission, Step, Toggle, Trigger,
 };
 use crate::model::condition::stringify;
 use crate::model::event::{Event, EventKind, UserRoles};
 use crate::model::interact::{PollDraft, PredictionAction, PredictionDraft};
+use crate::model::overlay::LayerKind;
 use crate::model::runtime::{LogLevel, OverlayMsg};
-use crate::services::{ObsActions, TwitchActions};
+use crate::services::{DiscordActions, ObsActions, TwitchActions};
 use crate::store::project::ProjectStore;
 use crate::template::render;
 use futures_util::future::BoxFuture;
@@ -153,6 +155,7 @@ pub struct Automation {
     alerts: Arc<AlertEngine>,
     twitch: RwLock<Option<Arc<dyn TwitchActions>>>,
     obs: RwLock<Option<Arc<dyn ObsActions>>>,
+    discord: RwLock<Option<Arc<dyn DiscordActions>>>,
     http: reqwest::Client,
     last_run: Mutex<HashMap<String, Instant>>,
     user_cooldowns: Mutex<HashMap<(String, String), Instant>>,
@@ -163,6 +166,24 @@ pub struct Automation {
     /// Account ids whose chat messages never trigger commands (the bot).
     ignored_users: RwLock<Vec<String>>,
     run_ids: AtomicU64,
+    ads: Mutex<AdWatch>,
+}
+
+/// The latest ad schedule, and which "ad soon" triggers already ran for the next ad.
+#[derive(Default)]
+struct AdWatch {
+    schedule: AdSchedule,
+    alarms: HashMap<(String, usize), AdAlarm>,
+}
+
+/// Values ad triggers give an action.
+fn ad_args(length_s: u32, seconds_left: u32) -> Map<String, Value> {
+    let mut m = Map::new();
+    m.insert("ad.length_s".into(), length_s.into());
+    m.insert("ad.length".into(), clock(length_s).into());
+    m.insert("ad.seconds_left".into(), seconds_left.into());
+    m.insert("ad.time".into(), clock(seconds_left).into());
+    m
 }
 
 impl Automation {
@@ -173,6 +194,7 @@ impl Automation {
             alerts,
             twitch: RwLock::new(None),
             obs: RwLock::new(None),
+            discord: RwLock::new(None),
             http: reqwest::Client::builder()
                 .timeout(Duration::from_secs(10))
                 .user_agent(concat!("Castwright/", env!("CARGO_PKG_VERSION")))
@@ -186,6 +208,7 @@ impl Automation {
             live: AtomicBool::new(false),
             ignored_users: RwLock::new(Vec::new()),
             run_ids: AtomicU64::new(0),
+            ads: Mutex::default(),
         })
     }
 
@@ -199,6 +222,10 @@ impl Automation {
 
     pub fn set_obs(&self, o: Arc<dyn ObsActions>) {
         *self.obs.write().unwrap() = Some(o);
+    }
+
+    pub fn set_discord(&self, d: Arc<dyn DiscordActions>) {
+        *self.discord.write().unwrap() = Some(d);
     }
 
     pub fn set_ignored_users(&self, ids: Vec<String>) {
@@ -384,8 +411,21 @@ impl Automation {
     }
 
     fn on_signal(self: &Arc<Self>, s: &Signal) {
-        let Signal::SceneChanged { scene } = s else {
-            return;
+        let scene = match s {
+            Signal::SceneChanged { scene } => scene,
+            Signal::AdSchedule(schedule) => {
+                self.ads.lock().unwrap().schedule = schedule.clone();
+                return;
+            }
+            Signal::AdBegin { length_s } => {
+                self.run_ad_triggers(true, *length_s);
+                return;
+            }
+            Signal::AdEnd { length_s } => {
+                self.run_ad_triggers(false, *length_s);
+                return;
+            }
+            _ => return,
         };
         for action in self.actions() {
             let hit = action.triggers.iter().position(|t| {
@@ -399,7 +439,62 @@ impl Automation {
         }
     }
 
+    fn run_ad_triggers(self: &Arc<Self>, begin: bool, length_s: u32) {
+        let (label, left) = if begin {
+            ("ad break begins", length_s)
+        } else {
+            ("ad break ends", 0)
+        };
+        for action in self.actions() {
+            let hit = action.triggers.iter().position(|t| {
+                if begin {
+                    matches!(t, Trigger::AdBegin)
+                } else {
+                    matches!(t, Trigger::AdEnd)
+                }
+            });
+            if let Some(index) = hit {
+                self.spawn_run(
+                    &action.id,
+                    Some(index),
+                    label,
+                    ad_args(length_s, left),
+                    None,
+                );
+            }
+        }
+    }
+
+    /// Runs "ad soon" triggers once per ad, each at its own number of minutes before.
+    fn check_ad_soon(self: &Arc<Self>, now_ms: i64) {
+        let mut due = Vec::new();
+        {
+            let mut w = self.ads.lock().unwrap();
+            let AdWatch { schedule, alarms } = &mut *w;
+            let mut seen = Vec::new();
+            for action in self.actions() {
+                for (i, t) in action.triggers.iter().enumerate() {
+                    let Trigger::AdSoon { minutes_before } = t else {
+                        continue;
+                    };
+                    let key = (action.id.clone(), i);
+                    seen.push(key.clone());
+                    let lead = (*minutes_before).clamp(1, 60) * 60;
+                    if alarms.entry(key).or_default().check(schedule, now_ms, lead) {
+                        let left = schedule.seconds_to_next(now_ms).unwrap_or(0);
+                        due.push((action.id.clone(), i, ad_args(schedule.length_s, left)));
+                    }
+                }
+            }
+            alarms.retain(|k, _| seen.contains(k));
+        }
+        for (id, index, args) in due {
+            self.spawn_run(&id, Some(index), "ad soon", args, None);
+        }
+    }
+
     fn on_tick(self: &Arc<Self>, now: Instant) {
+        self.check_ad_soon(crate::util::now_ms());
         let lines = self.chat_lines.load(Ordering::Relaxed);
         let live = self.live.load(Ordering::SeqCst);
         let mut due = Vec::new();
@@ -812,6 +907,14 @@ impl Automation {
             .ok_or_else(|| crate::error::AppError::User("Twitch isn't connected.".into()))
     }
 
+    fn discord(&self) -> AppResult<Arc<dyn DiscordActions>> {
+        self.discord
+            .read()
+            .unwrap()
+            .clone()
+            .ok_or_else(|| crate::error::AppError::User("Discord isn't set up.".into()))
+    }
+
     fn obs(&self) -> AppResult<Arc<dyn ObsActions>> {
         self.obs
             .read()
@@ -953,6 +1056,10 @@ impl Automation {
                 layer_id,
                 state,
             } => self.set_layer_visible(overlay_id, layer_id, *state)?,
+            Step::RollCredits {
+                overlay_id,
+                layer_id,
+            } => self.roll_credits(overlay_id, layer_id)?,
             Step::PlayAlert {
                 title,
                 message,
@@ -1118,6 +1225,17 @@ impl Automation {
                 }
                 self.twitch()?.end_prediction(*action, &winner).await?
             }
+            Step::SnoozeAd => self.twitch()?.snooze_next_ad().await?,
+            Step::PostToDiscord {
+                webhook_id,
+                message,
+            } => {
+                let text = t(message);
+                if text.trim().is_empty() {
+                    return user_err("The Discord message is empty.");
+                }
+                self.discord()?.post_text(webhook_id, &text).await?
+            }
             Step::Stop => return Ok(Flow::Stop),
             Step::Log { message } => self.hub.log(LogLevel::Info, "automation", t(message)),
         }
@@ -1159,6 +1277,35 @@ impl Automation {
         self.hub.emit_ui(
             ui::PROJECT,
             &serde_json::json!({ "overlay_id": overlay_id }),
+        );
+        Ok(())
+    }
+
+    fn roll_credits(&self, overlay_id: &str, layer_id: &str) -> AppResult<()> {
+        let found = self.project.read(|p| {
+            p.overlays
+                .iter()
+                .find(|o| o.id == overlay_id)?
+                .layers
+                .iter()
+                .find(|l| l.id == layer_id)
+                .map(|l| (matches!(l.kind, LayerKind::Credits { .. }), l.visible))
+        });
+        let visible = match found {
+            None => return user_err("That overlay layer no longer exists."),
+            Some((false, _)) => return user_err("That layer isn't a credits layer."),
+            Some((true, visible)) => visible,
+        };
+        let credits = self.hub.sessions.credits()?;
+        if !visible {
+            self.set_layer_visible(overlay_id, layer_id, Toggle::On)?;
+        }
+        self.hub.to_overlays(
+            Some(overlay_id),
+            OverlayMsg::CreditsRoll {
+                layer_id: layer_id.to_string(),
+                credits,
+            },
         );
         Ok(())
     }
@@ -1248,6 +1395,7 @@ pub fn step_label(step: &Step) -> &'static str {
         Step::Recording { .. } => "Recording",
         Step::SaveReplay => "Save replay",
         Step::SetLayerVisible { .. } => "Show/hide overlay layer",
+        Step::RollCredits { .. } => "Roll credits",
         Step::PlayAlert { .. } => "Play alert",
         Step::PauseAlerts { .. } => "Pause alerts",
         Step::SkipAlert => "Skip alert",
@@ -1263,6 +1411,8 @@ pub fn step_label(step: &Step) -> &'static str {
         Step::EndPoll => "End poll",
         Step::StartPrediction { .. } => "Start prediction",
         Step::EndPrediction { .. } => "Lock or resolve prediction",
+        Step::SnoozeAd => "Snooze ad",
+        Step::PostToDiscord { .. } => "Post to Discord",
         Step::Stop => "Stop",
         Step::Log { .. } => "Log",
     }

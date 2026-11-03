@@ -1,0 +1,72 @@
+{
+  "kind": "castwright-actions",
+  "version": 1,
+  "app_version": "",
+  "exported_at": 0,
+  "actions": [
+    {
+      "id": "tpl-lurk-command",
+      "name": "!lurk",
+      "group": "Chat commands",
+      "enabled": false,
+      "triggers": [
+        {
+          "type": "command",
+          "name": "lurk",
+          "aliases": [],
+          "permission": "everyone",
+          "user_cooldown_s": 300
+        }
+      ],
+      "steps": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "x": 4,
+            "y": 0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "command",
+                "name": "lurk",
+                "aliases": [],
+                "permission": "everyone",
+                "user_cooldown_s": 300
+              }
+            }
+          },
+          {
+            "id": "n2",
+            "x": 4,
+            "y": 168,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "chat_send",
+                "message": "{{name}} is lurking. Thanks for hanging out!",
+                "as_bot": true,
+                "reply": true
+              }
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e1",
+            "from": "n1",
+            "from_side": "bottom",
+            "to": "n2",
+            "to_side": "top",
+            "branch": "next"
+          }
+        ],
+        "notes": [],
+        "frames": []
+      },
+      "cooldown_s": 0
+    }
+  ],
+  "variables": [],
+  "refs": []
+}

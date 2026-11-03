@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Credits } from '$lib/bindings/Credits';
   import type { Event } from '$lib/bindings/Event';
   import type { Layer } from '$lib/bindings/Layer';
   import type { Overlay } from '$lib/bindings/Overlay';
@@ -41,6 +42,12 @@
     feed?: OverlayFeed;
     /** A custom widget stored (or, with `undefined`, deleted) a value. */
     onWidgetStore?: WidgetStoreFn;
+    /** Names for credits layers. */
+    credits?: Credits | null;
+    /** Times each credits layer was told to roll. */
+    rolls?: Record<string, number>;
+    /** A credits layer wants fresh names. */
+    onLoadCredits?: () => void;
   }
 
   let {
@@ -60,8 +67,19 @@
     scene,
     clip = true,
     feed,
-    onWidgetStore
+    onWidgetStore,
+    credits = null,
+    rolls = {},
+    onLoadCredits
   }: Props = $props();
+
+  /** Rolls started here (editor), on top of the ones from the app. */
+  let localRolls = $state<Record<string, number>>({});
+  const allRolls = $derived.by(() => {
+    const out: Record<string, number> = { ...rolls };
+    for (const [id, n] of Object.entries(localRolls)) out[id] = (out[id] ?? 0) + n;
+    return out;
+  });
 
   // A layer shows when its own visibility (manual or automation) is on, its conditions
   // match, and its scene rule allows the current scene.
@@ -110,6 +128,13 @@
     get audioLayerId() {
       return audioLayerId;
     },
+    get credits() {
+      return credits;
+    },
+    get rolls() {
+      return allRolls;
+    },
+    loadCredits: () => onLoadCredits?.(),
     assetUrl: (p: string) => {
       try {
         return assetUrl(p);
@@ -135,6 +160,11 @@
   });
 
   const views: Record<string, LayerView | undefined> = $state({});
+
+  /** Editor: start a credits layer from the top. */
+  export function rollCredits(layerId: string): void {
+    localRolls = { ...localRolls, [layerId]: (localRolls[layerId] ?? 0) + 1 };
+  }
 
   /** Editor: play a layer's enter or exit animation. */
   export function preview(layerId: string, phase: Phase): void {

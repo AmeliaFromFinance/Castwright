@@ -9,9 +9,7 @@ import type { EventKind } from '$lib/bindings/EventKind';
 import {
   STEP_GROUPS,
   STEP_LABELS,
-  TEMPLATE_MENU,
   TRIGGER_LABELS,
-  fromTemplate,
   newAction,
   newStep,
   newTrigger,
@@ -53,7 +51,8 @@ const SERDE_DEFAULTS: Partial<Record<string, Record<string, unknown>>> = {
   redemption: { reward_id: '', reward_title: '' },
   finish_redemption: { refund: false },
   start_poll: { points_per_vote: 0 },
-  end_prediction: { winner: '' }
+  end_prediction: { winner: '' },
+  ad_soon: { minutes_before: 1 }
 };
 
 describe('defaults', () => {
@@ -85,19 +84,9 @@ describe('defaults', () => {
     expect(newAction().id).not.toBe(a.id);
   });
 
-  it('templates are valid', () => {
-    for (const g of TEMPLATE_MENU)
-      for (const it of g.items) {
-        const a = fromTemplate(it.value);
-        expect(roundTrip<Action>(a)).toEqual(a);
-        expect(validateAction(a, [a])).toEqual([]);
-        expect(a.triggers).toHaveLength(a.graph.nodes.filter((n) => n.kind.type === 'trigger').length);
-      }
-  });
-
-  it('event triggers exclude chat', () => {
+  it('event triggers list chat last', () => {
     const kinds = triggerKinds(Object.keys(KIND_LABELS) as EventKind[]);
-    expect(kinds).not.toContain('chat');
+    expect(kinds.at(-1)).toBe('chat');
     expect(kinds).toContain('raid');
   });
 });

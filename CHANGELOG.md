@@ -2,6 +2,24 @@
 
 What changed in each version of Castwright. The newest version is at the top.
 
+## 0.7.0 (2026-11-03)
+
+### New
+
+- **Ad break helper.** The status bar counts down to the next ad. Snooze it, run one now, and get a warning before it starts. Castwright never switches scenes for ads: subs and Turbo viewers keep watching.
+- **Ad break layer.** A heads-up for viewers before an ad, and a thank-you during it.
+- **Discord posts.** Post to Discord when you go live, and a summary when you end. Pick who gets pinged.
+- **Credits layer.** An end-of-stream roll of followers, subs, gifters, cheerers, raiders and chatters. Start it with the **Roll credits** step.
+- **Action templates.** Start a new action from 10 ready-made setups, like a raid shoutout or a death counter.
+- **Health panel.** Overlays, OBS, Twitch and recent problems in one place. The heart in the status bar changes colour when something's wrong.
+- **Bug reports.** Save a zip with logs and settings, secrets removed. Nothing is uploaded.
+- Automation: ad triggers, **Snooze ad** and **Post to Discord** steps, and a **Chat message** trigger.
+
+### Improved
+
+- The Ending overlay template includes a credits roll.
+- Log files are kept in the data folder.
+
 ## 0.6.0 (2026-11-03)
 
 ### New

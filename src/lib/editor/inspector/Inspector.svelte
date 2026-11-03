@@ -50,11 +50,12 @@
     onpreview: (layerId: string, phase: Phase) => void;
     ontestalert: () => void;
     ontogglewide: () => void;
+    onroll: (layerId: string) => void;
   }
 
-  let { store, vars, wide, onpreview, ontestalert, ontogglewide }: Props = $props();
+  let { store, vars, wide, onpreview, ontestalert, ontogglewide, onroll }: Props = $props();
 
-  const open = $state({ layout: true, content: true, cards: false, style: false, visibility: false, scenes: false, animation: false, advanced: false });
+  const open = $state({ layout: true, content: true, cards: false, sections: false, style: false, visibility: false, scenes: false, animation: false, advanced: false });
   let cssEditor = $state<CodeEditor>();
 
   const layer = $derived(store.selected);
@@ -173,14 +174,32 @@
 
       <Section title={layer.kind.type === 'custom' ? 'Widget' : 'Content'} bind:open={open.content}>
         {#key layer.id}
-          <ContentEditor {layer} {uid} {varNames} {wide} {ontogglewide} {ontestalert} set={setKind} />
+          <ContentEditor {layer} {uid} {varNames} {wide} {ontogglewide} {ontestalert} onroll={() => onroll(layer.id)} set={setKind} />
         {/key}
       </Section>
 
-      {#if layer.kind.type === 'chat' || layer.kind.type === 'event_list' || layer.kind.type === 'poll'}
-        <Section title="Cards" bind:open={open.cards} note={layer.kind.type === 'chat' ? 'Each message' : layer.kind.type === 'poll' ? 'Each choice' : 'Each event'}>
+      {#if layer.kind.type === 'chat' || layer.kind.type === 'event_list' || layer.kind.type === 'poll' || layer.kind.type === 'ad_break'}
+        <Section
+          title="Cards"
+          bind:open={open.cards}
+          note={layer.kind.type === 'chat' ? 'Each message' : layer.kind.type === 'poll' ? 'Each choice' : layer.kind.type === 'ad_break' ? 'The message' : 'Each event'}
+        >
           {#key layer.id}
             <CardsEditor kind={layer.kind} {uid} set={setKind} />
+          {/key}
+        </Section>
+      {/if}
+
+      {#if layer.kind.type === 'credits'}
+        {@const credits = layer.kind}
+        <Section title="Section cards" bind:open={open.sections} note="Each section">
+          {#key layer.id}
+            <BoxStyleEditor
+              box={credits.section_box ?? {}}
+              uid="{uid}-sec"
+              group="card"
+              set={(fn, key) => setKind((k) => k.type === 'credits' && fn(k.section_box), `sectionbox:${key}`)}
+            />
           {/key}
         </Section>
       {/if}

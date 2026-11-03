@@ -27,7 +27,7 @@ enum Cond {
     FromBroadcaster,
 }
 
-struct SubSpec {
+pub(super) struct SubSpec {
     kind: &'static str,
     /// Tried in order until one is accepted.
     versions: &'static [&'static str],
@@ -54,7 +54,7 @@ const V1: &[&str] = &["1"];
 const V2: &[&str] = &["2"];
 const V2_OR_1: &[&str] = &["2", "1"];
 
-const SUBSCRIPTIONS: &[SubSpec] = &[
+pub(super) const SUBSCRIPTIONS: &[SubSpec] = &[
     sub("channel.follow", V2, Cond::WithModerator, "read follows"),
     sub(
         "channel.chat.notification",
@@ -253,6 +253,11 @@ impl TwitchService {
             match connect(url, self.timing.welcome_timeout).await {
                 Ok((ws, session)) => {
                     failures = 0;
+                    {
+                        let mut st = self.state.lock().unwrap();
+                        st.sub_failures.clear();
+                        st.subscribed = false;
+                    }
                     self.update_status(|s| {
                         s.eventsub = ConnState::Connected;
                         s.failed_subscriptions.clear();
@@ -374,6 +379,9 @@ impl TwitchService {
                     "twitch",
                     format!("Twitch stopped sending {kind} events ({why})"),
                 );
+                if !kind.is_empty() {
+                    self.note_sub_failure(&kind, &format!("Twitch stopped it ({why})"));
+                }
                 self.update_status(|s| {
                     if !kind.is_empty() && !s.failed_subscriptions.contains(&kind) {
                         s.failed_subscriptions.push(kind.clone());
@@ -391,6 +399,7 @@ impl TwitchService {
         if !self.first_sighting(&message_id) {
             return;
         }
+        self.state.lock().unwrap().last_event_at = Some(crate::util::now_ms());
         let sub_type = normalize::str_of(&meta, "subscription_type");
         let ts = meta
             .get("message_timestamp")
@@ -411,6 +420,12 @@ impl TwitchService {
                     EventKind::StreamOnline | EventKind::StreamOffline | EventKind::ChannelUpdate
                 ) {
                     self.on_stream_event(&e);
+                }
+                if e.kind == EventKind::StreamOnline {
+                    self.poke_ads();
+                }
+                if e.kind == EventKind::AdBreak {
+                    self.on_ad_begin(&e);
                 }
                 if e.kind == EventKind::Chat && !self.first_sighting(&format!("chat:{}", e.id)) {
                     return;
@@ -456,11 +471,13 @@ impl TwitchService {
         let mut failed = Vec::new();
         for (spec, res) in SUBSCRIPTIONS.iter().zip(results) {
             if let Err(e) = res {
+                let why = e.explain(spec.what);
                 self.hub.log(
                     LogLevel::Warn,
                     "twitch",
-                    format!("Can't listen for {}: {}", spec.kind, e.explain(spec.what)),
+                    format!("Can't listen for {}: {why}", spec.kind),
                 );
+                self.note_sub_failure(spec.kind, &why);
                 failed.push(spec.kind.to_string());
             }
         }
@@ -473,6 +490,7 @@ impl TwitchService {
                 SUBSCRIPTIONS.len()
             ),
         );
+        self.state.lock().unwrap().subscribed = true;
         self.update_status(|s| {
             for kind in failed {
                 if !s.failed_subscriptions.contains(&kind) {

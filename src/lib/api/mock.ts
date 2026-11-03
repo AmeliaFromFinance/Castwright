@@ -2,7 +2,8 @@
 // desktop app: development in a browser, end-to-end tests and documentation
 // screenshots. Add `?demo=static` to the URL to turn off the simulated activity,
 // `&setup` to start at first-time setup, `&ended` to have the stream just end and
-// `&oldscopes` for a Twitch sign-in made before the mod tools.
+// `&oldscopes` for a Twitch sign-in made before the mod tools and `&crashed` for
+// the prompt shown after a crash.
 
 import type { Backend, Unlisten } from './backend';
 import starter from './fixtures/starter-project.json';
@@ -32,6 +33,11 @@ import type { TwitchStatus } from '$lib/bindings/TwitchStatus';
 import type { ChatMode } from '$lib/bindings/ChatMode';
 import type { ChatModes } from '$lib/bindings/ChatModes';
 import type { ViewerCard } from '$lib/bindings/ViewerCard';
+import type { CrashInfo } from '$lib/bindings/CrashInfo';
+import type { HealthIssue } from '$lib/bindings/HealthIssue';
+import type { HealthSnapshot } from '$lib/bindings/HealthSnapshot';
+import { worst } from '$lib/health/health';
+import { zipFiles } from '$lib/health/zip';
 import { evaluateGroup } from '$lib/logic/condition';
 import { planRun } from '$lib/pages/automation/graph';
 import { applyImport, buildPackage, parsePackage } from '$lib/pages/automation/sharing';
@@ -41,7 +47,9 @@ import { render } from '$lib/logic/template';
 import { ACTION_LABELS, findConflict } from '$lib/pages/settings/hotkeys';
 import { DEFAULT_SOCIAL_TEMPLATE } from '$lib/sessions/summary';
 import { createInteractMock } from './mock-interact';
-import { listItem, liveActivity, pastSessions, summarize, type DemoSession, type MakeEvent } from './mock-sessions';
+import { createAdsMock } from './mock-ads';
+import { DEFAULT_END as DEFAULT_DISCORD_END } from '$lib/pages/settings/discord';
+import { credits, listItem, liveActivity, pastSessions, summarize, type DemoPerson, type DemoSession, type MakeEvent } from './mock-sessions';
 
 type Listener = (payload: unknown) => void;
 
@@ -86,13 +94,20 @@ function badgeImages(names: string[]) {
   });
 }
 
+const DEMO_ROLES: Record<string, DemoPerson['role']> = { pixelbyte: 'mod', LumenLark: 'mod', m0ss: 'vip' };
+
+function demoPerson(name: string): DemoPerson {
+  const i = VIEWERS.findIndex(([n]) => n === name);
+  return { user_id: i >= 0 ? String(1000 + i) : '', login: name.toLowerCase(), role: DEMO_ROLES[name] ?? '' };
+}
+
 function demoEvent(kind: EventKind, i: number, ago: number): Event {
   const base = clone((samples as unknown as Event[]).find((e) => e.kind === kind)!);
   const [name] = VIEWERS[i % VIEWERS.length]!;
   base.id = uid();
   base.ts = now() - ago;
   base.test = false;
-  if (base.user) base.user = { id: String(1000 + i), login: name.toLowerCase(), display_name: name };
+  if (base.user) base.user = { id: String(1000 + (i % VIEWERS.length)), login: name.toLowerCase(), display_name: name };
   if (kind === 'redemption') base.data = { ...base.data, redemption_id: uid(), status: 'unfulfilled' };
   return base;
 }
@@ -152,7 +167,23 @@ function defaultSettings(): Settings {
         { action: { type: 'toggle_alert_pause' }, keys: 'Ctrl+Alt+P' }
       ]
     },
-    summary: { social_template: DEFAULT_SOCIAL_TEMPLATE }
+    summary: { social_template: DEFAULT_SOCIAL_TEMPLATE },
+    ads: { warn: true, warn_minutes: 1 },
+    discord: {
+      webhooks: [
+        {
+          id: 'demo-hook',
+          name: '#stream-alerts',
+          on_live: true,
+          on_end: true,
+          live_template: '{{channel}} is live with {{category}}! Come hang out.',
+          end_template: DEFAULT_DISCORD_END,
+          mention: '<@&112233445566778899>',
+          edit_on_end: true,
+          has_url: true
+        }
+      ]
+    }
   };
 }
 
@@ -203,6 +234,7 @@ const BROADCASTER_SCOPES = [
   'moderator:manage:shoutouts',
   'moderator:manage:announcements',
   'channel:read:ads',
+  'channel:manage:ads',
   'channel:edit:commercial',
   'channel:read:charity',
   'channel:manage:broadcast',
@@ -332,7 +364,11 @@ export function createDemoBackend(): Backend {
   const logs: LogEntry[] = [
     { ts: now() - 5_100_000, level: 'info', source: 'obs', message: 'Connected to OBS 32.1.0' },
     { ts: now() - 5_095_000, level: 'info', source: 'twitch', message: 'Listening for 28 kinds of Twitch events' },
-    { ts: now() - 5_025_000, level: 'info', source: 'twitch', message: 'Stream went live' }
+    { ts: now() - 5_094_000, level: 'warn', source: 'twitch', message: "Can't listen for channel.hype_train.begin: Castwright is missing permission to read Hype Trains. Sign out and in again." },
+    { ts: now() - 5_025_000, level: 'info', source: 'twitch', message: 'Stream went live' },
+    { ts: now() - 2_410_000, level: 'warn', source: 'twitch', message: 'Lost connection to Twitch events (no keepalive from Twitch). Reconnecting.' },
+    { ts: now() - 2_405_000, level: 'info', source: 'twitch', message: 'Connected to Twitch events' },
+    { ts: now() - 640_000, level: 'warn', source: 'automation', message: '"Count deaths" ran too many times in a row and was paused for a few seconds.' }
   ];
   const history: Event[] = [];
   const chat: Event[] = [];
@@ -437,7 +473,7 @@ export function createDemoBackend(): Backend {
     vars: Record<string, unknown>;
     key: string;
   }
-  const isLive = (k: string) => /^(stream|obs|twitch)\./.test(k);
+  const isLive = (k: string) => /^(stream|obs|twitch|ads)\./.test(k);
   const savedVars = () => Object.fromEntries(Object.entries(vars).filter(([k]) => !isLive(k)));
   const contentKey = () => JSON.stringify([project, savedVars()]);
   const isDaily = (r: BackupReason) => r === 'startup' || r === 'daily';
@@ -583,6 +619,23 @@ export function createDemoBackend(): Backend {
     interact.onRedemption(e);
   };
   const interact = createInteractMock({ emit, publish, uid, staticMode, viewers: VIEWERS.map(([name]) => name) });
+  const ads = createAdsMock({
+    emit,
+    listening: (name) => (listeners.get(name)?.size ?? 0) > 0,
+    setVars,
+    log,
+    staticMode,
+    settings: () => settings,
+    start: query.get('ads'),
+    channel: () => ({
+      channel: twitch.broadcaster?.display_name ?? 'Castwright',
+      login: twitch.broadcaster?.login ?? 'castwright',
+      title: twitch.stream.title,
+      category: twitch.stream.category,
+      image: twitch.broadcaster?.profile_image_url ?? ''
+    })
+  });
+  ads.publish();
 
   if (!staticMode && typeof window !== 'undefined') {
     let n = 0;
@@ -633,6 +686,108 @@ export function createDemoBackend(): Backend {
     if (connected) out.push(c('disk', 'Recording space', 'pass', '412.6 GB free'));
     return out;
   };
+
+  // A short version of src-tauri/src/diag for the demo.
+  const startedAt = now() - 5_160_000;
+  const overlayOpened = new Map<string, number>();
+  project.overlays.forEach((o, i) => {
+    if (i < 2) overlayOpened.set(o.id, startedAt + 60_000 * (i + 1));
+  });
+  const healthSnapshot = (): HealthSnapshot => {
+    const ts = now();
+    const failed = [{ kind: 'channel.hype_train.begin', reason: 'Castwright is missing permission to read Hype Trains. Sign out and in again.' }];
+    const renderLag = 1.4;
+    const issues: HealthIssue[] = [];
+    if (obs.state === 'connected' && renderLag >= 1) {
+      issues.push({ level: 'warn', area: 'obs', text: `${renderLag.toFixed(1)}% of frames rendered late. The GPU is too busy.` });
+    }
+    if (twitch.broadcaster) issues.push({ level: 'warn', area: 'twitch', text: `Twitch isn't sending ${failed[0]!.kind} events.` });
+    return {
+      ts,
+      level: worst(issues.map((i) => i.level)),
+      issues,
+      overlays: project.overlays.map((o, i) => {
+        const opened = overlayOpened.get(o.id);
+        return {
+          id: o.id,
+          name: o.name,
+          pages: opened ? [{ agent: 'OBS 32', since: opened }, ...(i === 0 ? [{ agent: 'Chrome', since: ts - 300_000 }] : [])] : [],
+          last_connect: opened ?? (i === 2 ? startedAt + 30_000 : null),
+          last_disconnect: i === 2 ? ts - 1_500_000 : null
+        };
+      }),
+      obs: {
+        state: obs.state,
+        error: obs.error,
+        version: obs.obs_version,
+        websocket_version: obs.websocket_version,
+        scene: obs.program_scene,
+        streaming: obs.stream.active,
+        recording: obs.record.active,
+        stream_ms: obs.stream.duration_ms,
+        record_ms: obs.record.duration_ms,
+        dropped_percent: obs.stats.stream_dropped_percent,
+        render_lag_percent: renderLag,
+        encoder_lag_percent: obs.stats.output_skipped_percent,
+        cpu_percent: obs.stats.cpu_percent,
+        fps: obs.stats.active_fps
+      },
+      twitch: {
+        has_client_id: twitch.has_client_id,
+        signed_in: !!twitch.broadcaster,
+        login: twitch.broadcaster?.login ?? '',
+        bot_login: twitch.bot?.login ?? null,
+        token_expires_at: twitch.broadcaster ? ts + 3 * 3_600_000 + 12 * 60_000 : null,
+        bot_token_expires_at: twitch.bot ? ts + 9 * 3_600_000 : null,
+        missing_scopes: BROADCASTER_SCOPES.filter((sc) => !twitch.broadcaster?.scopes.includes(sc)),
+        eventsub: twitch.eventsub,
+        subscriptions_total: 28,
+        subscriptions_active: 27,
+        subscriptions_ready: true,
+        failed,
+        last_event_at: history[0]?.ts ?? null,
+        chat: twitch.broadcaster ? 'connected' : 'disconnected',
+        error: twitch.error
+      },
+      app: {
+        version: '0.7.0',
+        os: 'demo',
+        arch: 'browser',
+        portable: false,
+        data_dir: '~/.local/share/castwright',
+        data_bytes: 48_234_496,
+        memory_bytes: 182_452_224,
+        started_at: startedAt,
+        uptime_ms: ts - startedAt,
+        server_running: true,
+        server_error: null,
+        secrets_in_file: false
+      },
+      problems: logs.filter((l) => l.level !== 'info').reverse().slice(0, 50)
+    };
+  };
+  let crashNotice: CrashInfo | null = query.has('crashed')
+    ? { ts: now() - 3_600_000, version: '0.7.0', os: 'demo', thread: 'main', message: 'demo crash', location: 'src/demo.rs:1:1', backtrace: '', log: [] }
+    : null;
+  const bugReportFiles = (includeProject: boolean, window: unknown) => {
+    const json = (v: unknown) => JSON.stringify(v, null, 2) + '\n';
+    const health = { ...healthSnapshot(), window };
+    const files = [
+      { name: 'README.txt', what: 'What this is', data: 'Castwright bug report (demo)\nNothing was uploaded. To share it, attach this file to a GitHub issue.\n' },
+      { name: 'app.json', what: 'Version and system', data: json({ version: '0.7.0', os: 'demo', portable: false }) },
+      { name: 'health.json', what: 'Health check', data: json(health) },
+      { name: 'settings.json', what: 'Settings without secrets', data: json({ ...settings, server: { ...settings.server, token: '[removed]' } }) },
+      { name: 'log.txt', what: 'Recent log', data: logs.map((l) => `${new Date(l.ts).toISOString()} ${l.level.toUpperCase()} [${l.source}] ${l.message}`).join('\n') + '\n' },
+      {
+        name: 'project-stats.json',
+        what: 'Counts of overlays, layers and actions',
+        data: json({ overlays: project.overlays.length, layers: project.overlays.reduce((n, o) => n + o.layers.length, 0), actions: project.actions.length, assets: assets.length })
+      }
+    ];
+    if (includeProject) files.push({ name: 'project.json', what: 'Your project, without secrets', data: json(project) });
+    return files;
+  };
+  const reportName = () => `castwright-bug-report-0.7.0-${new Date().toISOString().slice(0, 10)}.zip`;
 
   const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
     get_project: () => project,
@@ -858,6 +1013,13 @@ export function createDemoBackend(): Backend {
       if (!d) throw { code: 'not_found', message: 'Not found: stream session' };
       return sessionSummary(d);
     },
+    session_credits: () => {
+      const d = sessions.find((x) => x.session.ended_at === null) ?? [...sessions].sort((a, b) => b.session.started_at - a.session.started_at)[0];
+      if (!d) return credits({ ...liveSession, events: [], chat: [] }, now(), demoPerson);
+      if (d !== liveSession) return credits(d, now(), demoPerson);
+      const recent = chat.filter((c) => !c.roles.broadcaster && c.user).map((c) => ({ ts: c.ts, name: c.user!.display_name }));
+      return credits({ ...d, events: [...earlier.events, ...history], chat: [...earlier.chat, ...recent] }, now(), demoPerson);
+    },
     delete_session: ({ id }) => {
       const i = sessions.findIndex((x) => x.session.id === id);
       if (i < 0) return;
@@ -905,7 +1067,7 @@ export function createDemoBackend(): Backend {
       settings.twitch.client_id = String(clientId);
     },
     app_info: () => ({
-      version: '0.6.0',
+      version: '0.7.0',
       os: 'demo',
       project_dir: '~/Castwright/Projects/Default',
       config_dir: '~/.config/castwright',
@@ -933,6 +1095,26 @@ export function createDemoBackend(): Backend {
       return g;
     },
     golive_check: () => goLiveChecks(),
+    health_snapshot: () => healthSnapshot(),
+    reload_overlay: ({ id }) => log('info', 'server', `Reloaded ${project.overlays.find((o) => o.id === id)?.name ?? 'overlay'}`),
+    crash_notice: () => {
+      const c = crashNotice;
+      crashNotice = null;
+      return c;
+    },
+    bug_report_preview: ({ includeProject, window }) => {
+      const files = bugReportFiles(Boolean(includeProject), window);
+      return { files: files.map((f) => ({ name: f.name, what: f.what, bytes: new TextEncoder().encode(f.data).length })), has_crash: false, file_name: reportName() };
+    },
+    save_bug_report: ({ path, includeProject, window }) => {
+      const zip = zipFiles(bugReportFiles(Boolean(includeProject), window));
+      const href = URL.createObjectURL(new Blob([zip], { type: 'application/zip' }));
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = String(path || reportName());
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(href), 1000);
+    },
     golive_fix: ({ fix }) => {
       const f = fix as CheckFix;
       if (f.type === 'resume_alerts') handlers.alert_pause!({ paused: false });
@@ -1024,6 +1206,7 @@ export function createDemoBackend(): Backend {
       };
     },
     ...interact.handlers,
+    ...ads.handlers,
     obs_snapshot: () => obs,
     obs_connect: () => undefined,
     obs_disconnect: () => undefined,

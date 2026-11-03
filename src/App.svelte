@@ -23,6 +23,9 @@
   import GoLiveDialog from '$lib/shell/GoLiveDialog.svelte';
   import SummaryDialog from '$lib/sessions/SummaryDialog.svelte';
   import WhatsNewDialog from '$lib/whatsnew/WhatsNewDialog.svelte';
+  import HealthDialog from '$lib/health/HealthDialog.svelte';
+  import BugReportDialog from '$lib/health/BugReportDialog.svelte';
+  import { health } from '$lib/health/store.svelte';
   import { golive } from '$lib/state/golive.svelte';
   import { loadPref, savePref } from '$lib/state/persist';
 
@@ -48,6 +51,12 @@
     if (!app.ready) return;
     const live = app.obs.stream.active || !!app.twitch?.stream.live;
     untrack(() => golive.watchLive(live));
+  });
+
+  $effect(() => {
+    if (!app.ready) return;
+    untrack(() => health.start());
+    return () => health.stop();
   });
 
   // A global hotkey can open the go-live check while another app has focus.
@@ -210,6 +219,8 @@
   <GoLiveDialog />
   <SummaryDialog />
   <WhatsNewDialog />
+  <HealthDialog />
+  <BugReportDialog />
 {/if}
 
 <style>

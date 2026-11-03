@@ -1,0 +1,70 @@
+{
+  "kind": "castwright-actions",
+  "version": 1,
+  "app_version": "",
+  "exported_at": 0,
+  "actions": [
+    {
+      "id": "tpl-hydrate-reminder",
+      "name": "Hydrate reminder",
+      "group": "Timers",
+      "enabled": false,
+      "triggers": [
+        {
+          "type": "timer",
+          "interval_s": 2700,
+          "only_when_live": true,
+          "min_chat_lines": 0
+        }
+      ],
+      "steps": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "x": 4,
+            "y": 0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "timer",
+                "interval_s": 2700,
+                "only_when_live": true,
+                "min_chat_lines": 0
+              }
+            }
+          },
+          {
+            "id": "n2",
+            "x": 4,
+            "y": 168,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "chat_send",
+                "message": "Hydrate check! Time for a sip of water, chat.",
+                "as_bot": true,
+                "reply": false
+              }
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e1",
+            "from": "n1",
+            "from_side": "bottom",
+            "to": "n2",
+            "to_side": "top",
+            "branch": "next"
+          }
+        ],
+        "notes": [],
+        "frames": []
+      },
+      "cooldown_s": 0
+    }
+  ],
+  "variables": [],
+  "refs": []
+}

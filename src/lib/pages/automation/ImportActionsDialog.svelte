@@ -7,6 +7,7 @@
   import { app } from '$lib/state/app.svelte';
   import Button from '$lib/ui/Button.svelte';
   import Dialog from '$lib/ui/Dialog.svelte';
+  import Switch from '$lib/ui/Switch.svelte';
   import { assetStore } from '$lib/widgets/assets.svelte';
   import { CircleAlert, Info, Link2 } from '@lucide/svelte';
   import GraphPreview from './GraphPreview.svelte';
@@ -19,10 +20,13 @@
     pkg: ActionPackage | null;
     /** File name, shown under the title. */
     source: string;
-    onimported: (report: ImportReport) => void;
+    /** From the template picker: offers to turn the actions on. */
+    template?: boolean;
+    onimported: (report: ImportReport, enabled: boolean) => void;
   }
 
-  let { open = $bindable(), pkg, source, onimported }: Props = $props();
+  let { open = $bindable(), pkg, source, template = false, onimported }: Props = $props();
+  let turnOn = $state(false);
 
   let conflicts = $state<Record<string, ConflictChoice>>({});
   let links = $state<Record<string, string | null>>({});
@@ -35,6 +39,7 @@
     void assetStore.load(true);
     conflicts = {};
     links = {};
+    turnOn = false;
     error = '';
     shown = pkg?.actions[0]?.id ?? null;
   });
@@ -69,9 +74,10 @@
         error = 'Fix the actions marked "Not saved" first, then import.';
         return;
       }
-      const report = await api.importActions(pkg, importChoices(plan, conflicts, links));
+      const enable = template && turnOn && !unlinked;
+      const report = await api.importActions(pkg, importChoices(plan, conflicts, links, enable));
       open = false;
-      onimported(report);
+      onimported(report, enable);
     } catch (e) {
       error = e && typeof e === 'object' && 'message' in e ? String(e.message) : 'Import failed.';
     } finally {
@@ -80,9 +86,17 @@
   }
 </script>
 
-<Dialog bind:open title="Import actions" description={source} width={980}>
+<Dialog bind:open title={template ? 'Add from template' : 'Import actions'} description={source} width={980}>
   {#if plan && pkg}
-    <p class="note" role="note"><Info size={15} />Imported actions start turned off, so nothing runs until you switch them on.</p>
+    {#if template}
+      <div class="note turn-on" role="note">
+        <Info size={15} />
+        <span class="grow">{unlinked ? 'Link everything below to turn it on now. Otherwise it starts off.' : 'Starts turned off unless you turn it on now.'}</span>
+        <Switch label="Turn on now" showLabel checked={turnOn && !unlinked} disabled={!!unlinked} onchange={(v) => (turnOn = v)} />
+      </div>
+    {:else}
+      <p class="note" role="note"><Info size={15} />Imported actions start turned off, so nothing runs until you switch them on.</p>
+    {/if}
     <div class="cols">
       <div class="lists">
         <section aria-labelledby="imp-actions">
@@ -172,7 +186,9 @@
   {#snippet footer()}
     {#if unlinked}<span class="footnote warn-text"><CircleAlert size={13} />{unlinked} unlinked</span>{/if}
     <Button onclick={() => (open = false)}>Cancel</Button>
-    <Button variant="primary" {busy} disabled={!count} onclick={submit}>Import {count} {count === 1 ? 'action' : 'actions'}</Button>
+    <Button variant="primary" {busy} disabled={!count} onclick={submit}
+      >{template ? 'Add' : 'Import'} {count} {count === 1 ? 'action' : 'actions'}</Button
+    >
   {/snippet}
 </Dialog>
 
@@ -188,6 +204,9 @@
     color: var(--accent-text);
     font-size: 12.5px;
     font-weight: 550;
+  }
+  .turn-on .grow {
+    flex: 1;
   }
   .cols {
     display: grid;

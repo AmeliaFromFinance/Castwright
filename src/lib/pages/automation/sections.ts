@@ -22,6 +22,9 @@ export function sectionOf(a: Action): string {
     case 'poll_end':
     case 'prediction_begin':
     case 'prediction_end':
+    case 'ad_soon':
+    case 'ad_begin':
+    case 'ad_end':
       return 'Stream events';
     default:
       return 'Buttons and Stream Deck';

@@ -1,3 +1,4 @@
+pub mod ads;
 pub mod alert;
 pub mod automation;
 pub mod condition;

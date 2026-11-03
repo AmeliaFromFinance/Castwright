@@ -1,0 +1,91 @@
+{
+  "kind": "castwright-actions",
+  "version": 1,
+  "app_version": "",
+  "exported_at": 0,
+  "actions": [
+    {
+      "id": "tpl-clip-command",
+      "name": "!clip",
+      "group": "Chat commands",
+      "enabled": false,
+      "triggers": [
+        {
+          "type": "command",
+          "name": "clip",
+          "aliases": [],
+          "permission": "everyone",
+          "user_cooldown_s": 60
+        }
+      ],
+      "steps": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "x": 4,
+            "y": 0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "command",
+                "name": "clip",
+                "aliases": [],
+                "permission": "everyone",
+                "user_cooldown_s": 60
+              }
+            }
+          },
+          {
+            "id": "n2",
+            "x": 4,
+            "y": 168,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "create_clip"
+              }
+            }
+          },
+          {
+            "id": "n3",
+            "x": 4,
+            "y": 336,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "chat_send",
+                "message": "Clip saved: {{last.clip.url}}",
+                "as_bot": true,
+                "reply": false
+              }
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e1",
+            "from": "n1",
+            "from_side": "bottom",
+            "to": "n2",
+            "to_side": "top",
+            "branch": "next"
+          },
+          {
+            "id": "e2",
+            "from": "n2",
+            "from_side": "bottom",
+            "to": "n3",
+            "to_side": "top",
+            "branch": "next"
+          }
+        ],
+        "notes": [],
+        "frames": []
+      },
+      "cooldown_s": 30
+    }
+  ],
+  "variables": [],
+  "refs": []
+}

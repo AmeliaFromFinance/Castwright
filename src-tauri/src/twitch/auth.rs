@@ -25,6 +25,7 @@ pub const BROADCASTER_SCOPES: &[&str] = &[
     "moderator:manage:shoutouts",
     "moderator:manage:announcements",
     "channel:read:ads",
+    "channel:manage:ads",
     "channel:edit:commercial",
     "channel:read:charity",
     "channel:manage:broadcast",
@@ -44,6 +45,20 @@ pub const INTERACT_SCOPES: &[&str] = &[
     "channel:read:predictions",
     "channel:manage:predictions",
 ];
+
+/// Only snoozing ads needs this.
+pub const ADS_SCOPES: &[&str] = &["channel:manage:ads"];
+
+/// Scopes added after the first release. Older sign-ins still work without them.
+pub fn optional_feature(scope: &str) -> Option<&'static str> {
+    if INTERACT_SCOPES.contains(&scope) {
+        Some("channel points, polls and predictions")
+    } else if ADS_SCOPES.contains(&scope) {
+        Some("ad snoozing")
+    } else {
+        None
+    }
+}
 
 pub const BOT_SCOPES: &[&str] = &["user:read:chat", "user:write:chat", "user:bot"];
 

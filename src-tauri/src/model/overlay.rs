@@ -409,6 +409,91 @@ pub enum PollSource {
     Prediction,
 }
 
+/// A group of names in the credits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum CreditKind {
+    Followers,
+    Subscribers,
+    Gifters,
+    Cheerers,
+    Raiders,
+    Moderators,
+    Vips,
+    Chatters,
+}
+
+impl CreditKind {
+    pub const ALL: [CreditKind; 8] = [
+        CreditKind::Followers,
+        CreditKind::Subscribers,
+        CreditKind::Gifters,
+        CreditKind::Cheerers,
+        CreditKind::Raiders,
+        CreditKind::Moderators,
+        CreditKind::Vips,
+        CreditKind::Chatters,
+    ];
+
+    pub fn title(self) -> &'static str {
+        match self {
+            CreditKind::Followers => "New followers",
+            CreditKind::Subscribers => "Subscribers",
+            CreditKind::Gifters => "Gifted subs",
+            CreditKind::Cheerers => "Cheers",
+            CreditKind::Raiders => "Raids",
+            CreditKind::Moderators => "Moderators",
+            CreditKind::Vips => "VIPs",
+            CreditKind::Chatters => "Top chatters",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct CreditSection {
+    pub kind: CreditKind,
+    pub title: String,
+    #[serde(default = "yes")]
+    pub on: bool,
+}
+
+pub fn default_credit_sections() -> Vec<CreditSection> {
+    CreditKind::ALL
+        .iter()
+        .map(|&kind| CreditSection {
+            kind,
+            title: kind.title().into(),
+            on: true,
+        })
+        .collect()
+}
+
+/// How names in the credits look.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum CreditNames {
+    #[default]
+    Plain,
+    /// Chat colour and badges where known, and 7TV paints.
+    Chat,
+}
+
+/// When the credits start rolling.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum CreditStart {
+    /// When the layer appears.
+    #[default]
+    OnLoad,
+    /// From the Roll credits step.
+    Trigger,
+}
+
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[ts(export)]
@@ -567,6 +652,75 @@ pub enum LayerKind {
         #[serde(default)]
         item_card: ItemCard,
     },
+    /// End-of-stream credits: everyone who followed, subbed, cheered, raided or chatted.
+    Credits {
+        #[serde(default = "default_credit_sections")]
+        sections: Vec<CreditSection>,
+        /// Scroll speed in px per second.
+        #[serde(default = "default_credit_speed")]
+        speed: u32,
+        /// Fit one pass into this many seconds instead (0 = use speed).
+        #[serde(default)]
+        fit_s: u32,
+        /// Start again after the end; otherwise stop with the last names on screen.
+        #[serde(default)]
+        repeat: bool,
+        #[serde(default)]
+        start: CreditStart,
+        /// Template text above the names.
+        #[serde(default)]
+        heading: String,
+        /// Template text below the names.
+        #[serde(default)]
+        footer: String,
+        #[serde(default)]
+        names: CreditNames,
+        /// 1 or 2.
+        #[serde(default = "default_credit_columns")]
+        columns: u8,
+        #[serde(default = "yes")]
+        fade_edges: bool,
+        /// Months, gifts, bits, viewers and messages next to names.
+        #[serde(default = "yes")]
+        show_amounts: bool,
+        /// Most names under Top chatters.
+        #[serde(default = "default_credit_chatters")]
+        max_chatters: u32,
+        /// Seconds per page when motion is reduced.
+        #[serde(default = "default_credit_page_s")]
+        page_s: u32,
+        /// Names.
+        #[serde(default)]
+        style: TextStyle,
+        /// Section titles.
+        #[serde(default)]
+        title_style: TextStyle,
+        /// Heading and footer.
+        #[serde(default)]
+        heading_style: TextStyle,
+        /// The card around each section.
+        #[serde(default)]
+        section_box: BoxStyle,
+    },
+    /// A heads-up for viewers before and during an ad break. Hidden the rest of the time.
+    AdBreak {
+        /// Seconds before an ad to start showing. 0 = only during the ad.
+        #[serde(default = "default_ad_soon_s")]
+        soon_s: u32,
+        /// Before the ad. `{{time}}` is the countdown. Empty = don't show before.
+        #[serde(default = "default_ad_soon_text")]
+        soon_text: String,
+        /// During the ad. Empty = don't show during.
+        #[serde(default = "default_ad_running_text")]
+        running_text: String,
+        #[serde(default)]
+        style: TextStyle,
+        /// The card around the message.
+        #[serde(default)]
+        item_box: BoxStyle,
+        #[serde(default)]
+        item_card: ItemCard,
+    },
     /// HTML/CSS/JS widget with a StreamElements-compatible API.
     Custom {
         #[serde(default)]
@@ -601,6 +755,29 @@ fn default_list_max() -> u32 {
 fn default_result_s() -> u32 {
     8
 }
+fn default_credit_speed() -> u32 {
+    60
+}
+fn default_credit_columns() -> u8 {
+    1
+}
+fn default_credit_chatters() -> u32 {
+    10
+}
+fn default_credit_page_s() -> u32 {
+    6
+}
+fn default_ad_soon_s() -> u32 {
+    30
+}
+pub const DEFAULT_AD_SOON_TEXT: &str = "Ads in {{time}}, back soon";
+pub const DEFAULT_AD_RUNNING_TEXT: &str = "Thanks for sticking around! Back in {{time}}";
+fn default_ad_soon_text() -> String {
+    DEFAULT_AD_SOON_TEXT.into()
+}
+fn default_ad_running_text() -> String {
+    DEFAULT_AD_RUNNING_TEXT.into()
+}
 
 impl LayerKind {
     pub fn type_name(&self) -> &'static str {
@@ -616,6 +793,8 @@ impl LayerKind {
             LayerKind::Timer { .. } => "timer",
             LayerKind::EventList { .. } => "event_list",
             LayerKind::Poll { .. } => "poll",
+            LayerKind::Credits { .. } => "credits",
+            LayerKind::AdBreak { .. } => "ad_break",
             LayerKind::Custom { .. } => "custom",
         }
     }

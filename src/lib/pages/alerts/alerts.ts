@@ -163,6 +163,14 @@ export function fieldsFor(kind: EventKind): FieldHint[] {
       return [{ value: 'amount', label: 'Their viewers' }, F.name];
     case 'ad_break':
       return [{ value: 'amount', label: 'Length in seconds' }, { value: 'data.is_automatic', label: 'Automatic ad' }];
+    case 'chat':
+      return [
+        { value: 'data.first_chat', label: 'First message ever' },
+        F.message,
+        F.name,
+        { value: 'roles.moderator', label: 'Is a moderator' },
+        { value: 'roles.subscriber', label: 'Is a subscriber' }
+      ];
     default:
       return [F.name, F.amount, F.message];
   }
@@ -176,6 +184,8 @@ export function tokensFor(kind: EventKind): Token[] {
   switch (kind) {
     case 'follow':
       return [name];
+    case 'chat':
+      return [name, message];
     case 'sub':
       return [name, { token: 'tier' }, { token: 'months' }];
     case 'resub':

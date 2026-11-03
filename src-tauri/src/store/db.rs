@@ -70,6 +70,21 @@ const MIGRATIONS: &[&str] = &[
     CREATE INDEX chatters_first_seen ON chatters(first_seen);
     CREATE INDEX events_kind_ts ON events(kind, ts);
     "#,
+    // 2: Discord posts made per stream, so each goes out once.
+    r#"
+    CREATE TABLE discord_posts (
+        session_id INTEGER NOT NULL,
+        webhook_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        message_id TEXT NOT NULL DEFAULT '',
+        posted_at INTEGER NOT NULL,
+        PRIMARY KEY (session_id, webhook_id, kind)
+    );
+    CREATE TABLE discord_pending (
+        session_id INTEGER PRIMARY KEY,
+        due_at INTEGER NOT NULL
+    );
+    "#,
 ];
 
 /// Most history rows kept; the oldest are trimmed beyond this.

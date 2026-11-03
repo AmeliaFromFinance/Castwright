@@ -220,10 +220,15 @@ fn twitch_check(i: &CheckInput) -> Check {
             .map(String::as_str)
             .collect()
     };
-    let interact_only = missing
+    let mut features: Vec<&str> = missing
         .iter()
-        .all(|s| crate::twitch::auth::INTERACT_SCOPES.contains(s));
-    if !missing.is_empty() && !interact_only {
+        .filter_map(|s| crate::twitch::auth::optional_feature(s))
+        .collect();
+    features.dedup();
+    let optional_only = missing
+        .iter()
+        .all(|s| crate::twitch::auth::optional_feature(s).is_some());
+    if !missing.is_empty() && !optional_only {
         return check(
             "twitch",
             "Twitch",
@@ -240,8 +245,14 @@ fn twitch_check(i: &CheckInput) -> Check {
             "twitch",
             "Twitch",
             CheckStatus::Warn,
-            "Signed in before channel points, polls and predictions were added. \
-             Sign out and in again to use them.",
+            if features == ["ad snoozing"] {
+                "Signed in before ad snoozing was added. Sign out and in again to use it.".into()
+            } else {
+                format!(
+                    "Signed in before {} were added. Sign out and in again to use them.",
+                    features.join(" and ")
+                )
+            },
         )
         .fix(open("settings:twitch"));
     }
@@ -639,6 +650,15 @@ mod tests {
         let t = find(&evaluate(&i), "twitch").clone();
         assert_eq!(t.status, CheckStatus::Warn, "older sign-ins keep working");
         assert!(t.detail.contains("Sign out and in again"));
+
+        let mut i = good();
+        i.required_scopes.push("channel:manage:ads".into());
+        let t = find(&evaluate(&i), "twitch").clone();
+        assert_eq!(t.status, CheckStatus::Warn);
+        assert_eq!(
+            t.detail,
+            "Signed in before ad snoozing was added. Sign out and in again to use it."
+        );
 
         let mut i = good();
         i.twitch.eventsub = ConnState::Error;

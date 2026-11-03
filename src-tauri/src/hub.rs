@@ -1,6 +1,7 @@
 //! The hub connects every part of the app. Twitch publishes events here; alerts,
 //! automation, overlays and the app window all listen.
 
+use crate::model::ads::AdSchedule;
 use crate::model::event::{Event, EventKind};
 use crate::model::runtime::{LogEntry, LogLevel, OverlayMsg};
 use crate::sessions::Sessions;
@@ -29,6 +30,8 @@ pub mod ui {
     pub const GOLIVE_OPEN: &str = "cw://golive-open";
     pub const SESSION: &str = "cw://session";
     pub const REDEMPTION: &str = "cw://redemption";
+    pub const ADS: &str = "cw://ads";
+    pub const AD_WARNING: &str = "cw://ad-warning";
 }
 
 /// Where window events go. The real app uses the Tauri handle; tests use a recorder.
@@ -56,6 +59,9 @@ pub enum Signal {
     SceneChanged { scene: String },
     ObsConnected,
     ObsDisconnected,
+    AdSchedule(AdSchedule),
+    AdBegin { length_s: u32 },
+    AdEnd { length_s: u32 },
 }
 
 /// A message for overlays. `target` = one overlay id, or None for all.
@@ -124,18 +130,19 @@ impl Hub {
 
     /// Send an event to everything that listens. Duplicates (same id) are dropped.
     /// Returns false when the event was a duplicate.
-    pub fn publish(&self, event: Event) -> bool {
+    pub fn publish(&self, mut event: Event) -> bool {
         if event.kind == EventKind::Chat {
-            let mut chat = self.chat.lock().unwrap();
-            if chat.iter().any(|c| c.id == event.id) {
+            if self.chat.lock().unwrap().iter().any(|c| c.id == event.id) {
                 return false;
             }
+            if self.sessions.on_chat(&event) {
+                event.data.insert("first_chat".into(), true.into());
+            }
+            let mut chat = self.chat.lock().unwrap();
             chat.push_back(event.clone());
             while chat.len() > CHAT_KEEP {
                 chat.pop_front();
             }
-            drop(chat);
-            self.sessions.on_chat(&event);
         } else {
             match self.db.insert_event(&event) {
                 Ok(false) => return false,

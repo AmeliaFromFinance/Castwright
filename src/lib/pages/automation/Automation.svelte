@@ -4,7 +4,6 @@
   import type { Action } from '$lib/bindings/Action';
   import { clone, newId } from '$lib/editors/ids';
   import { copyName } from '$lib/editors/list';
-  import Menu from '$lib/editors/Menu.svelte';
   import SaveIndicator from '$lib/editors/SaveIndicator.svelte';
   import { isTypingTarget } from '$lib/editor/keys';
   import type { ActionPackage } from '$lib/bindings/ActionPackage';
@@ -19,10 +18,12 @@
   import { CircleAlert, FileUp, Play, Plus, Redo2, Undo2, Zap } from '@lucide/svelte';
   import ActionHeader from './ActionHeader.svelte';
   import ActionList from './ActionList.svelte';
-  import { TEMPLATE_MENU, fromTemplate, type TemplateId } from './defaults';
+  import { newAction } from './defaults';
   import FlowView from './FlowView.svelte';
   import ImportActionsDialog from './ImportActionsDialog.svelte';
   import { ACTIONS_EXT, packageFileName } from './sharing';
+  import TemplatePicker from './TemplatePicker.svelte';
+  import { findTemplate } from './templates';
   import RunLog from './RunLog.svelte';
   import { actionsEditor as ed, flow, runLog } from './store.svelte';
   import VarsInspector from './VarsInspector.svelte';
@@ -83,11 +84,18 @@
     if (ed.actions && !ed.selected && ed.actions.length) ed.selectedId = ed.actions[0]!.id;
   });
 
-  function create(id: TemplateId) {
+  let pickerOpen = $state(false);
+
+  function create(id: string) {
     if (!ed.actions) return;
-    const a = fromTemplate(id);
+    const t = findTemplate(id);
+    if (t) {
+      showImport(t.pkg, t.name, true);
+      return;
+    }
+    const a = newAction();
     const taken = ed.actions.map((x) => x.name);
-    for (let n = 2; taken.includes(a.name); n++) a.name = `${fromTemplate(id).name} ${n}`;
+    for (let n = 2; taken.includes(a.name); n++) a.name = `New action ${n}`;
     ed.actions.push(a);
     ed.selectedId = a.id;
     ed.search = '';
@@ -118,6 +126,7 @@
   let importPkg = $state<ActionPackage | null>(null);
   let importSource = $state('');
   let importOpen = $state(false);
+  let importTemplate = $state(false);
   let fileInput = $state<HTMLInputElement>();
   let dropping = $state(false);
 
@@ -144,9 +153,10 @@
     if (await attemptOk(() => api.exportActions(ids, path))) toasts.success(done);
   }
 
-  function showImport(pkg: ActionPackage, source: string) {
+  function showImport(pkg: ActionPackage, source: string, template = false) {
     importPkg = pkg;
     importSource = source;
+    importTemplate = template;
     importOpen = true;
   }
 
@@ -174,9 +184,13 @@
 
   const hasFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
 
-  async function imported(r: ImportReport) {
+  async function imported(r: ImportReport, enabled: boolean) {
     await attempt(() => app.reloadProject());
     if (r.first_id) ed.selectedId = r.first_id;
+    if (importTemplate) {
+      toasts.success(enabled ? `Added "${importSource}". It's on.` : `Added "${importSource}". Switch it on when it's ready.`);
+      return;
+    }
     const parts = [r.added && `${r.added} added`, r.replaced && `${r.replaced} replaced`, r.skipped && `${r.skipped} skipped`].filter(Boolean);
     toasts.success(`Imported actions: ${parts.join(', ') || 'none'}. They are off until you switch them on.`);
   }
@@ -247,9 +261,7 @@
         if (f) void readFile(f);
       }}
     />
-    <Menu groups={TEMPLATE_MENU} label="New action" variant="primary" size="md" align="right" onselect={create}>
-      <Plus size={15} />New action
-    </Menu>
+    <Button variant="primary" onclick={() => (pickerOpen = true)}><Plus size={15} />New action</Button>
   </header>
 
   {#if ed.actions}
@@ -268,7 +280,7 @@
         {:else}
           <EmptyState title="No action selected" body="Actions run steps when something happens: a chat command, a raid, a timer, a button.">
             {#snippet icon()}<Zap size={28} />{/snippet}
-            <Button variant="primary" onclick={() => create('blank')}><Plus size={14} />New action</Button>
+            <Button variant="primary" onclick={() => (pickerOpen = true)}><Plus size={14} />New action</Button>
           </EmptyState>
         {/if}
       </section>
@@ -292,7 +304,8 @@
   {/if}
 </div>
 
-<ImportActionsDialog bind:open={importOpen} pkg={importPkg} source={importSource} onimported={imported} />
+<ImportActionsDialog bind:open={importOpen} pkg={importPkg} source={importSource} template={importTemplate} onimported={imported} />
+<TemplatePicker bind:open={pickerOpen} onpick={create} />
 
 <Dialog open={confirmDelete !== null} title="Delete this action?" width={420} onclose={() => (confirmDelete = null)}>
   <p class="muted">“{confirmDelete?.name}” and all its nodes will be removed.</p>

@@ -2,6 +2,7 @@
 
 use crate::alerts::AlertEngine;
 use crate::automation::Automation;
+use crate::discord::{Channel, Discord};
 use crate::error::{AppError, AppResult};
 use crate::hub::{Hub, UiSink};
 use crate::model::project::Project;
@@ -43,13 +44,21 @@ pub struct Core {
     pub server: Arc<OverlayServer>,
     pub twitch: Arc<TwitchService>,
     pub obs: Arc<ObsService>,
+    pub discord: Arc<Discord>,
     pub paths: Paths,
+    /// ms since epoch.
+    pub started_at: i64,
+    /// The crash that ended the last run, until the app window has asked about it.
+    pub crash_notice: std::sync::Mutex<Option<crate::diag::crash::CrashInfo>>,
 }
 
 impl Core {
     /// Open stores and start background services. Must run inside the tokio runtime.
     pub async fn start(paths: Paths, ui: Arc<dyn UiSink>) -> anyhow::Result<Arc<Core>> {
         std::fs::create_dir_all(&paths.config_dir)?;
+        let started_at = crate::util::now_ms();
+        let crash_notice =
+            crate::diag::crash::take_unexpected(&crate::diag::logs_dir(&paths.data_dir));
         let settings = Arc::new(SettingsStore::open(paths.config_dir.join("settings.json")));
         let secrets_file = paths.config_dir.join("secrets.json");
         let secrets = Arc::new(if paths.secrets_in_file {
@@ -160,7 +169,14 @@ impl Core {
         let obs = ObsService::new(hub.clone(), secrets.clone(), settings.clone());
         automation.set_obs(obs.clone());
         obs.start();
-        crate::util::spawn(session_loop(hub.clone(), twitch.clone(), obs.clone()));
+        let discord = Discord::new(hub.clone(), settings.clone(), secrets.clone());
+        automation.set_discord(discord.clone());
+        crate::util::spawn(session_loop(
+            hub.clone(),
+            twitch.clone(),
+            obs.clone(),
+            discord.clone(),
+        ));
 
         let s = settings.get();
         let server = OverlayServer::new(
@@ -209,7 +225,10 @@ impl Core {
             server,
             twitch,
             obs,
+            discord,
             paths,
+            started_at,
+            crash_notice: std::sync::Mutex::new(crash_notice),
         });
         crate::util::spawn(core.clone().backup_loop(before_migration));
         Ok(core)
@@ -308,6 +327,7 @@ impl Core {
         save_vars(&self.hub, &self.project);
         self.server.stop();
         self.twitch.shutdown();
+        crate::diag::crash::mark_clean_exit(&crate::diag::logs_dir(&self.paths.data_dir));
     }
 
     /// Write pending project and variable changes now.
@@ -322,23 +342,41 @@ impl Core {
     }
 }
 
-/// Start and end stream sessions as Twitch (or OBS) goes live and offline.
-async fn session_loop(hub: Arc<Hub>, twitch: Arc<TwitchService>, obs: Arc<ObsService>) {
+/// Start and end stream sessions as Twitch (or OBS) goes live and offline,
+/// and post to Discord when they do.
+async fn session_loop(
+    hub: Arc<Hub>,
+    twitch: Arc<TwitchService>,
+    obs: Arc<ObsService>,
+    discord: Arc<Discord>,
+) {
     let mut tick = tokio::time::interval(Duration::from_secs(5));
     loop {
         tick.tick().await;
-        let sig = LiveSignal::from_status(&twitch.status(), twitch.stream_known(), &obs.snapshot());
+        let status = twitch.status();
+        let sig = LiveSignal::from_status(&status, twitch.stream_known(), &obs.snapshot());
         let sessions = hub.sessions.clone();
         let changes =
             tokio::task::spawn_blocking(move || sessions.tick(&sig, crate::util::now_ms()))
                 .await
                 .unwrap_or_default();
+        let channel = Channel::from_status(&status);
         for change in changes {
-            if matches!(change, SessionChange::Ended { .. }) {
-                hub.log(LogLevel::Info, "sessions", "Stream summary ready");
+            match &change {
+                SessionChange::Ended { session } => {
+                    hub.log(LogLevel::Info, "sessions", "Stream summary ready");
+                    discord.on_ended(session, crate::util::now_ms());
+                }
+                SessionChange::Started { session } => {
+                    let (d, s, ch) = (discord.clone(), session.clone(), channel.clone());
+                    crate::util::spawn(async move { d.on_started(&s, ch.as_ref()).await });
+                }
             }
             hub.emit_ui(crate::hub::ui::SESSION, &change);
         }
+        discord
+            .run_due(channel.as_ref(), crate::util::now_ms())
+            .await;
     }
 }
 
@@ -461,6 +499,67 @@ mod tests {
         }
         // Nothing changed, so no new backup.
         assert!(core.backup(BackupReason::Manual).unwrap().is_none());
+        core.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn discord_links_stay_out_of_backups_and_exports() {
+        use crate::model::automation::{Action, Step, Trigger};
+        use crate::model::settings::DiscordWebhook;
+        const TOKEN: &str = "SECRET-webhook-token";
+        let dir = tempfile::tempdir().unwrap();
+        let core = Core::start(paths(dir.path()), Arc::new(crate::hub::NullUi))
+            .await
+            .unwrap();
+        wait_for_backups(&core, 1).await;
+        let hook = core
+            .discord
+            .save_webhook(
+                DiscordWebhook {
+                    id: "w1".into(),
+                    ..DiscordWebhook::default()
+                },
+                Some(format!("https://discord.com/api/webhooks/77/{TOKEN}")),
+            )
+            .unwrap();
+        assert!(hook.has_url);
+        core.project.update(|p| {
+            let mut a = Action {
+                id: "post".into(),
+                triggers: vec![Trigger::Manual],
+                steps: vec![Step::PostToDiscord {
+                    webhook_id: hook.id.clone(),
+                    message: "Hi".into(),
+                }],
+                ..Action::default()
+            };
+            a.normalize();
+            p.actions.push(a);
+        });
+        core.project.mark_dirty();
+
+        let info = core.backup(BackupReason::Manual).unwrap().unwrap();
+        for (name, bytes) in zip_entries(&core.backups.dir().join(&info.file)) {
+            assert!(!String::from_utf8_lossy(&bytes).contains(TOKEN), "{name}");
+        }
+        let settings = std::fs::read_to_string(dir.path().join("config/settings.json")).unwrap();
+        assert!(settings.contains("\"w1\""));
+        assert!(!settings.contains(TOKEN));
+        let vars = core.hub.vars.snapshot();
+        let saved = core.hub.vars.saved();
+        let pkg = core
+            .project
+            .read(|p| crate::store::action_package::build(p, &["post".to_string()], &vars, &saved));
+        let pkg = serde_json::to_string(&pkg.unwrap()).unwrap();
+        assert!(pkg.contains("post_to_discord"));
+        assert!(!pkg.contains(TOKEN));
+        assert!(
+            !crate::store::secrets::keys::ALL
+                .iter()
+                .any(|k| k.starts_with("discord")),
+            "portable copies leave webhook links behind"
+        );
+        core.discord.delete_webhook("w1").unwrap();
         core.shutdown().await;
     }
 

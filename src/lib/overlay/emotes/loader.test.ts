@@ -95,6 +95,27 @@ describe('EmoteLoader', () => {
     expect(loader.map(ALL).size).toBeGreaterThan(0);
   });
 
+  it('reports how each provider is doing', async () => {
+    const { loader, setOffline } = make();
+    expect(loader.status()).toEqual([]);
+    loader.want('42', { seventv: true, bttv: true, ffz: false });
+    expect(loader.status().map((s) => [s.name, s.state])).toEqual([
+      ['7TV', 'loading'],
+      ['BetterTTV', 'loading']
+    ]);
+    await vi.advanceTimersByTimeAsync(0);
+    const ok = loader.status();
+    expect(ok.every((s) => s.state === 'ok' && s.error === null && s.loadedAt !== null)).toBe(true);
+    expect(ok[1]!.emotes).toBe(loader.map({ seventv: false, bttv: true, ffz: false }).size);
+    setOffline(true);
+    await vi.advanceTimersByTimeAsync(600_000);
+    expect(loader.status()[0]).toMatchObject({ state: 'error', error: 'Failed to fetch' });
+    setOffline(false);
+    await vi.advanceTimersByTimeAsync(600_000);
+    expect(loader.status()[0]!.state).toBe('ok');
+    loader.dispose();
+  });
+
   it('drops the old channel when it changes', async () => {
     const { loader, calls } = make();
     loader.want('42', ALL);

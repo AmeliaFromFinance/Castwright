@@ -1258,3 +1258,78 @@ async fn poll_and_prediction_triggers() {
         vec!["chat bot=false reply=false Predict: Win?".to_string()]
     );
 }
+
+#[tokio::test]
+async fn roll_credits_shows_the_layer_and_sends_names() {
+    use crate::model::overlay::{CreditNames, CreditStart, LayerKind, default_credit_sections};
+    let r = rig(vec![]);
+    let overlay_id = r.project.read(|p| p.overlays[0].id.clone());
+    let layer_id = r.project.update(|p| {
+        let mut layer = p.overlays[0].layers[0].clone();
+        layer.id = "credits1".into();
+        layer.visible = false;
+        layer.kind = LayerKind::Credits {
+            sections: default_credit_sections(),
+            speed: 60,
+            fit_s: 0,
+            repeat: false,
+            start: CreditStart::Trigger,
+            heading: String::new(),
+            footer: String::new(),
+            names: CreditNames::Plain,
+            columns: 1,
+            fade_edges: true,
+            show_amounts: true,
+            max_chatters: 10,
+            page_s: 6,
+            style: Default::default(),
+            title_style: Default::default(),
+            heading_style: Default::default(),
+            section_box: Default::default(),
+        };
+        p.overlays[0].layers.push(layer);
+        "credits1".to_string()
+    });
+    let mut ov = r.hub.subscribe_overlays();
+    let roll = |layer_id: &str| Action {
+        steps: vec![Step::RollCredits {
+            overlay_id: overlay_id.clone(),
+            layer_id: layer_id.into(),
+        }],
+        ..Action::default()
+    };
+    assert!(
+        r.auto
+            .execute(&roll(&layer_id), "test", Map::new(), None)
+            .await
+            .ok
+    );
+    assert!(
+        r.project
+            .read(|p| p.overlays[0].layers.last().unwrap().visible),
+        "shown"
+    );
+    let first = ov.recv().await.unwrap();
+    assert!(matches!(
+        first.msg,
+        OverlayMsg::LayerVisible { visible: true, .. }
+    ));
+    let out = ov.recv().await.unwrap();
+    assert_eq!(out.target.as_deref(), Some(overlay_id.as_str()));
+    assert!(matches!(&out.msg, OverlayMsg::CreditsRoll { layer_id: l, .. } if l == "credits1"));
+
+    // Not a credits layer, or gone.
+    let other = r.project.read(|p| p.overlays[0].layers[0].id.clone());
+    assert!(
+        !r.auto
+            .execute(&roll(&other), "test", Map::new(), None)
+            .await
+            .ok
+    );
+    assert!(
+        !r.auto
+            .execute(&roll("nope"), "test", Map::new(), None)
+            .await
+            .ok
+    );
+}

@@ -17,8 +17,12 @@ import type { BackupSettings } from '$lib/bindings/BackupSettings';
 import type { Category } from '$lib/bindings/Category';
 import type { ChatMode } from '$lib/bindings/ChatMode';
 import type { ChatModes } from '$lib/bindings/ChatModes';
+import type { Credits } from '$lib/bindings/Credits';
 import type { ViewerCard } from '$lib/bindings/ViewerCard';
+import type { BugReportPreview } from '$lib/bindings/BugReportPreview';
 import type { Check } from '$lib/bindings/Check';
+import type { CrashInfo } from '$lib/bindings/CrashInfo';
+import type { HealthSnapshot } from '$lib/bindings/HealthSnapshot';
 import type { CheckFix } from '$lib/bindings/CheckFix';
 import type { DeviceLogin } from '$lib/bindings/DeviceLogin';
 import type { Event } from '$lib/bindings/Event';
@@ -48,6 +52,9 @@ import type { Redemption } from '$lib/bindings/Redemption';
 import type { RedemptionRef } from '$lib/bindings/RedemptionRef';
 import type { RedemptionUpdate } from '$lib/bindings/RedemptionUpdate';
 import type { Reward } from '$lib/bindings/Reward';
+import type { AdSchedule } from '$lib/bindings/AdSchedule';
+import type { AdSettings } from '$lib/bindings/AdSettings';
+import type { DiscordWebhook } from '$lib/bindings/DiscordWebhook';
 
 let backend: Backend | null = null;
 
@@ -94,7 +101,9 @@ export const events = {
   actionProgress: 'cw://action-progress',
   goLiveOpen: 'cw://golive-open',
   session: 'cw://session',
-  redemption: 'cw://redemption'
+  redemption: 'cw://redemption',
+  ads: 'cw://ads',
+  adWarning: 'cw://ad-warning'
 } as const;
 
 export interface PushPayloads {
@@ -114,6 +123,8 @@ export interface PushPayloads {
   'cw://golive-open': Record<string, never>;
   'cw://session': SessionChange;
   'cw://redemption': RedemptionUpdate;
+  'cw://ads': AdSchedule;
+  'cw://ad-warning': AdSchedule;
 }
 
 export function on<K extends keyof PushPayloads>(name: K, cb: (p: PushPayloads[K]) => void): Promise<Unlisten> {
@@ -193,6 +204,8 @@ export const api = {
   listSessions: (limit = 200) => call<SessionListItem[]>('list_sessions', { limit }),
   sessionSummary: (id: number) => call<SessionSummary>('session_summary', { id }),
   deleteSession: (id: number) => call<void>('delete_session', { id }),
+  /** Names for credits layers: the live stream, else the last one. */
+  sessionCredits: () => call<Credits>('session_credits'),
   saveSummarySettings: (summary: SummarySettings) => call<SummarySettings>('save_summary_settings', { summary }),
   /** `base64` is set for images. */
   saveExport: (path: string, data: string, base64 = false) => call<void>('save_export', { path, data, base64 }),
@@ -219,6 +232,15 @@ export const api = {
   saveHotkeys: (hotkeys: HotkeySettings) => call<HotkeyReport>('save_hotkeys', { hotkeys }),
   /** Lets go of every hotkey while one is being recorded. */
   hotkeysRecording: (recording: boolean) => call<HotkeyStatus>('hotkeys_recording', { recording }),
+
+  // health and bug reports
+  healthSnapshot: () => call<HealthSnapshot>('health_snapshot'),
+  reloadOverlay: (id: string) => call<void>('reload_overlay', { id }),
+  /** The crash that ended the last run, once. */
+  crashNotice: () => call<CrashInfo | null>('crash_notice'),
+  /** `window`: facts only the app window knows, added to the report. */
+  bugReportPreview: (includeProject: boolean, window: unknown) => call<BugReportPreview>('bug_report_preview', { includeProject, window }),
+  saveBugReport: (path: string, includeProject: boolean, window: unknown) => call<void>('save_bug_report', { path, includeProject, window }),
 
   // go-live check
   goLiveCheck: () => call<Check[]>('golive_check'),
@@ -259,6 +281,19 @@ export const api = {
   startPrediction: (draft: PredictionDraft) => call<Event>('twitch_start_prediction', { draft }),
   /** `outcome` is the winning outcome id when resolving. */
   endPrediction: (action: PredictionAction, outcome = '') => call<Event>('twitch_end_prediction', { action, outcome }),
+
+  // ads
+  adSchedule: () => call<AdSchedule>('twitch_ad_schedule'),
+  snoozeAd: () => call<AdSchedule>('twitch_snooze_ad'),
+  /** Snapped to a length Twitch allows, 30 to 180 seconds. */
+  runAd: (lengthS: number) => call<void>('twitch_run_ad', { lengthS }),
+  saveAdSettings: (ads: AdSettings) => call<AdSettings>('save_ad_settings', { ads }),
+
+  // discord
+  /** `url`: null keeps the saved link, '' removes it. */
+  saveDiscordWebhook: (webhook: DiscordWebhook, url: string | null) => call<DiscordWebhook>('save_discord_webhook', { webhook, url }),
+  deleteDiscordWebhook: (id: string) => call<void>('delete_discord_webhook', { id }),
+  discordSendTest: (id: string) => call<void>('discord_send_test', { id }),
 
   // obs
   obsSnapshot: () => call<ObsSnapshot>('obs_snapshot'),

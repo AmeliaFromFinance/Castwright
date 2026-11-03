@@ -102,7 +102,7 @@ test('automation: chat command built in the flow, run and log', async ({ page })
   const errors = await open(page, 'Automation');
 
   await page.getByRole('button', { name: 'New action' }).click();
-  await page.getByRole('menuitem', { name: /Blank action/ }).click();
+  await page.getByRole('dialog', { name: 'New action' }).getByRole('button', { name: /^Blank/ }).click();
   const name = page.getByLabel('Action name');
   await expect(name).toHaveValue('New action');
   await name.fill('Hug');

@@ -1,0 +1,126 @@
+{
+  "kind": "castwright-actions",
+  "version": 1,
+  "app_version": "",
+  "exported_at": 0,
+  "actions": [
+    {
+      "id": "tpl-shoutout-on-raid",
+      "name": "Shoutout on raid",
+      "group": "Stream events",
+      "enabled": false,
+      "triggers": [
+        {
+          "type": "event",
+          "kind": "raid",
+          "conditions": {
+            "mode": "all",
+            "conditions": [
+              {
+                "field": "amount",
+                "op": "gte",
+                "value": 5
+              }
+            ]
+          }
+        }
+      ],
+      "steps": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "x": 4,
+            "y": 0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "event",
+                "kind": "raid",
+                "conditions": {
+                  "mode": "all",
+                  "conditions": [
+                    {
+                      "field": "amount",
+                      "op": "gte",
+                      "value": 5
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "id": "n2",
+            "x": 4,
+            "y": 168,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "delay",
+                "ms": 3000
+              }
+            }
+          },
+          {
+            "id": "n3",
+            "x": 4,
+            "y": 336,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "chat_announce",
+                "message": "Welcome {{name}} and the {{amount}} raiders! Go give them a follow: twitch.tv/{{user.login}}",
+                "color": "purple"
+              }
+            }
+          },
+          {
+            "id": "n4",
+            "x": 4,
+            "y": 504,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "shoutout",
+                "user": "{{user.login}}",
+                "message": ""
+              }
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e1",
+            "from": "n1",
+            "from_side": "bottom",
+            "to": "n2",
+            "to_side": "top",
+            "branch": "next"
+          },
+          {
+            "id": "e2",
+            "from": "n2",
+            "from_side": "bottom",
+            "to": "n3",
+            "to_side": "top",
+            "branch": "next"
+          },
+          {
+            "id": "e3",
+            "from": "n3",
+            "from_side": "bottom",
+            "to": "n4",
+            "to_side": "top",
+            "branch": "next"
+          }
+        ],
+        "notes": [],
+        "frames": []
+      },
+      "cooldown_s": 30
+    }
+  ],
+  "variables": [],
+  "refs": []
+}

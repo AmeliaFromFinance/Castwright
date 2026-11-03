@@ -603,7 +603,7 @@ export function alternator(): (id: string) => boolean {
 
 type Align = 'left' | 'center' | 'right';
 
-/** Item cards for chat, event lists and poll choices, scoped to one layer. */
+/** Item cards for chat, event lists, poll choices and the ad break message, scoped to one layer. */
 export function itemCardCss(kind: LayerKind, scope: string): string {
   const s = `:where(.${scope})`;
   if (kind.type === 'chat') {
@@ -627,6 +627,12 @@ export function itemCardCss(kind: LayerKind, scope: string): string {
     const rules = [frameCss(kind.item_box, `${s} .cw-poll-choice`, { item: { ...card, around: 'message', width: 'full' }, align, room: true })];
     if (card.gap !== DEFAULT_ITEM_CARD.gap) rules.push(`${s} .cw-poll-choices{gap:${px(Math.max(0, card.gap))}}`);
     return rules.filter(Boolean).join('\n');
+  }
+  if (kind.type === 'credits') return frameCss(kind.section_box, `${s} .cw-credits-section`, { room: true });
+  if (kind.type === 'ad_break') {
+    const card = resolveItemCard(kind.item_card);
+    const align = (kind.style?.align ?? 'left') as Align;
+    return frameCss(kind.item_box, `${s} .cw-ad-card`, { item: { ...card, around: 'message', alternate: false }, align, room: true });
   }
   return '';
 }

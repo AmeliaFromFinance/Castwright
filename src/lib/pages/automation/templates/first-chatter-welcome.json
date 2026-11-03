@@ -1,0 +1,106 @@
+{
+  "kind": "castwright-actions",
+  "version": 1,
+  "app_version": "",
+  "exported_at": 0,
+  "actions": [
+    {
+      "id": "tpl-first-chatter-welcome",
+      "name": "First-time chatter welcome",
+      "group": "Chat",
+      "enabled": false,
+      "triggers": [
+        {
+          "type": "event",
+          "kind": "chat",
+          "conditions": {
+            "mode": "all",
+            "conditions": [
+              {
+                "field": "data.first_chat",
+                "op": "is_true",
+                "value": null
+              }
+            ]
+          }
+        }
+      ],
+      "steps": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "x": 4,
+            "y": 0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "event",
+                "kind": "chat",
+                "conditions": {
+                  "mode": "all",
+                  "conditions": [
+                    {
+                      "field": "data.first_chat",
+                      "op": "is_true",
+                      "value": null
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "id": "n2",
+            "x": 4,
+            "y": 168,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "delay",
+                "ms": 1500
+              }
+            }
+          },
+          {
+            "id": "n3",
+            "x": 4,
+            "y": 336,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "chat_send",
+                "message": "Welcome to the stream, {{name}}! Glad you are here.",
+                "as_bot": true,
+                "reply": true
+              }
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e1",
+            "from": "n1",
+            "from_side": "bottom",
+            "to": "n2",
+            "to_side": "top",
+            "branch": "next"
+          },
+          {
+            "id": "e2",
+            "from": "n2",
+            "from_side": "bottom",
+            "to": "n3",
+            "to_side": "top",
+            "branch": "next"
+          }
+        ],
+        "notes": [],
+        "frames": []
+      },
+      "cooldown_s": 0
+    }
+  ],
+  "variables": [],
+  "refs": []
+}

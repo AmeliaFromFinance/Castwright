@@ -267,6 +267,27 @@
       Runs when a prediction {t.type === 'prediction_begin' ? 'starts' : 'is resolved or canceled'}.
       {#if t.type === 'prediction_end'}<code>{'{{prediction.winner}}'}</code> is the winning outcome; <code>{'{{prediction.status}}'}</code> is resolved or canceled.{/if}
     </p>
+  {:else if t.type === 'ad_soon'}
+    <div class="f narrow">
+      <label for="{uid}-admin">Minutes before the ad</label>
+      <input
+        id="{uid}-admin"
+        class="input"
+        type="number"
+        min="1"
+        max="60"
+        value={t.minutes_before}
+        oninput={(e) => {
+          const n = Number(e.currentTarget.value);
+          if (e.currentTarget.value.trim() !== '' && Number.isFinite(n)) onpatch({ minutes_before: Math.min(60, Math.max(1, Math.round(n))) });
+        }}
+      />
+    </div>
+    <p class="hint">Runs once per ad, while live. Gives <code>{'{{ad.time}}'}</code> (like 1:00) and <code>{'{{ad.length}}'}</code>.</p>
+  {:else if t.type === 'ad_begin' || t.type === 'ad_end'}
+    <p class="hint">
+      Runs when {t.type === 'ad_begin' ? 'an ad break starts, scheduled or run by hand' : 'an ad break is over'}. Gives <code>{'{{ad.length}}'}</code>.
+    </p>
   {:else if t.type === 'stream_online'}
     <p class="hint">Runs when the stream goes live on Twitch.</p>
   {:else if t.type === 'stream_offline'}

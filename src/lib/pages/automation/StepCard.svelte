@@ -275,6 +275,34 @@
         </div>
         {@render toggle('Make it', step.state, toggleText('Visible', 'Hidden'))}
       </div>
+    {:else if step.type === 'roll_credits'}
+      {@const withCredits = overlays.filter((o) => o.layers.some((l) => l.kind.type === 'credits'))}
+      {@const ov = overlays.find((o) => o.id === step.overlay_id)}
+      <div class="grid2">
+        <div class="f">
+          <label for="{uid}-ov">Overlay</label>
+          <select
+            id="{uid}-ov"
+            class="input"
+            value={step.overlay_id}
+            onchange={(e) => {
+              const o = overlays.find((x) => x.id === e.currentTarget.value);
+              onpatch({ overlay_id: e.currentTarget.value, layer_id: o?.layers.find((l) => l.kind.type === 'credits')?.id ?? '' });
+            }}
+          >
+            <option value="">Pick an overlay</option>
+            {#each withCredits as o (o.id)}<option value={o.id}>{o.name}</option>{/each}
+          </select>
+        </div>
+        <div class="f">
+          <label for="{uid}-layer">Credits layer</label>
+          <select id="{uid}-layer" class="input" value={step.layer_id} disabled={!ov} onchange={(e) => set('layer_id', e.currentTarget.value)}>
+            <option value="">Pick a layer</option>
+            {#each ov?.layers.filter((l) => l.kind.type === 'credits') ?? [] as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+          </select>
+        </div>
+      </div>
+      {#if !withCredits.length}<p class="hint">Add a Credits layer to an overlay first.</p>{:else}<p class="hint">Starts the roll from the top with this stream's names. Shows the layer if it's hidden.</p>{/if}
     {:else if step.type === 'play_alert'}
       <div class="grid2">
         {@render text('Title', 'title', step.title)}
@@ -436,6 +464,27 @@
       </div>
     {:else if step.type === 'end_poll'}
       <p class="hint">Ends the running poll early. Viewers see the result.</p>
+    {:else if step.type === 'snooze_ad'}
+      <p class="hint">Pushes the next ad back 5 minutes. Twitch gives a few snoozes and adds one back each hour.</p>
+    {:else if step.type === 'post_to_discord'}
+      {@const hooks = app.settings?.discord.webhooks ?? []}
+      <div class="grid2">
+        <div class="f">
+          <label for="{uid}-hook">Webhook</label>
+          <select id="{uid}-hook" class="input" value={step.webhook_id} onchange={(e) => set('webhook_id', e.currentTarget.value)}>
+            <option value="">Pick a webhook</option>
+            {#each hooks as h (h.id)}<option value={h.id}>{h.name}</option>{/each}
+          </select>
+        </div>
+      </div>
+      {@render text('Message', 'message', step.message, { multiline: true })}
+      {#if !hooks.length}
+        <p class="hint">Add a webhook in Settings → Discord first.</p>
+      {:else if step.webhook_id && !hooks.some((h) => h.id === step.webhook_id)}
+        <p class="warn">That webhook was removed. Pick another one.</p>
+      {:else}
+        <p class="hint">Mentions in the message don't ping anyone.</p>
+      {/if}
     {:else if step.type === 'end_prediction'}
       <div class="grid2">
         <div class="f">

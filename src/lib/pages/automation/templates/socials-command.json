@@ -1,0 +1,76 @@
+{
+  "kind": "castwright-actions",
+  "version": 1,
+  "app_version": "",
+  "exported_at": 0,
+  "actions": [
+    {
+      "id": "tpl-socials-command",
+      "name": "!socials",
+      "group": "Chat commands",
+      "enabled": false,
+      "triggers": [
+        {
+          "type": "command",
+          "name": "socials",
+          "aliases": [
+            "links"
+          ],
+          "permission": "everyone",
+          "user_cooldown_s": 30
+        }
+      ],
+      "steps": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "x": 4,
+            "y": 0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "command",
+                "name": "socials",
+                "aliases": [
+                  "links"
+                ],
+                "permission": "everyone",
+                "user_cooldown_s": 30
+              }
+            }
+          },
+          {
+            "id": "n2",
+            "x": 4,
+            "y": 168,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "chat_send",
+                "message": "Find me here: YouTube youtube.com/@yourname · Discord discord.gg/your-invite · Bluesky @yourname.bsky.social",
+                "as_bot": true,
+                "reply": false
+              }
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e1",
+            "from": "n1",
+            "from_side": "bottom",
+            "to": "n2",
+            "to_side": "top",
+            "branch": "next"
+          }
+        ],
+        "notes": [],
+        "frames": []
+      },
+      "cooldown_s": 10
+    }
+  ],
+  "variables": [],
+  "refs": []
+}

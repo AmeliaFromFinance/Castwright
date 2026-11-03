@@ -17,6 +17,7 @@ use tokio::sync::mpsc;
 use tokio_tungstenite::WebSocketStream;
 use tokio_tungstenite::tungstenite::Message;
 
+mod ads_tests;
 mod moderation_tests;
 
 #[derive(Debug, Clone)]
@@ -59,6 +60,9 @@ struct Mock {
     not_affiliate: bool,
     poll: Value,
     prediction: Value,
+    /// Snoozes the mock ad schedule has left.
+    snoozes: u32,
+    no_ads_scope: bool,
 }
 
 type Shared = Arc<Mutex<Mock>>;
@@ -185,6 +189,9 @@ fn reward(id: &str, title: &str) -> Value {
 fn helix(m: &mut Mock, rec: &Rec, token: &str) -> Response {
     let path = rec.path.trim_start_matches("/helix");
     if let Some(r) = moderation_tests::reply_for(rec, path) {
+        return r;
+    }
+    if let Some(r) = ads_tests::reply_for(m, rec, path) {
         return r;
     }
     let interactive =
@@ -376,6 +383,8 @@ fn fast() -> Timing {
         validate_every: Duration::from_secs(3600),
         max_rate_wait: Duration::from_secs(3),
         badge_refresh: Duration::from_secs(3600),
+        ads_poll: Duration::from_secs(3600),
+        ads_tick: Duration::from_secs(3600),
     }
 }
 

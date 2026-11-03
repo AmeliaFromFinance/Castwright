@@ -2,6 +2,8 @@ pub mod alerts;
 pub mod automation;
 pub mod commands;
 pub mod core;
+pub mod diag;
+pub mod discord;
 pub mod error;
 pub mod golive;
 pub mod hotkeys;
@@ -32,12 +34,22 @@ impl hub::UiSink for TauriUi {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "castwright=info,warn".into()),
-        )
-        .try_init();
+    {
+        use tracing_subscriber::layer::SubscriberExt;
+        use tracing_subscriber::util::SubscriberInitExt;
+        let _ = tracing_subscriber::registry()
+            .with(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| "castwright=info,warn".into()),
+            )
+            .with(tracing_subscriber::fmt::layer())
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_ansi(false)
+                    .with_writer(diag::logbuf::Writer),
+            )
+            .try_init();
+    }
 
     let layout = paths::Layout::detect();
     let mut context = tauri::generate_context!();
@@ -60,6 +72,11 @@ pub fn run() {
         .setup(move |app| {
             let handle = app.handle().clone();
             let paths = paths::core_paths(&handle, &layout)?;
+            let logs = diag::logs_dir(&paths.data_dir);
+            if let Err(e) = diag::logbuf::sink().attach_dir(&logs) {
+                tracing::warn!("couldn't write log files to {}: {e}", logs.display());
+            }
+            diag::crash::install(logs);
             app.manage(layout);
             let core = tauri::async_runtime::block_on(core::Core::start(
                 paths,
@@ -133,6 +150,7 @@ pub fn run() {
             commands::list_sessions,
             commands::session_summary,
             commands::delete_session,
+            commands::session_credits,
             commands::save_summary_settings,
             commands::save_export,
             commands::recent_events,
@@ -152,6 +170,11 @@ pub fn run() {
             commands::set_window_effect,
             commands::make_portable,
             commands::restart_app,
+            commands::health_snapshot,
+            commands::reload_overlay,
+            commands::crash_notice,
+            commands::bug_report_preview,
+            commands::save_bug_report,
             commands::save_hotkeys,
             commands::hotkeys_recording,
             commands::save_golive,
@@ -181,6 +204,13 @@ pub fn run() {
             commands::twitch_end_poll,
             commands::twitch_start_prediction,
             commands::twitch_end_prediction,
+            commands::twitch_ad_schedule,
+            commands::twitch_snooze_ad,
+            commands::twitch_run_ad,
+            commands::save_ad_settings,
+            commands::save_discord_webhook,
+            commands::delete_discord_webhook,
+            commands::discord_send_test,
             commands::obs_snapshot,
             commands::obs_connect,
             commands::obs_disconnect,

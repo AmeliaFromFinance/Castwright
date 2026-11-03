@@ -157,8 +157,13 @@ export function previewContext(pkg: ActionPackage): { actions: Action[]; overlay
 }
 
 /** What to send to the backend, from the choices made in the dialog. */
-export function importChoices(plan: ImportPlan, conflicts: Record<string, ConflictChoice>, links: Record<string, string | null>): ImportChoices {
-  const out: ImportChoices = { conflicts: {}, links: {} };
+export function importChoices(
+  plan: ImportPlan,
+  conflicts: Record<string, ConflictChoice>,
+  links: Record<string, string | null>,
+  enable = false
+): ImportChoices {
+  const out: ImportChoices = { conflicts: {}, links: {}, enable };
   for (const a of plan.actions) if (a.conflict) out.conflicts[a.id] = conflicts[a.id] ?? 'keep_both';
   for (const r of plan.refs) out.links[r.key] = r.key in links ? links[r.key]! : r.match;
   return out;
@@ -203,7 +208,7 @@ export function buildPackage(all: readonly Action[], ids: readonly string[], ove
       if (s.type === 'run_action' && !inside.has(s.action_id)) {
         const t = all.find((x) => x.id === s.action_id);
         if (t) add({ kind: 'action', id: t.id, name: t.name, overlay_id: '', overlay_name: '' });
-      } else if (s.type === 'set_layer_visible') {
+      } else if (s.type === 'set_layer_visible' || s.type === 'roll_credits') {
         const o = overlays.find((x) => x.id === s.overlay_id);
         const l = o?.layers.find((x) => x.id === s.layer_id);
         if (o && l) add({ kind: 'layer', id: l.id, name: l.name, overlay_id: o.id, overlay_name: o.name });
@@ -319,7 +324,7 @@ export function applyImport(
           if (!to) unlinked.add(refKey('action', '', s.action_id));
           s.action_id = to ?? '';
         }
-      } else if (s.type === 'set_layer_visible' && s.layer_id) {
+      } else if ((s.type === 'set_layer_visible' || s.type === 'roll_credits') && s.layer_id) {
         const to = resolve('layer', s.overlay_id, s.layer_id)?.split('/');
         if (to?.length === 2) [s.overlay_id, s.layer_id] = to as [string, string];
         else {
@@ -333,7 +338,7 @@ export function applyImport(
         s.sound = relinkAsset(s.sound);
       }
     }
-    a.enabled = false;
+    a.enabled = !!choices.enable;
     const fate = fates[i]!;
     if (fate.t === 'skip') report.skipped++;
     else if (fate.t === 'replace') {

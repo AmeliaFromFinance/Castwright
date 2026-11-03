@@ -1,0 +1,95 @@
+{
+  "kind": "castwright-actions",
+  "version": 1,
+  "app_version": "",
+  "exported_at": 0,
+  "actions": [
+    {
+      "id": "tpl-redemption-sound",
+      "name": "Redemption sound",
+      "group": "Channel points",
+      "enabled": false,
+      "triggers": [
+        {
+          "type": "redemption",
+          "reward_id": "",
+          "reward_title": "Play a sound"
+        }
+      ],
+      "steps": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "x": 4,
+            "y": 0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "redemption",
+                "reward_id": "",
+                "reward_title": "Play a sound"
+              }
+            }
+          },
+          {
+            "id": "n2",
+            "x": 4,
+            "y": 168,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "play_sound",
+                "src": "assets/redeem.mp3",
+                "volume": 80
+              }
+            }
+          },
+          {
+            "id": "n3",
+            "x": 4,
+            "y": 336,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "finish_redemption",
+                "refund": false
+              }
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e1",
+            "from": "n1",
+            "from_side": "bottom",
+            "to": "n2",
+            "to_side": "top",
+            "branch": "next"
+          },
+          {
+            "id": "e2",
+            "from": "n2",
+            "from_side": "bottom",
+            "to": "n3",
+            "to_side": "top",
+            "branch": "next"
+          }
+        ],
+        "notes": [],
+        "frames": []
+      },
+      "cooldown_s": 0
+    }
+  ],
+  "variables": [],
+  "refs": [
+    {
+      "kind": "asset",
+      "id": "redeem.mp3",
+      "name": "redeem.mp3",
+      "overlay_id": "",
+      "overlay_name": ""
+    }
+  ]
+}

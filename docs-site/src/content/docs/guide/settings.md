@@ -1,6 +1,6 @@
 ---
 title: Settings and themes
-description: Connections, the overlay server, hotkeys, themes, backups and portable mode.
+description: Connections, the overlay server, ads, Discord, hotkeys, themes, backups and portable mode.
 ---
 
 Open **Settings** from the gear at the bottom left, or press **Ctrl + ,** (**⌘ + ,** on Mac).
@@ -29,14 +29,15 @@ Your channel account asks Twitch for these permissions (scopes):
 
 | For | Scopes |
 | --- | --- |
-| Events | `bits:read`, `channel:read:subscriptions`, `moderator:read:followers`, `channel:read:redemptions`, `channel:read:hype_train`, `channel:read:polls`, `channel:read:predictions`, `channel:read:charity`, `channel:read:ads`, `moderator:read:shoutouts` |
+| Events | `bits:read`, `channel:read:subscriptions`, `moderator:read:followers`, `channel:read:redemptions`, `channel:read:hype_train`, `channel:read:polls`, `channel:read:predictions`, `channel:read:charity`, `moderator:read:shoutouts` |
 | Chat | `user:read:chat`, `user:write:chat`, `channel:bot`, `moderator:manage:announcements`, `moderator:read:chatters` |
 | Mod tools | `moderator:manage:banned_users`, `moderator:manage:chat_messages`, `moderator:manage:chat_settings`, `moderator:manage:shield_mode` |
-| Stream | `channel:manage:broadcast`, `channel:edit:commercial`, `clips:edit`, `channel:manage:redemptions`, `channel:manage:polls`, `channel:manage:predictions`, `moderator:manage:shoutouts` |
+| Ads | `channel:read:ads`, `channel:edit:commercial`, `channel:manage:ads` (snoozing) |
+| Stream | `channel:manage:broadcast`, `clips:edit`, `channel:manage:redemptions`, `channel:manage:polls`, `channel:manage:predictions`, `moderator:manage:shoutouts` |
 
 The bot account asks for `user:read:chat`, `user:write:chat` and `user:bot`.
 
-[Channel points, polls and predictions](/guide/interact/) use the redemption, poll and prediction scopes.
+[Channel points, polls and predictions](/guide/interact/) use the redemption, poll and prediction scopes. [Ads](/guide/ads-discord/) use the ad scopes.
 
 When a new version needs a new permission, Castwright keeps working with your old sign-in. You're only asked to sign in again when you use something that needs it.
 
@@ -68,6 +69,19 @@ Settings for the [go-live check](/guide/go-live-check/).
 | --- | --- | --- |
 | **Open when the stream starts** | On | Runs the check when you go live and opens it only if something fails. |
 | **Your list** | empty | Your own tick boxes, like "Mic on". Up to 30. Ticks clear when the stream ends. |
+
+## Ads
+
+| Setting | Default | |
+| --- | --- | --- |
+| **Warn before ads** | On | A message with a **Snooze** button before each ad. Once per ad. |
+| **Minutes before** | 1 | 1 to 15 |
+
+Castwright never switches scenes for ads. See [Ads and Discord](/guide/ads-discord/#castwright-never-switches-scenes-for-ads).
+
+## Discord
+
+Webhooks that post when you go live and when you end. Each has its own messages, ping and **Send test** button. Links stay in your system keychain and are never in backups or exports. See [Ads and Discord](/guide/ads-discord/#discord).
 
 ## Hotkeys
 
@@ -178,7 +192,7 @@ See [Files and data](/reference/files/#backups) for where they're stored.
 
 ## About
 
-Version, where settings are stored and links to this guide. **Check for updates** asks GitHub for a newer release. Castwright also checks once a day and shows a link in the status bar when one is out. Click **What's new** next to it to read that release's notes.
+Version, where settings are stored and links to this guide. **Health** and **Save bug report…** are here too, see [Health and bug reports](/guide/health/). **Check for updates** asks GitHub for a newer release. Castwright also checks once a day and shows a link in the status bar when one is out. Click **What's new** next to it to read that release's notes.
 
 ### What's new
 

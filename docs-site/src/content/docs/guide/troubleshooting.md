@@ -3,7 +3,9 @@ title: Troubleshooting
 description: Fixes for the most common problems.
 ---
 
-Start with **Activity → Log**. Most problems show up there with a plain explanation.
+Start with **Health**: click the heart icon in the status bar. It shows what's wrong right now and the last warnings and errors. See [Health and bug reports](/guide/health/).
+
+**Activity → Log** has the full log.
 
 ## OBS won't connect
 
@@ -64,4 +66,4 @@ Close Castwright and delete its settings folder (shown in **Settings → About**
 
 ## Still stuck?
 
-[Open an issue](https://github.com/AmeliaFromFinance/castwright/issues) with what you tried and the log from **Activity → Log → Copy**.
+Save a bug report (**Health → Save bug report…**), then [open an issue](https://github.com/AmeliaFromFinance/castwright/issues) with what you tried and drag the `.zip` into it. Secrets are removed from the report, and nothing is uploaded for you. See [Save a bug report](/guide/health/#save-a-bug-report).

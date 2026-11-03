@@ -229,6 +229,60 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `--cw-stroke-w` | Outline width, on .cw-stroked |
 | `--cw-stroke-c` | Outline colour, on .cw-stroked |
 
+## Credits
+
+| Selector | What it is |
+| --- | --- |
+| `:scope` | This layer’s box |
+| `.cw-text` | A piece of styled text |
+| `.cw-stroked` | Text with an outline |
+| `.cw-chat-badge` | Any badge |
+| `.cw-badge-twitch` | A Twitch badge (moderator, subscriber…) |
+| `.cw-badge-7tv` | A 7TV badge |
+| `.cw-badge-role` | A built-in role icon, used when a badge image is missing |
+| `.cw-paint` | A name with a 7TV paint |
+| `.cw-credits` | The whole roll, clipped to the layer |
+| `.cw-rolling` | Added to .cw-credits while it moves |
+| `.cw-done` | Added to .cw-credits once it has stopped at the end |
+| `.cw-paged` | Added to .cw-credits when reduced motion shows pages |
+| `.cw-fade` | Added to .cw-credits when the edges fade |
+| `.cw-waiting` | Added to .cw-credits while it waits for the Roll credits step (hidden) |
+| `.cw-two` | Added to .cw-credits with two columns |
+| `.cw-credits-roll` | Everything that moves |
+| `.cw-credits-heading` | The heading |
+| `.cw-credits-section` | Each section card |
+| `.cw-credits-section[data-kind="followers"]` | One section (followers, subscribers, gifters, cheerers, raiders, moderators, vips, chatters) |
+| `.cw-credits-title` | A section title |
+| `.cw-credits-names` | The names in a section |
+| `.cw-credits-row` | One name with its amount |
+| `.cw-credits-name` | The name |
+| `.cw-credits-amount` | Months, gifts, bits, viewers or messages |
+| `.cw-credits-footer` | The footer |
+
+| Variable | What it is |
+| --- | --- |
+| `--cw-stroke-w` | Outline width, on .cw-stroked |
+| `--cw-stroke-c` | Outline colour, on .cw-stroked |
+
+## Ad break
+
+| Selector | What it is |
+| --- | --- |
+| `:scope` | This layer’s box |
+| `.cw-text` | A piece of styled text |
+| `.cw-stroked` | Text with an outline |
+| `.cw-ad` | The whole heads-up |
+| `.cw-ad-soon` | Added to .cw-ad before the ad |
+| `.cw-ad-running` | Added to .cw-ad while the ad runs |
+| `.cw-ad[data-phase="running"]` | Same as .cw-ad-running (soon before the ad) |
+| `.cw-ad-card` | The card around the message |
+| `.cw-ad-text` | The message |
+
+| Variable | What it is |
+| --- | --- |
+| `--cw-stroke-w` | Outline width, on .cw-stroked |
+| `--cw-stroke-c` | Outline colour, on .cw-stroked |
+
 ## Custom widget
 
 | Selector | What it is |

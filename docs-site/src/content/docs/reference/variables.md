@@ -31,7 +31,7 @@ The "Set variable" step stores anything that reads as a number as a number. See 
 
 Steps that set variables have a **Save** option. Changes are written to disk within a second.
 
-Names starting with `stream.`, `obs.` or `twitch.` describe live state and are never saved, even with Save on.
+Names starting with `stream.`, `obs.`, `twitch.` or `ads.` describe live state and are never saved, even with Save on.
 
 ## Built-in variables
 
@@ -120,6 +120,19 @@ Session-only. Checked every 5 seconds.
 | `twitch.login` | Your channel login, empty when signed out |
 | `twitch.display_name` | Your channel display name |
 | `twitch.user_id` | Your channel id, empty when signed out |
+
+### Ads
+
+Set while you're live, from Twitch's ad schedule.
+
+| Name | Value |
+| --- | --- |
+| `ads.next_at` | When the next ad starts (Unix time in milliseconds), `0` when none is scheduled |
+| `ads.length_s` | Length of the next ad in seconds |
+| `ads.running` | `true` while an ad runs |
+| `ads.ends_at` | When the running ad ends (Unix time in milliseconds), `0` when none runs |
+| `ads.running_length_s` | Length of the running ad in seconds |
+| `ads.snoozes` | Snoozes left |
 
 ## Changing variables
 

@@ -1,0 +1,210 @@
+{
+  "kind": "castwright-actions",
+  "version": 1,
+  "app_version": "",
+  "exported_at": 0,
+  "actions": [
+    {
+      "id": "tpl-death-counter",
+      "name": "Death counter",
+      "group": "Chat commands",
+      "enabled": false,
+      "triggers": [
+        {
+          "type": "command",
+          "name": "death",
+          "aliases": [],
+          "permission": "moderator",
+          "user_cooldown_s": 0
+        },
+        {
+          "type": "command",
+          "name": "deaths",
+          "aliases": [],
+          "permission": "everyone",
+          "user_cooldown_s": 10
+        },
+        {
+          "type": "command",
+          "name": "resetdeaths",
+          "aliases": [],
+          "permission": "moderator",
+          "user_cooldown_s": 0
+        }
+      ],
+      "steps": [],
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "x": 0,
+            "y": 0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "command",
+                "name": "death",
+                "aliases": [],
+                "permission": "moderator",
+                "user_cooldown_s": 0
+              }
+            }
+          },
+          {
+            "id": "n2",
+            "x": 0,
+            "y": 168,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "add_to_variable",
+                "key": "counter.deaths",
+                "amount": 1,
+                "persist": true
+              }
+            }
+          },
+          {
+            "id": "n3",
+            "x": 0,
+            "y": 336,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "chat_send",
+                "message": "Deaths: {{counter.deaths}}",
+                "as_bot": true,
+                "reply": false
+              }
+            }
+          },
+          {
+            "id": "n4",
+            "x": 336,
+            "y": 0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "command",
+                "name": "deaths",
+                "aliases": [],
+                "permission": "everyone",
+                "user_cooldown_s": 10
+              }
+            }
+          },
+          {
+            "id": "n5",
+            "x": 336,
+            "y": 168,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "chat_send",
+                "message": "Deaths so far: {{counter.deaths}}",
+                "as_bot": true,
+                "reply": true
+              }
+            }
+          },
+          {
+            "id": "n6",
+            "x": 672,
+            "y": 0,
+            "kind": {
+              "type": "trigger",
+              "trigger": {
+                "type": "command",
+                "name": "resetdeaths",
+                "aliases": [],
+                "permission": "moderator",
+                "user_cooldown_s": 0
+              }
+            }
+          },
+          {
+            "id": "n7",
+            "x": 672,
+            "y": 168,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "set_variable",
+                "key": "counter.deaths",
+                "value": "0",
+                "persist": true
+              }
+            }
+          },
+          {
+            "id": "n8",
+            "x": 672,
+            "y": 336,
+            "kind": {
+              "type": "step",
+              "step": {
+                "type": "chat_send",
+                "message": "Death counter reset.",
+                "as_bot": true,
+                "reply": false
+              }
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e1",
+            "from": "n1",
+            "from_side": "bottom",
+            "to": "n2",
+            "to_side": "top",
+            "branch": "next"
+          },
+          {
+            "id": "e2",
+            "from": "n2",
+            "from_side": "bottom",
+            "to": "n3",
+            "to_side": "top",
+            "branch": "next"
+          },
+          {
+            "id": "e3",
+            "from": "n4",
+            "from_side": "bottom",
+            "to": "n5",
+            "to_side": "top",
+            "branch": "next"
+          },
+          {
+            "id": "e4",
+            "from": "n6",
+            "from_side": "bottom",
+            "to": "n7",
+            "to_side": "top",
+            "branch": "next"
+          },
+          {
+            "id": "e5",
+            "from": "n7",
+            "from_side": "bottom",
+            "to": "n8",
+            "to_side": "top",
+            "branch": "next"
+          }
+        ],
+        "notes": [],
+        "frames": []
+      },
+      "cooldown_s": 0
+    }
+  ],
+  "variables": [
+    {
+      "name": "counter.deaths",
+      "default": 0,
+      "secret": false
+    }
+  ],
+  "refs": []
+}

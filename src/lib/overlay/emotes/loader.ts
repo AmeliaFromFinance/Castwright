@@ -18,6 +18,16 @@ export interface LoaderOptions {
   events?: SetWatcher;
 }
 
+export interface ProviderStatus {
+  provider: Provider;
+  name: string;
+  state: 'loading' | 'ok' | 'error';
+  emotes: number;
+  error: string | null;
+  /** When a list last loaded, ms since epoch. */
+  loadedAt: number | null;
+}
+
 interface Entry {
   emotes: ThirdPartyEmote[];
   loading: boolean;
@@ -40,6 +50,8 @@ export class EmoteLoader {
   #channel = '';
   #entries = new Map<string, Entry>();
   #failing = new Set<Provider>();
+  #errors = new Map<Provider, string>();
+  #loadedAt = new Map<Provider, number>();
   #version = 0;
   #map: { key: string; map: EmoteMap } | null = null;
   #setId: string | null = null;
@@ -71,6 +83,26 @@ export class EmoteLoader {
         if (!this.#entries.has(`${scope}:${p}`)) void this.#load(scope, p);
       }
     }
+  }
+
+  /** How each provider in use is doing, in 7TV, BetterTTV, FrankerFaceZ order. */
+  status(): ProviderStatus[] {
+    const out: ProviderStatus[] = [];
+    for (const p of ['7tv', 'bttv', 'ffz'] as const) {
+      const entries = [this.#entries.get(`global:${p}`), this.#entries.get(`channel:${p}`)].filter((e): e is Entry => !!e);
+      if (!entries.length) continue;
+      const error = this.#errors.get(p) ?? null;
+      const loadedAt = this.#loadedAt.get(p) ?? null;
+      out.push({
+        provider: p,
+        name: NAMES[p],
+        state: error ? 'error' : loadedAt === null ? 'loading' : 'ok',
+        emotes: entries.reduce((n, e) => n + e.emotes.length, 0),
+        error,
+        loadedAt
+      });
+    }
+    return out;
   }
 
   /** All emotes for the switched-on providers; channel emotes beat global ones, 7TV beats BetterTTV beats FrankerFaceZ. */
@@ -147,13 +179,20 @@ export class EmoteLoader {
       if (this.#entries.get(key) !== entry) return;
       entry.emotes = got.emotes;
       this.#failing.delete(provider);
+      this.#errors.delete(provider);
+      this.#loadedAt.set(provider, Date.now());
       if (got.seventv && got.seventv.setId !== this.#setId) this.#watch(got.seventv.setId, got.seventv.userId);
       this.#changed();
     } catch (err) {
       if (this.#entries.get(key) !== entry) return;
+      const message = err instanceof Error ? err.message : String(err);
       if (!this.#failing.has(provider)) {
         this.#failing.add(provider);
-        this.#o.warn?.(`${NAMES[provider]} emotes unavailable: ${err instanceof Error ? err.message : String(err)}`);
+        this.#o.warn?.(`${NAMES[provider]} emotes unavailable: ${message}`);
+      }
+      if (this.#errors.get(provider) !== message) {
+        this.#errors.set(provider, message);
+        this.#o.onChange();
       }
     } finally {
       if (this.#entries.get(key) === entry) {

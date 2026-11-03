@@ -148,3 +148,36 @@ pub enum SessionChange {
     Started { session: StreamSession },
     Ended { session: StreamSession },
 }
+
+/// One name in the credits.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS, Default)]
+#[serde(default)]
+#[ts(export)]
+pub struct CreditName {
+    pub name: String,
+    pub login: String,
+    /// Twitch user id when known, for chat colours, badges and 7TV paints.
+    pub user_id: String,
+    /// Months, gifts, bits, viewers or messages; 0 when there's nothing to show.
+    pub amount: f64,
+}
+
+/// Everyone to thank at the end of a stream. Names are in the order they appear.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS, Default)]
+#[serde(default)]
+#[ts(export)]
+pub struct Credits {
+    /// The session the names come from; 0 when there was none.
+    #[ts(type = "number")]
+    pub session_id: i64,
+    pub followers: Vec<CreditName>,
+    /// New subs (amount 0) and resubs (amount = months).
+    pub subscribers: Vec<CreditName>,
+    pub gifters: Vec<CreditName>,
+    pub cheerers: Vec<CreditName>,
+    pub raiders: Vec<CreditName>,
+    /// Moderators and VIPs who chatted.
+    pub moderators: Vec<CreditName>,
+    pub vips: Vec<CreditName>,
+    pub chatters: Vec<CreditName>,
+}

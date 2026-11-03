@@ -136,7 +136,7 @@ describe('the demo import', () => {
   it('keeps both with a free name', () => {
     const { pkg } = exported();
     const actions = [action('Hype', []), action('Hype (2)', [])];
-    const { report } = applyImport(actions, [], [], pkg, { conflicts: {}, links: {} });
+    const { report } = applyImport(actions, [], [], pkg, { conflicts: {}, links: {}, enable: false });
     expect(report.added).toBe(2);
     expect(actions.map((a) => a.name)).toEqual(['Hype', 'Hype (2)', 'Hype (3)', 'Helper']);
   });

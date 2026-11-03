@@ -411,3 +411,105 @@ fn signal_from_status() {
     assert!(t.live);
     assert_eq!(t.viewers, 9);
 }
+
+#[test]
+fn credits() {
+    let db = db();
+    let s = Sessions::load(db.clone());
+    assert_eq!(s.credits().unwrap(), Default::default(), "no stream yet");
+    let now = crate::util::now_ms();
+    let t0 = now - 60 * MIN;
+    db.insert_event(&user_event(EventKind::Follow, t0 - MIN, "Early", None))
+        .unwrap();
+    let id = started(&s.tick(&twitch(true, t0, 12), t0)).unwrap().id;
+    let at = |m: i64| t0 + m * MIN;
+    let mut resub = user_event(EventKind::Resub, at(4), "Cid", None);
+    resub.months = Some(14);
+    let mut gifted = user_event(EventKind::Sub, at(5), "Lucky", None);
+    gifted.is_gift = true;
+    for e in [
+        user_event(EventKind::Follow, at(1), "Bob", None),
+        user_event(EventKind::Follow, at(2), "Ann", None),
+        user_event(EventKind::Follow, at(3), "Bob", None),
+        user_event(EventKind::Sub, at(3), "Ann", None),
+        resub,
+        gifted,
+        user_event(EventKind::GiftSub, at(6), "Gina", None),
+        user_event(EventKind::GiftSub, at(6) + 1, "Gina", None),
+        user_event(EventKind::GiftSub, at(7), "Hal", None),
+        user_event(EventKind::Cheer, at(8), "Bob", Some(100.0)),
+        user_event(EventKind::Cheer, at(9), "Ann", Some(500.0)),
+        user_event(EventKind::Cheer, at(10), "Bob", Some(450.0)),
+        user_event(EventKind::Raid, at(11), "Rudy", Some(42.0)),
+        user_event(EventKind::Raid, at(12), "Max", Some(300.0)),
+    ] {
+        db.insert_event(&e).unwrap();
+    }
+    let mut anon = Event::new(EventKind::GiftSub);
+    anon.is_anonymous = true;
+    anon.ts = at(13);
+    db.insert_event(&anon).unwrap();
+
+    let with_role = |m: i64, name: &str, moderator: bool, vip: bool| {
+        let mut e = chat(at(m), name);
+        e.user.as_mut().unwrap().id =
+            format!("{}", 100 + name.len() * 7 + name.as_bytes()[0] as usize);
+        e.roles.moderator = moderator;
+        e.roles.vip = vip;
+        e
+    };
+    assert!(
+        s.on_chat(&with_role(1, "Zed", true, false)),
+        "first message ever"
+    );
+    assert!(!s.on_chat(&with_role(2, "Zed", true, false)));
+    s.on_chat(&with_role(2, "Vee", false, true));
+    s.on_chat(&with_role(3, "Ann", false, false));
+    s.on_chat(&with_role(4, "Ann", false, false));
+    s.on_chat(&with_role(5, "Ann", false, false));
+    let mut host = chat(at(5), "Host");
+    host.roles.broadcaster = true;
+    assert!(!s.on_chat(&host), "the broadcaster isn't counted");
+
+    let c = s.credits().unwrap();
+    assert_eq!(c.session_id, id);
+    let names = |l: &[crate::model::session::CreditName]| {
+        l.iter()
+            .map(|n| (n.name.clone(), n.amount))
+            .collect::<Vec<_>>()
+    };
+    let n = |name: &str, amount: f64| (name.to_string(), amount);
+    assert_eq!(
+        names(&c.followers),
+        vec![n("Bob", 0.0), n("Ann", 0.0)],
+        "once each, in order"
+    );
+    assert_eq!(
+        names(&c.subscribers),
+        vec![n("Ann", 0.0), n("Cid", 14.0)],
+        "gifted subs are thanked under the gifter"
+    );
+    assert_eq!(
+        names(&c.gifters),
+        vec![n("Gina", 2.0), n("Anonymous", 1.0), n("Hal", 1.0)]
+    );
+    assert_eq!(names(&c.cheerers), vec![n("Bob", 550.0), n("Ann", 500.0)]);
+    assert_eq!(names(&c.raiders), vec![n("Max", 300.0), n("Rudy", 42.0)]);
+    assert_eq!(names(&c.moderators), vec![n("Zed", 0.0)]);
+    assert_eq!(names(&c.vips), vec![n("Vee", 0.0)]);
+    assert_eq!(
+        names(&c.chatters),
+        vec![n("Ann", 3.0), n("Zed", 2.0), n("Vee", 1.0)]
+    );
+    assert_eq!(c.followers[0].login, "bob");
+    assert_eq!(c.followers[0].user_id, "id-Bob");
+    assert_eq!(c.chatters[0].login, "ann");
+    assert!(
+        !c.chatters[0].user_id.is_empty(),
+        "numeric ids are kept for paints"
+    );
+
+    // After the stream ends, the last stream's names are used.
+    s.tick(&twitch(false, 0, 0), now);
+    assert_eq!(s.credits().unwrap().followers.len(), 2);
+}

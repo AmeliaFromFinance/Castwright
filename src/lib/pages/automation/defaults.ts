@@ -6,7 +6,6 @@ import type { EventKind } from '$lib/bindings/EventKind';
 import type { Step } from '$lib/bindings/Step';
 import type { Trigger } from '$lib/bindings/Trigger';
 import { newId } from '$lib/editors/ids';
-import { fromTree } from './graph';
 import type { MenuGroup } from '$lib/editors/menu';
 
 export type TriggerType = Trigger['type'];
@@ -28,6 +27,10 @@ export function newTrigger(type: TriggerType): Trigger {
       return { type, scene: '' };
     case 'redemption':
       return { type, reward_id: '', reward_title: '' };
+    case 'ad_soon':
+      return { type, minutes_before: 1 };
+    case 'ad_begin':
+    case 'ad_end':
     case 'stream_online':
     case 'stream_offline':
     case 'manual':
@@ -52,7 +55,10 @@ export function newStep(type: StepType): Step {
     case 'skip_alert':
     case 'stop':
     case 'end_poll':
+    case 'snooze_ad':
       return { type };
+    case 'post_to_discord':
+      return { type, webhook_id: '', message: '' };
     case 'finish_redemption':
       return { type, refund: false };
     case 'set_reward_state':
@@ -93,6 +99,8 @@ export function newStep(type: StepType): Step {
       return { type, state: 'on' };
     case 'set_layer_visible':
       return { type, overlay_id: '', layer_id: '', state: 'on' };
+    case 'roll_credits':
+      return { type, overlay_id: '', layer_id: '' };
     case 'play_alert':
       return { type, title: '', message: '', image: '', sound: '', duration_ms: 6000 };
     case 'pause_alerts':
@@ -126,11 +134,6 @@ export function newAction(patch: Partial<Action> = {}): Action {
   };
 }
 
-/** An action whose graph is the triggers on top and the steps chained below. */
-function chained(patch: Partial<Action>, triggers: Trigger[], steps: Step[]): Action {
-  return newAction({ ...patch, triggers, graph: fromTree(triggers, steps) });
-}
-
 export const TRIGGER_LABELS: Record<TriggerType, string> = {
   event: 'Twitch event',
   command: 'Chat command',
@@ -143,7 +146,10 @@ export const TRIGGER_LABELS: Record<TriggerType, string> = {
   poll_begin: 'Poll starts',
   poll_end: 'Poll ends',
   prediction_begin: 'Prediction starts',
-  prediction_end: 'Prediction ends'
+  prediction_end: 'Prediction ends',
+  ad_soon: 'Ad starting soon',
+  ad_begin: 'Ad break begins',
+  ad_end: 'Ad break ends'
 };
 
 export const TRIGGER_MENU: MenuGroup<TriggerType>[] = [
@@ -156,6 +162,9 @@ export const TRIGGER_MENU: MenuGroup<TriggerType>[] = [
       { value: 'poll_end', label: 'Poll ends', hint: 'With the winning choice' },
       { value: 'prediction_begin', label: 'Prediction starts' },
       { value: 'prediction_end', label: 'Prediction ends', hint: 'Resolved or canceled' },
+      { value: 'ad_soon', label: 'Ad starting soon', hint: 'Some minutes before the next ad' },
+      { value: 'ad_begin', label: 'Ad break begins' },
+      { value: 'ad_end', label: 'Ad break ends' },
       { value: 'timer', label: 'Timer', hint: 'Every few minutes' },
       { value: 'stream_online', label: 'Stream goes live' },
       { value: 'stream_offline', label: 'Stream ends' },
@@ -186,6 +195,7 @@ export const STEP_LABELS: Record<StepType, string> = {
   recording: 'Recording',
   save_replay: 'Save replay',
   set_layer_visible: 'Show/hide overlay layer',
+  roll_credits: 'Roll credits',
   play_alert: 'Play alert',
   pause_alerts: 'Pause alerts',
   skip_alert: 'Skip alert',
@@ -201,6 +211,8 @@ export const STEP_LABELS: Record<StepType, string> = {
   end_poll: 'End poll',
   start_prediction: 'Start prediction',
   end_prediction: 'Lock or resolve prediction',
+  snooze_ad: 'Snooze ad',
+  post_to_discord: 'Post to Discord',
   stop: 'Stop',
   log: 'Log'
 };
@@ -214,6 +226,7 @@ export const STEP_GROUPS: Array<{ label: string; items: Array<[StepType, string?
       ['create_clip'],
       ['create_marker'],
       ['run_ad'],
+      ['snooze_ad', 'Push the next ad back 5 minutes'],
       ['set_stream_info', 'Title and category'],
       ['timeout_user'],
       ['delete_message', 'The message that started the action'],
@@ -240,6 +253,7 @@ export const STEP_GROUPS: Array<{ label: string; items: Array<[StepType, string?
     label: 'Overlays & alerts',
     items: [
       ['set_layer_visible'],
+      ['roll_credits', 'Start a credits layer from the top'],
       ['play_alert', 'Queue a custom alert'],
       ['pause_alerts', 'Pause or resume the queue'],
       ['skip_alert', 'End the alert on screen'],
@@ -247,6 +261,7 @@ export const STEP_GROUPS: Array<{ label: string; items: Array<[StepType, string?
     ]
   },
   { label: 'Variables', items: [['set_variable'], ['add_to_variable', 'Counters, totals']] },
+  { label: 'Discord', items: [['post_to_discord', 'Send a message with a webhook']] },
   {
     label: 'Logic',
     items: [['if', 'Go one way or another'], ['delay', 'Pause before the next step'], ['run_action', 'Run another action\'s steps'], ['stop', 'End this run']]
@@ -259,61 +274,9 @@ export const STEP_MENU: MenuGroup<StepType>[] = STEP_GROUPS.map((g) => ({
   items: g.items.map(([value, hint]) => ({ value, label: STEP_LABELS[value], hint }))
 }));
 
-export type TemplateId = 'blank' | 'command' | 'timer' | 'raid' | 'deaths';
-
-export const TEMPLATE_MENU: MenuGroup<TemplateId>[] = [
-  {
-    items: [
-      { value: 'blank', label: 'Blank action' },
-      { value: 'command', label: 'Chat command', hint: '!discord posts a link' },
-      { value: 'timer', label: 'Timer message', hint: 'Posts every 15 minutes while live' },
-      { value: 'raid', label: 'Raid welcome', hint: 'Thanks raiders and shouts them out' },
-      { value: 'deaths', label: 'Deaths counter', hint: '!death adds one and posts the total' }
-    ]
-  }
-];
-
-export function fromTemplate(id: TemplateId): Action {
-  switch (id) {
-    case 'blank':
-      return newAction();
-    case 'command':
-      return chained(
-        { name: '!discord', group: 'Chat commands', cooldown_s: 5 },
-        [{ type: 'command', name: 'discord', aliases: [], permission: 'everyone', user_cooldown_s: 30 }],
-        [{ type: 'chat_send', message: 'Join the Discord: https://discord.gg/your-invite', as_bot: true, reply: true }]
-      );
-    case 'timer':
-      return chained(
-        { name: 'Timer message', group: 'Timers' },
-        [{ type: 'timer', interval_s: 15 * 60, only_when_live: true, min_chat_lines: 5 }],
-        [{ type: 'chat_send', message: 'Enjoying the stream? Follow so you know when I go live!', as_bot: true, reply: false }]
-      );
-    case 'raid':
-      return chained(
-        { name: 'Raid welcome', group: 'Stream events', cooldown_s: 30 },
-        [{ type: 'event', kind: 'raid', conditions: { mode: 'all', conditions: [{ field: 'amount', op: 'gte', value: 5 }] } }],
-        [
-          { type: 'delay', ms: 3000 },
-          { type: 'chat_announce', message: 'Welcome {{name}} and the {{amount}} raiders!', color: 'purple' },
-          { type: 'shoutout', user: '{{user.login}}', message: '' }
-        ]
-      );
-    case 'deaths':
-      return chained(
-        { name: 'Deaths counter', group: 'Chat commands' },
-        [{ type: 'command', name: 'death', aliases: [], permission: 'moderator', user_cooldown_s: 0 }],
-        [
-          { type: 'add_to_variable', key: 'counter.deaths', amount: 1, persist: true },
-          { type: 'chat_send', message: 'Deaths: {{counter.deaths}}', as_bot: true, reply: false }
-        ]
-      );
-  }
-}
-
-/** Event kinds an event trigger can listen to (chat is a command trigger). */
+/** Event kinds an event trigger can listen to. Chat is last: commands cover most uses. */
 export function triggerKinds(all: readonly EventKind[]): EventKind[] {
-  return all.filter((k) => k !== 'chat');
+  return [...all.filter((k) => k !== 'chat'), 'chat'];
 }
 
 export const REWARD_STATES = [

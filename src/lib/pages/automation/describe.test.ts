@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { Step } from '$lib/bindings/Step';
-import { fromTemplate, newAction, newTrigger } from './defaults';
+import { newAction, newTrigger } from './defaults';
+import { findTemplate } from './templates';
+
+const tpl = (id: string) => findTemplate(id)!.pkg.actions[0]!;
 import { commandPreview, describeTrigger, describeTriggers, every, fieldsForAction, tokensForAction } from './describe';
 
 describe('describe', () => {
@@ -32,12 +35,12 @@ describe('describe', () => {
   });
 
   it('offers tokens from the triggers', () => {
-    const cmd = tokensForAction(fromTemplate('command')).map((t) => t.token);
+    const cmd = tokensForAction(tpl('lurk-command')).map((t) => t.token);
     expect(cmd).toContain('arg1');
-    const raid = tokensForAction(fromTemplate('raid')).map((t) => t.token);
+    const raid = tokensForAction(tpl('shoutout-on-raid')).map((t) => t.token);
     expect(raid).toContain('name');
     expect(raid).not.toContain('arg1');
-    const fields = fieldsForAction(fromTemplate('deaths'), { 'counter.deaths': 3 }).map((f) => f.value);
+    const fields = fieldsForAction(tpl('death-counter'), { 'counter.deaths': 3 }).map((f) => f.value);
     expect(fields).toContain('arg_count');
     expect(fields).toContain('counter.deaths');
   });

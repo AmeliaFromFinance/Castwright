@@ -213,6 +213,93 @@ impl Default for SummarySettings {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default)]
+#[ts(export)]
+pub struct AdSettings {
+    /// Show a heads-up before each ad.
+    pub warn: bool,
+    /// Minutes before the ad, 1 to 15.
+    pub warn_minutes: u32,
+}
+
+impl Default for AdSettings {
+    fn default() -> Self {
+        AdSettings {
+            warn: true,
+            warn_minutes: 1,
+        }
+    }
+}
+
+impl AdSettings {
+    pub fn clamped(self) -> Self {
+        AdSettings {
+            warn: self.warn,
+            warn_minutes: self.warn_minutes.clamp(1, 15),
+        }
+    }
+
+    /// Seconds before an ad to warn; 0 when warnings are off.
+    pub fn lead_s(&self) -> u32 {
+        if self.warn {
+            self.warn_minutes.clamp(1, 15) * 60
+        } else {
+            0
+        }
+    }
+}
+
+pub const DEFAULT_DISCORD_LIVE: &str =
+    "{{channel}} is live with {{category | default:\"a new stream\"}}!";
+pub const DEFAULT_DISCORD_END: &str =
+    "Thanks for watching! {{duration}} of {{category | default:\"streaming\"}}.";
+
+/// A Discord webhook. Its URL is a secret and is kept in the keychain, never here.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default)]
+#[ts(export)]
+pub struct DiscordWebhook {
+    pub id: String,
+    /// Shown in the app only, like "#announcements".
+    pub name: String,
+    /// Post when the stream goes live.
+    pub on_live: bool,
+    /// Post a summary when the stream ends.
+    pub on_end: bool,
+    pub live_template: String,
+    pub end_template: String,
+    /// `<@&role id>`, `@everyone`, `@here` or empty for no ping.
+    pub mention: String,
+    /// Change the go-live post to "ended" when the stream ends.
+    pub edit_on_end: bool,
+    /// Whether a URL is saved. Filled in from the keychain.
+    pub has_url: bool,
+}
+
+impl Default for DiscordWebhook {
+    fn default() -> Self {
+        DiscordWebhook {
+            id: crate::util::new_id(),
+            name: "Discord".into(),
+            on_live: true,
+            on_end: false,
+            live_template: DEFAULT_DISCORD_LIVE.into(),
+            end_template: DEFAULT_DISCORD_END.into(),
+            mention: String::new(),
+            edit_on_end: false,
+            has_url: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS, Default)]
+#[serde(default)]
+#[ts(export)]
+pub struct DiscordSettings {
+    pub webhooks: Vec<DiscordWebhook>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS, Default)]
 #[serde(default)]
 #[ts(export)]
@@ -231,4 +318,6 @@ pub struct Settings {
     /// Global hotkeys. Kept per computer, not in the project.
     pub hotkeys: HotkeySettings,
     pub summary: SummarySettings,
+    pub ads: AdSettings,
+    pub discord: DiscordSettings,
 }
