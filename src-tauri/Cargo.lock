@@ -545,7 +545,7 @@ dependencies = [
 
 [[package]]
 name = "castwright"
-version = "0.10.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "async-trait",

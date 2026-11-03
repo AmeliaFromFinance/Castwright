@@ -38,7 +38,6 @@ In [portable mode](#portable-mode) everything is in one `data` folder next to th
 | `events.sqlite` | Event history and [custom widget](/reference/custom-widgets/#storage) storage. The `-wal` and `-shm` files next to it belong to it. |
 | `assets/` | Images, video, sound and fonts you added |
 | `templates/` | [Overlay templates](/guide/overlays/#your-own-templates) you saved, as `.cwoverlay` files |
-| `snapshots/` | Only from older versions. Old copies of `project.json`, used for recovery when there are no backups. |
 | `project.unreadable-<time>.json` | Only after a recovery. See [Recovery](#recovery). |
 
 ### When files are saved

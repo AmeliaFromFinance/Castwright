@@ -110,10 +110,6 @@ The icons at the top of the chat panel turn chat modes on and off. A highlighted
 
 Changes made on Twitch show up within a minute.
 
-:::note
-Mod tools need Twitch permissions that older sign-ins don't have. If you signed in before version 0.6, Castwright asks you to sign out and in again the first time you use one.
-:::
-
 ## Sessions and summary
 
 Each stream you do is saved as a **session**, from going live to going offline. When the stream ends, a **Stream summary ready** message pops up. Click **View** to open it.

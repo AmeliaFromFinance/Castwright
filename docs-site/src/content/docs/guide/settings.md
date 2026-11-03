@@ -221,7 +221,7 @@ How many are kept:
 - **Daily backups**: days to keep, one backup per day. Default 14.
 - **Other backups**: ones made with **Back up now** or before a restore, import, upgrade or variable rename. Default 5.
 
-Backups made by older versions of Castwright still restore. They're converted the same way as an old project. If a restore fails, your project stays as it was and the error says why.
+If a restore fails, your project stays as it was and the error says why.
 
 See [Files and data](/reference/files/#backups) for where they're stored.
 

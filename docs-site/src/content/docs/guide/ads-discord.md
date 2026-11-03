@@ -75,7 +75,7 @@ Example: *Ad starting soon* (1 minute) → *Send chat message* "Ads in {{ad.time
 
 ### Twitch permissions
 
-Reading the schedule needs `channel:read:ads`. Running an ad needs `channel:edit:commercial`. Snoozing needs `channel:manage:ads`. If you signed in before snoozing was added, the panel says so. Sign out and in again in **Settings → Twitch** to use it.
+Reading the schedule needs `channel:read:ads`. Running an ad needs `channel:edit:commercial`. Snoozing needs `channel:manage:ads`.
 
 ## Discord
 

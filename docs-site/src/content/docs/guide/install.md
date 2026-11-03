@@ -88,10 +88,6 @@ Castwright updates itself. When a new version is out, the status bar shows **Ver
 
 Your overlays, alerts and settings are kept.
 
-:::caution[Coming from v0.7 or older]
-v0.7 and older can't update themselves. Install the first newer version by hand: download it and install it over the old one. After that, updates work from inside the app.
-:::
-
 ### Which copies update themselves
 
 | Installed from | Updates itself |

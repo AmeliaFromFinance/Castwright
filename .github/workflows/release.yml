@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Tag to release, like v0.2.0 (created if it doesn't exist)
+        description: Tag to release, like v1.0.0 (created if it doesn't exist)
         required: true
 
 env:

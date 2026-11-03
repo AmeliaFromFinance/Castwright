@@ -90,7 +90,3 @@ Example: a "Skip song" reward that refunds when the queue is empty.
 3. Then: **Complete or refund redemption** set to *Refund the points*, and **Send chat message** "Nothing to skip, {{user}}!".
 
 Details are in the [triggers and steps reference](/reference/automation-steps/#channel-points-polls-and-predictions).
-
-## Signed in before?
-
-These features need extra Twitch permissions. If you signed in before they were added, the Interact page and the [go-live check](/guide/go-live-check/) ask you to sign out and in again in **Settings → Twitch**. Until then, everything else keeps working.

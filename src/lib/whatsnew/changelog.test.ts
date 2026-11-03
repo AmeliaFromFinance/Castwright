@@ -68,7 +68,7 @@ describe('changelog parser', () => {
 
   it('the bundled changelog has every released version, each with notes', () => {
     const versions = RELEASES.map((r) => r.version);
-    for (const v of ['0.1.0', '0.2.0', '0.3.0', '0.4.0', '0.5.0']) expect(versions).toContain(v);
+    expect(versions).toContain('1.0.0');
     for (const r of RELEASES) expect(r.groups.flatMap((g) => g.items).length).toBeGreaterThan(0);
     const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { version: string };
     expect(findRelease(RELEASES, pkg.version)).toBeDefined();
