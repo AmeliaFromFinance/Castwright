@@ -1766,7 +1766,16 @@
     background: color-mix(in srgb, var(--bg-1) 92%, transparent);
     backdrop-filter: blur(6px);
     font-size: 12px;
+    white-space: nowrap;
+    min-width: 0;
+    overflow: hidden;
     box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+  }
+  /* On a narrow canvas the time and trigger shorten first; the result never wraps. */
+  .runchip .mono {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .runchip.bad .dot {
     background: var(--danger);
