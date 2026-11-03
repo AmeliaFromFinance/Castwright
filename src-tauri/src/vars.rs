@@ -79,6 +79,15 @@ impl Vars {
             return None;
         }
         g.dirty = false;
+        Some(Self::saved_locked(&g))
+    }
+
+    /// The values that are saved to disk.
+    pub fn saved(&self) -> Map<String, Value> {
+        Self::saved_locked(&self.inner.lock().unwrap())
+    }
+
+    fn saved_locked(g: &Inner) -> Map<String, Value> {
         let mut out = Map::new();
         let mut keys: Vec<_> = g.persistent.iter().cloned().collect();
         keys.sort();
@@ -87,7 +96,25 @@ impl Vars {
                 out.insert(k, v.clone());
             }
         }
-        Some(out)
+        out
+    }
+
+    /// Swap every saved value for `saved` (restoring a backup). Live values stay.
+    pub fn replace_saved(&self, saved: Map<String, Value>) -> Changes {
+        let mut g = self.inner.lock().unwrap();
+        let mut changes = Map::new();
+        for k in std::mem::take(&mut g.persistent) {
+            if !saved.contains_key(&k) && g.values.remove(&k).is_some() {
+                changes.insert(k, Value::Null);
+            }
+        }
+        for (k, v) in saved {
+            if valid_key(&k) && !is_live_key(&k) {
+                Self::set_locked(&mut g, &k, v, true, &mut changes);
+            }
+        }
+        g.dirty = true;
+        changes
     }
 
     /// Set a value. Returns the change (empty when the value was already the same).
@@ -302,6 +329,24 @@ mod tests {
         assert!(v.set("a", Value::from(1), false).is_empty());
         assert!(v.set("bad key", Value::from(1), false).is_empty());
         assert!(v.get("bad key").is_none());
+    }
+
+    #[test]
+    fn replace_saved_keeps_live_values() {
+        let v = Vars::new();
+        v.set("counter.old", Value::from(1), true);
+        v.set("counter.same", Value::from(2), true);
+        v.set("stream.live", Value::from(true), false);
+        v.take_dirty();
+        let mut saved = Map::new();
+        saved.insert("counter.same".into(), Value::from(2));
+        saved.insert("counter.new".into(), Value::from(5));
+        let ch = v.replace_saved(saved.clone());
+        assert_eq!(ch.get("counter.old"), Some(&Value::Null));
+        assert_eq!(ch.get("counter.new"), Some(&Value::from(5)));
+        assert!(!ch.contains_key("counter.same"));
+        assert_eq!(v.get("stream.live"), Some(Value::from(true)));
+        assert_eq!(v.take_dirty(), Some(saved));
     }
 
     #[test]

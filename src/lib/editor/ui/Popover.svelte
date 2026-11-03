@@ -12,12 +12,14 @@
     role?: 'menu' | 'dialog';
     label: string;
     align?: 'start' | 'end';
+    /** Open above the trigger, for things at the bottom of the window. */
+    above?: boolean;
     width?: number;
     trigger: Snippet<[TriggerProps]>;
     children: Snippet<[() => void]>;
   }
 
-  let { role = 'menu', label, align = 'start', width = 220, trigger, children }: Props = $props();
+  let { role = 'menu', label, align = 'start', above = false, width = 220, trigger, children }: Props = $props();
 
   let open = $state(false);
   let root = $state<HTMLDivElement>();
@@ -75,6 +77,7 @@
     <div
       bind:this={panel}
       class="pop {align}"
+      class:above
       {role}
       aria-label={label}
       tabindex="-1"
@@ -106,6 +109,11 @@
     background: var(--bg-1);
     box-shadow: var(--shadow-pop);
     animation: pop-in 0.12s var(--ease);
+  }
+  .pop.above {
+    top: auto;
+    bottom: calc(100% + 6px);
+    animation-name: pop-up;
   }
   .start {
     left: 0;
@@ -153,6 +161,12 @@
     height: 1px;
     margin: 4px 2px;
     background: var(--border);
+  }
+  @keyframes pop-up {
+    from {
+      opacity: 0;
+      transform: translateY(3px);
+    }
   }
   @keyframes pop-in {
     from {

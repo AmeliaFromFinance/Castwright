@@ -27,7 +27,7 @@ message: string, } | { "type": "create_clip" } | { "type": "create_marker", desc
 /**
  * Empty = current program scene.
  */
-scene: string, source: string, state: Toggle, } | { "type": "set_input_mute", input: string, state: Toggle, } | { "type": "recording", state: Toggle, } | { "type": "save_replay" } | { "type": "set_layer_visible", overlay_id: string, layer_id: string, state: Toggle, } | { "type": "play_alert", title: string, message: string, image: string, sound: string, duration_ms: number, } | { "type": "play_sound", src: string, volume: number, } | { "type": "http_request", method: HttpMethod, url: string, body: string, 
+scene: string, source: string, state: Toggle, } | { "type": "set_input_mute", input: string, state: Toggle, } | { "type": "recording", state: Toggle, } | { "type": "save_replay" } | { "type": "set_layer_visible", overlay_id: string, layer_id: string, state: Toggle, } | { "type": "play_alert", title: string, message: string, image: string, sound: string, duration_ms: number, } | { "type": "pause_alerts", state: Toggle, } | { "type": "skip_alert" } | { "type": "play_sound", src: string, volume: number, } | { "type": "http_request", method: HttpMethod, url: string, body: string, 
 /**
  * Store the response text in this variable (optional).
  */

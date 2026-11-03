@@ -35,6 +35,10 @@ Castwright adds a Browser Source with the right link and size. That's it: alerts
 Prefer doing it by hand? Click the **link** button to copy the overlay link, then add a **Browser Source** in OBS, paste it as the URL and set the width and height to match.
 :::
 
+## Before you go live
+
+Click **Go-live check** in the status bar. It checks OBS, your overlays, Twitch and alerts, and fixes most problems in one click. See [Go-live check](/guide/go-live-check/).
+
 ## Next
 
 - [Overlay editor](/guide/overlay-editor/) for every tool and shortcut.

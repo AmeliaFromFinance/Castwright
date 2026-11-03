@@ -28,6 +28,7 @@ export default defineConfig({
             { label: 'Overlays', slug: 'guide/overlays' },
             { label: 'Overlay editor', slug: 'guide/overlay-editor' },
             { label: 'Alerts', slug: 'guide/alerts' },
+            { label: 'Go-live check', slug: 'guide/go-live-check' },
             { label: 'Automation', slug: 'guide/automation' },
             { label: 'Activity', slug: 'guide/activity' },
             { label: 'Settings and themes', slug: 'guide/settings' },

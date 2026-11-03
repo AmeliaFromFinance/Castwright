@@ -19,7 +19,7 @@ test('create, apply and delete a custom theme', async ({ page }) => {
 
   await card.hover();
   await page.getByRole('button', { name: 'Edit Test theme' }).click();
-  await page.getByRole('button', { name: 'Delete' }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByRole('radio', { name: /Test theme/ })).toHaveCount(0);
   await expect(page.getByRole('radio', { name: /Match system/ })).toHaveAttribute('aria-checked', 'true');

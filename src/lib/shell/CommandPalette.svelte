@@ -6,6 +6,7 @@
   import { ALERT_KINDS, KIND_LABELS } from '$lib/format';
   import { copyText } from '$lib/util/os';
   import { stepZoom } from '$lib/state/zoom';
+  import { golive } from '$lib/state/golive.svelte';
   import { updateAppearance } from '$lib/pages/settings/theme-settings.svelte';
   import { fuzzyFilter } from './fuzzy';
   import { Search, CornerDownLeft } from '@lucide/svelte';
@@ -72,6 +73,7 @@
       ['twitch', 'Twitch accounts'],
       ['server', 'Overlay server'],
       ['appearance', 'Appearance and themes'],
+      ['golive', 'Go-live check'],
       ['backups', 'Backups']
     ] as const) {
       out.push({ group: 'Settings', label, run: () => settingsSection(id) });
@@ -105,6 +107,12 @@
         run: () => attemptOk(() => api.alertPause(!app.queue.paused))
       },
       { group: 'Alerts', label: 'Skip the current alert', run: () => attemptOk(() => api.alertSkip()) },
+      { group: 'Alerts', label: 'Replay the last alert', run: () => attemptOk(() => api.alertReplayLast()) },
+      {
+        group: 'Alerts',
+        label: app.queue.muted ? 'Unmute alert sound' : 'Mute alert sound',
+        run: () => attemptOk(() => api.alertMute(!app.queue.muted), app.queue.muted ? 'Alert sound on' : 'Alert sound muted')
+      },
       { group: 'Alerts', label: 'Clear waiting alerts', run: () => attemptOk(() => api.alertClear(), 'Queue cleared') }
     );
     for (const a of app.project?.actions ?? []) {
@@ -121,8 +129,16 @@
         run: () => updateAppearance({ theme: app.theme?.spec.base === 'light' ? 'dark' : 'light' })
       },
       { group: 'Help', label: 'Keyboard shortcuts', hint: 'Ctrl /', run: onshortcuts },
+      { group: 'Stream', label: 'Go-live check', run: () => golive.show() },
       { group: 'Stream', label: 'Reset session counters', run: () => attemptOk(() => api.resetSession(), 'Counters reset') },
-      { group: 'Stream', label: 'Back up the project now', run: () => attemptOk(() => api.createSnapshot(), 'Backup saved') }
+      {
+        group: 'Stream',
+        label: 'Back up the project now',
+        run: async () => {
+          const made = await attempt(() => api.createBackup());
+          if (made !== undefined) toasts.success(made ? 'Backup saved' : 'Nothing changed since the last backup');
+        }
+      }
     );
     return out;
   });

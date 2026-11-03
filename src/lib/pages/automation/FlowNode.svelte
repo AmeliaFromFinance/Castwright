@@ -19,7 +19,10 @@
     chips?: string[];
     issues?: Issue[];
     status?: NodeStatus;
+    /** This node is running right now. */
     running?: boolean;
+    /** The step being looked at in a past run. */
+    current?: boolean;
     selected?: boolean;
     /** No trigger leads here. */
     loose?: boolean;
@@ -41,6 +44,7 @@
     issues = [],
     status,
     running = false,
+    current = false,
     selected = false,
     loose = false,
     hot = null,
@@ -66,6 +70,7 @@
   class:ok={status?.state === 'ok'}
   class:skipped={status?.state === 'skipped'}
   class:running
+  class:current
 >
   <button
     type="button"
@@ -208,15 +213,30 @@
     opacity: 0.55;
   }
   .running .card {
-    animation: pulse 1s var(--ease) infinite alternate;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+    animation: pulse 0.9s var(--ease) infinite alternate;
   }
   @keyframes pulse {
     from {
-      box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
     }
     to {
-      box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent);
+      box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 22%, transparent);
     }
+  }
+  .current .card {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+  /* No pulsing or spinning: a steady ring and dot instead. */
+  @media (prefers-reduced-motion: reduce) {
+    .running .card {
+      animation: none;
+    }
+  }
+  :global(:root[data-reduce-motion='true']) .running .card {
+    animation: none;
   }
   .top {
     display: flex;
@@ -282,6 +302,18 @@
     border: 2px solid var(--accent);
     border-right-color: transparent;
     animation: spin 0.8s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .run {
+      animation: none;
+      border-right-color: var(--accent);
+      background: var(--accent);
+    }
+  }
+  :global(:root[data-reduce-motion='true']) .run {
+    animation: none;
+    border-right-color: var(--accent);
+    background: var(--accent);
   }
   @keyframes spin {
     to {

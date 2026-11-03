@@ -95,15 +95,74 @@ impl Default for AppearanceSettings {
     }
 }
 
+/// A tick box the user adds to the go-live check, like "Mic on".
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS, Default)]
+#[serde(default)]
+#[ts(export)]
+pub struct ChecklistItem {
+    pub id: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default)]
+#[ts(export)]
+pub struct GoLiveSettings {
+    /// Open the go-live check when the stream starts and something fails.
+    pub open_on_live: bool,
+    pub items: Vec<ChecklistItem>,
+}
+
+impl Default for GoLiveSettings {
+    fn default() -> Self {
+        GoLiveSettings {
+            open_on_live: true,
+            items: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default)]
+#[ts(export)]
+pub struct BackupSettings {
+    /// Days to keep a startup or daily backup for (one per day).
+    pub keep_daily: u32,
+    /// Backups made by hand or before a restore, import or upgrade.
+    pub keep_other: u32,
+}
+
+impl Default for BackupSettings {
+    fn default() -> Self {
+        BackupSettings {
+            keep_daily: 14,
+            keep_other: 5,
+        }
+    }
+}
+
+impl BackupSettings {
+    pub fn clamped(self) -> Self {
+        BackupSettings {
+            keep_daily: self.keep_daily.clamp(1, 365),
+            keep_other: self.keep_other.clamp(1, 100),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS, Default)]
 #[serde(default)]
 #[ts(export)]
 pub struct Settings {
     pub first_run_done: bool,
-    /// Folder holding project.json, assets and snapshots. Empty = default location.
+    /// Folder holding project.json, variables and assets. Empty = default location.
     pub project_dir: String,
     pub obs: ObsSettings,
     pub twitch: TwitchSettings,
     pub server: ServerSettings,
     pub appearance: AppearanceSettings,
+    /// Kept between runs. Pausing is not, so alerts always play after a restart.
+    pub alerts_muted: bool,
+    pub golive: GoLiveSettings,
+    pub backups: BackupSettings,
 }

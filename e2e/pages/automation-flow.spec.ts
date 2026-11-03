@@ -347,3 +347,113 @@ for (const [w, h] of [
     expect(errors).toEqual([]);
   });
 }
+
+test('automation flow: dragging near the edge pans the canvas', async ({ page }) => {
+  const errors = await open(page);
+  await page.getByRole('navigation', { name: 'Actions' }).getByRole('button', { name: /^Count deaths/ }).click();
+  const canvas = page.getByRole('region', { name: 'Flow of Count deaths' });
+  const box = (await canvas.boundingBox())!;
+  const chat = node(page, 'Send chat message');
+  const [x0] = await pos(chat);
+  const from = await center(card(page, 'Send chat message').locator('.title'));
+  const to = { x: box.x + box.width - 4, y: from.y };
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 8 });
+  // Hold still at the edge: the view keeps panning and the node stays under the pointer.
+  await page.waitForTimeout(700);
+  const t = await center(card(page, 'Send chat message').locator('.title'));
+  expect(Math.abs(t.x - to.x)).toBeLessThan(24);
+  await page.mouse.up();
+  const [x1] = await pos(chat);
+  expect(x1 - x0).toBeGreaterThan(to.x - from.x + 150);
+  // Stops once the button is up.
+  const b0 = (await card(page, '!death').boundingBox())!;
+  await page.waitForTimeout(200);
+  expect((await card(page, '!death').boundingBox())!.x).toBe(b0.x);
+  // A whole drag is still one undo step.
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await pos(chat))[0]).toBe(x0);
+  expect(errors).toEqual([]);
+});
+
+/** Wait, frame by frame, for the node with `text` to be running with `taken` lines marked. */
+async function whileRunning(page: Page, text: string, taken: number) {
+  await page.waitForFunction(
+    ([text, taken]) => {
+      const card = [...document.querySelectorAll('[data-node]')].find((n) => n.textContent?.includes(text as string));
+      return /Running/.test(card?.getAttribute('aria-label') ?? '') && document.querySelectorAll('[data-edge].ran').length === taken;
+    },
+    [text, taken],
+    { polling: 'raf', timeout: 5000 }
+  );
+}
+
+test('automation flow: live trace and past runs', async ({ page }) => {
+  const errors = await open(page);
+  await page.getByRole('navigation', { name: 'Actions' }).getByRole('button', { name: /^Count deaths/ }).click();
+  const canvas = page.getByRole('region', { name: 'Flow of Count deaths' });
+  const lines = canvas.locator('[data-edge]');
+  await expect(lines).toHaveCount(2);
+
+  // While it runs, nodes light up one by one and the lines taken are marked.
+  await page.getByRole('button', { name: 'Test', exact: true }).click();
+  await whileRunning(page, 'counter.deaths + 1', 1);
+  await whileRunning(page, 'Send chat message', 2);
+  await expect(card(page, 'Send chat message')).toHaveAttribute('aria-label', /Ran fine/);
+  await expect(canvas.locator('..').getByRole('status').first()).toContainText('Last run worked');
+
+  // A second run; both are in the history.
+  await page.getByRole('button', { name: 'Test', exact: true }).click();
+  await expect(canvas.locator('..').getByRole('status').first()).toContainText('Running');
+  await expect(canvas.locator('..').getByRole('status').first()).toContainText('Last run worked');
+  const runs = page.getByRole('button', { name: /^Runs/ });
+  await expect(runs).toContainText('2');
+  await runs.click();
+  const menu = page.getByRole('menu', { name: 'Past runs' });
+  await expect(menu.getByRole('menuitem')).toHaveCount(2);
+  await menu.getByRole('menuitem').nth(1).click();
+
+  // Step through the older run.
+  const bar = page.getByRole('toolbar', { name: 'Past run' });
+  await expect(bar).toContainText('Step 3 of 3');
+  await expect(card(page, 'Send chat message').locator('..')).toHaveClass(/current/);
+  await bar.getByRole('button', { name: 'Previous step' }).click();
+  await expect(bar).toContainText('Step 2 of 3');
+  await expect(canvas.locator('[data-edge].ran')).toHaveCount(1);
+  await expect(card(page, 'counter.deaths + 1').locator('..')).toHaveClass(/current/);
+  await expect(card(page, 'Send chat message')).not.toHaveAttribute('aria-label', /Ran fine/);
+  await bar.getByRole('button', { name: 'Previous step' }).click();
+  await expect(bar).toContainText('Step 1 of 3');
+  await expect(bar.getByRole('button', { name: 'Previous step' })).toBeDisabled();
+  await expect(canvas.locator('[data-edge].ran')).toHaveCount(0);
+  await bar.getByRole('button', { name: 'Next step' }).click();
+  await expect(bar).toContainText('Step 2 of 3');
+
+  // Esc goes back to the latest run.
+  await page.keyboard.press('Escape');
+  await expect(bar).toBeHidden();
+  await expect(canvas.locator('[data-edge].ran')).toHaveCount(2);
+  await expect(canvas.locator('.current')).toHaveCount(0);
+  // And so does Live.
+  await runs.click();
+  await menu.getByRole('menuitem').first().click();
+  await bar.getByRole('button', { name: 'Live' }).click();
+  await expect(bar).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('automation flow: trace screenshot', async ({ page }) => {
+  const errors = await open(page, 1440, 900);
+  await richFlow(page);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Fit to view (F)' }).click();
+  await page.getByRole('button', { name: 'Test', exact: true }).click();
+  await expect(card(page, 'Wait 4 s')).toHaveAttribute('aria-label', /Running/);
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: join(screens, 'automation-trace.png') });
+  await expect(card(page, 'Thanks for the raid')).toHaveAttribute('aria-label', /Ran fine/);
+  expect(errors).toEqual([]);
+});

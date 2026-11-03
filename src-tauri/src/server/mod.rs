@@ -15,8 +15,9 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use tokio::sync::{broadcast, oneshot};
 use tower::ServiceExt;
 
@@ -36,6 +37,36 @@ struct Ctx {
     project: Arc<ProjectStore>,
     automation: Arc<Automation>,
     token: Arc<RwLock<String>>,
+    /// Open overlay pages per overlay id.
+    clients: Arc<Mutex<HashMap<String, usize>>>,
+}
+
+/// Counts an overlay page while its socket is open.
+struct ClientGuard {
+    clients: Arc<Mutex<HashMap<String, usize>>>,
+    id: String,
+}
+
+impl ClientGuard {
+    fn new(clients: &Arc<Mutex<HashMap<String, usize>>>, id: &str) -> Self {
+        *clients.lock().unwrap().entry(id.to_string()).or_default() += 1;
+        ClientGuard {
+            clients: clients.clone(),
+            id: id.to_string(),
+        }
+    }
+}
+
+impl Drop for ClientGuard {
+    fn drop(&mut self) {
+        let mut map = self.clients.lock().unwrap();
+        if let Some(n) = map.get_mut(&self.id) {
+            *n = n.saturating_sub(1);
+            if *n == 0 {
+                map.remove(&self.id);
+            }
+        }
+    }
 }
 
 pub struct OverlayServer {
@@ -109,6 +140,7 @@ impl OverlayServer {
                 project,
                 automation,
                 token: Arc::new(RwLock::new(token)),
+                clients: Arc::new(Mutex::new(HashMap::new())),
             },
             info: RwLock::new(ServerInfo::default()),
             stop: std::sync::Mutex::new(None),
@@ -205,6 +237,17 @@ impl OverlayServer {
         self.info.write().unwrap().running = false;
     }
 
+    /// How many pages have this overlay open right now.
+    pub fn overlay_clients(&self, overlay_id: &str) -> usize {
+        self.ctx
+            .clients
+            .lock()
+            .unwrap()
+            .get(overlay_id)
+            .copied()
+            .unwrap_or(0)
+    }
+
     pub fn overlay_url(&self, overlay_id: &str) -> Option<String> {
         let info = self.info();
         info.running.then(|| {
@@ -224,6 +267,8 @@ fn router(ctx: Ctx) -> Router {
         .route("/assets/{name}", get(asset))
         .route("/api/overlay/{id}", get(overlay_json))
         .route("/api/actions/{id}/run", post(run_action))
+        .route("/api/alerts", get(alerts_status))
+        .route("/api/alerts/{command}", post(alerts_command))
         .route("/_app/{*path}", get(static_file))
         .with_state(ctx)
 }
@@ -392,6 +437,78 @@ async fn run_action(
     }
 }
 
+#[derive(serde::Serialize)]
+struct AlertsStatus {
+    paused: bool,
+    muted: bool,
+    playing: bool,
+    waiting: usize,
+}
+
+fn alerts_json(ctx: &Ctx) -> Response {
+    let st = ctx.automation.alerts().queue_state();
+    axum::Json(AlertsStatus {
+        paused: st.paused,
+        muted: st.muted,
+        playing: st.playing.is_some(),
+        waiting: st.waiting.len(),
+    })
+    .into_response()
+}
+
+async fn alerts_status(
+    State(ctx): State<Ctx>,
+    Query(q): Query<TokenQuery>,
+    headers: HeaderMap,
+) -> Response {
+    if !origin_ok(&headers) {
+        return wrong_origin();
+    }
+    if !authorized(&ctx, q.token.as_deref(), &headers) {
+        return forbidden();
+    }
+    alerts_json(&ctx)
+}
+
+async fn alerts_command(
+    State(ctx): State<Ctx>,
+    Path(command): Path<String>,
+    Query(q): Query<TokenQuery>,
+    headers: HeaderMap,
+) -> Response {
+    if !origin_ok(&headers) {
+        return wrong_origin();
+    }
+    if !authorized(&ctx, q.token.as_deref(), &headers) {
+        return forbidden();
+    }
+    let alerts = ctx.automation.alerts();
+    let st = alerts.queue_state();
+    let result = match command.as_str() {
+        "pause" | "resume" | "toggle-pause" => {
+            alerts.set_paused(match command.as_str() {
+                "pause" => true,
+                "resume" => false,
+                _ => !st.paused,
+            });
+            Ok(())
+        }
+        "skip" => {
+            alerts.skip();
+            Ok(())
+        }
+        "replay" => alerts.replay_last(),
+        "mute" => alerts.set_muted(true),
+        "unmute" => alerts.set_muted(false),
+        "toggle-mute" => alerts.set_muted(!st.muted),
+        _ => return (StatusCode::NOT_FOUND, "Unknown alert command.").into_response(),
+    };
+    match result {
+        Ok(()) => alerts_json(&ctx),
+        Err(e) => (StatusCode::CONFLICT, e.to_string()).into_response(),
+    }
+}
+
 async fn ws_upgrade(
     State(ctx): State<Ctx>,
     Query(q): Query<WsQuery>,
@@ -439,6 +556,7 @@ fn hello(ctx: &Ctx, overlay_id: &str) -> Option<OverlayMsg> {
 async fn overlay_socket(ctx: Ctx, overlay_id: String, token: String, socket: WebSocket) {
     // Subscribe before building the hello so nothing sent in between is lost.
     let mut rx = ctx.hub.subscribe_overlays();
+    let _counted = ClientGuard::new(&ctx.clients, &overlay_id);
     let (mut tx, mut incoming) = socket.split();
     let Some(first) = hello(&ctx, &overlay_id) else {
         let _ = tx.send(Message::Close(None)).await;

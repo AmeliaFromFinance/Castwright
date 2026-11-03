@@ -11,8 +11,14 @@ import type { AlertConfig } from '$lib/bindings/AlertConfig';
 import type { AlertPlay } from '$lib/bindings/AlertPlay';
 import type { AppearanceSettings } from '$lib/bindings/AppearanceSettings';
 import type { AssetInfo } from '$lib/bindings/AssetInfo';
+import type { Check } from '$lib/bindings/Check';
+import type { CheckFix } from '$lib/bindings/CheckFix';
+import type { BackupInfo } from '$lib/bindings/BackupInfo';
+import type { BackupReason } from '$lib/bindings/BackupReason';
+import type { BackupSettings } from '$lib/bindings/BackupSettings';
 import type { Event } from '$lib/bindings/Event';
 import type { EventKind } from '$lib/bindings/EventKind';
+import type { GoLiveSettings } from '$lib/bindings/GoLiveSettings';
 import type { LogEntry } from '$lib/bindings/LogEntry';
 import type { ObsSnapshot } from '$lib/bindings/ObsSnapshot';
 import type { Overlay } from '$lib/bindings/Overlay';
@@ -114,9 +120,46 @@ function defaultSettings(): Settings {
       window_effect: 'auto',
       ui_scale: 100,
       reduce_motion: false
-    }
+    },
+    alerts_muted: false,
+    golive: {
+      open_on_live: true,
+      items: [
+        { id: 'mic', label: 'Mic on and not muted' },
+        { id: 'water', label: 'Water bottle filled' }
+      ]
+    },
+    backups: { keep_daily: 14, keep_other: 5 }
   };
 }
+
+/** Same scopes the desktop app asks Twitch for. */
+const BROADCASTER_SCOPES = [
+  'channel:read:subscriptions',
+  'bits:read',
+  'moderator:read:followers',
+  'channel:read:redemptions',
+  'channel:manage:redemptions',
+  'channel:read:hype_train',
+  'channel:read:polls',
+  'channel:manage:polls',
+  'channel:read:predictions',
+  'channel:manage:predictions',
+  'user:read:chat',
+  'user:write:chat',
+  'channel:bot',
+  'moderator:read:shoutouts',
+  'moderator:manage:shoutouts',
+  'moderator:manage:announcements',
+  'channel:read:ads',
+  'channel:edit:commercial',
+  'channel:read:charity',
+  'channel:manage:broadcast',
+  'clips:edit',
+  'moderator:manage:banned_users',
+  'moderator:manage:chat_messages',
+  'moderator:read:chatters'
+];
 
 function demoObs(): ObsSnapshot {
   return {
@@ -169,7 +212,7 @@ function demoTwitch(): TwitchStatus {
       login: 'castwright',
       display_name: 'Castwright',
       profile_image_url: '',
-      scopes: []
+      scopes: [...BROADCASTER_SCOPES]
     },
     bot: { id: '2000', login: 'castwright_bot', display_name: 'castwright_bot', profile_image_url: '', scopes: [] },
     eventsub: 'connected',
@@ -226,7 +269,7 @@ export function createDemoBackend(): Backend {
     twitch.broadcaster = null;
     twitch.bot = null;
   }
-  const queue: QueueState = { paused: false, playing: null, waiting: [] };
+  const queue: QueueState = { paused: false, muted: settings.alerts_muted, playing: null, waiting: [], last: null };
   const logs: LogEntry[] = [
     { ts: now() - 5_100_000, level: 'info', source: 'obs', message: 'Connected to OBS 32.1.0' },
     { ts: now() - 5_095_000, level: 'info', source: 'twitch', message: 'Listening for 26 kinds of Twitch events' },
@@ -281,11 +324,71 @@ export function createDemoBackend(): Backend {
     { name: 'logo.png', path: 'assets/logo.png', bytes: 48_120, kind: 'image' },
     { name: 'stinger.webm', path: 'assets/stinger.webm', bytes: 3_920_441, kind: 'video' }
   ];
-  const snapshots = [0, 1, 2].map((i) => ({
-    file: `project-${now() - i * 3_600_000}.json`,
-    ts: now() - i * 3_600_000,
-    bytes: 18_000 + i * 120
-  }));
+  // Backups live in memory: each keeps a copy of the project and saved variables.
+  interface MockBackup {
+    info: BackupInfo;
+    project: Project;
+    vars: Record<string, unknown>;
+    key: string;
+  }
+  const isLive = (k: string) => /^(stream|obs|twitch)\./.test(k);
+  const savedVars = () => Object.fromEntries(Object.entries(vars).filter(([k]) => !isLive(k)));
+  const contentKey = () => JSON.stringify([project, savedVars()]);
+  const isDaily = (r: BackupReason) => r === 'startup' || r === 'daily';
+  const backupEntry = (reason: BackupReason, ts: number, key = contentKey()): MockBackup => {
+    const stamp = new Date(ts).toISOString().slice(0, 19).replace('T', '_').replaceAll(':', '-');
+    return {
+      info: {
+        file: `${stamp}Z_${reason.replace('_', '-')}.cwbackup`,
+        ts,
+        reason,
+        bytes: Math.round(JSON.stringify(project).length / 4),
+        project: project.name
+      },
+      project: clone(project),
+      vars: savedVars(),
+      key
+    };
+  };
+  const backups: MockBackup[] = [
+    backupEntry('startup', now() - 2 * 3_600_000),
+    backupEntry('daily', now() - 26 * 3_600_000, 'seed-1'),
+    backupEntry('before_restore', now() - 50 * 3_600_000, 'seed-2'),
+    backupEntry('daily', now() - 74 * 3_600_000, 'seed-3')
+  ];
+  const pruneBackups = () => {
+    const { keep_daily, keep_other } = settings.backups;
+    const days: number[] = [];
+    let others = 0;
+    for (const b of [...backups]) {
+      const day = Math.floor(b.info.ts / 86_400_000);
+      const keep = isDaily(b.info.reason)
+        ? days.at(-1) !== day && days.length < keep_daily && days.push(day)
+        : others++ < keep_other;
+      if (!keep) backups.splice(backups.indexOf(b), 1);
+    }
+  };
+  const makeBackup = (reason: BackupReason): BackupInfo | null => {
+    if (backups[0]?.key === contentKey()) return null;
+    const b = backupEntry(reason, Math.max(now(), (backups[0]?.info.ts ?? 0) + 1));
+    backups.unshift(b);
+    pruneBackups();
+    return b.info;
+  };
+  const restoreFrom = (b: MockBackup) => {
+    makeBackup('before_restore');
+    project = clone(b.project);
+    const changes: Record<string, unknown> = {};
+    for (const k of Object.keys(vars)) {
+      if (!isLive(k) && !(k in b.vars)) {
+        delete vars[k];
+        changes[k] = null;
+      }
+    }
+    setVars({ ...changes, ...clone(b.vars) });
+    emit('cw://project', {});
+    return project;
+  };
   let levelsTimer: ReturnType<typeof setInterval> | null = null;
 
   const setVars = (changes: Record<string, unknown>) => {
@@ -300,6 +403,7 @@ export function createDemoBackend(): Backend {
   };
 
   const emitQueue = () => emit('cw://queue', queue);
+  let runIds = 0;
 
   let playing = false;
   let finish: ReturnType<typeof setTimeout> | null = null;
@@ -314,6 +418,7 @@ export function createDemoBackend(): Backend {
     if (playing || queue.paused || queue.waiting.length === 0) return;
     const play = queue.waiting.shift()!;
     queue.playing = play;
+    queue.last = play;
     playing = true;
     emitQueue();
     finish = setTimeout(done, play.duration_ms);
@@ -388,6 +493,37 @@ export function createDemoBackend(): Backend {
     }, 4000);
   }
 
+  // A short version of src-tauri/src/golive.rs for the demo.
+  const goLiveChecks = (): Check[] => {
+    const c = (id: string, label: string, status: Check['status'], detail: string, fix: CheckFix | null = null): Check => ({ id, label, status, detail, fix });
+    const out: Check[] = [];
+    const connected = obs.state === 'connected';
+    out.push(connected ? c('obs', 'OBS', 'pass', `Connected to OBS ${obs.obs_version}`) : c('obs', 'OBS', 'fail', 'Not connected.', { type: 'connect_obs' }));
+    if (connected) {
+      for (const item of obs.scene_items.filter((i) => i.kind === 'browser_source' && i.name.startsWith('Castwright · '))) {
+        const o = project.overlays.find((x) => `Castwright · ${x.name}` === item.name);
+        out.push(o ? c(`overlay:${item.name}`, `${o.name} in OBS`, 'pass', 'Loaded') : c(`overlay:${item.name}`, item.name, 'fail', 'Points at an overlay that no longer exists. Remove it in OBS.'));
+      }
+    } else {
+      out.push(c('overlays', 'Overlays in OBS', 'warn', 'Connect OBS to check them.'));
+    }
+    out.push(c('server', 'Overlay server', 'pass', `Running at http://127.0.0.1:${settings.server.port}`));
+    out.push(
+      twitch.broadcaster
+        ? c('twitch', 'Twitch', 'pass', `Signed in as ${twitch.broadcaster.display_name}`)
+        : c('twitch', 'Twitch', 'fail', 'Not signed in.', { type: 'open', place: 'settings:twitch' })
+    );
+    if (twitch.broadcaster) {
+      const { title, category } = twitch.stream;
+      out.push(title.trim() ? c('title', 'Stream title', 'pass', title.trim()) : c('title', 'Stream title', 'fail', 'No title set.', { type: 'open', place: 'activity' }));
+      out.push(category.trim() ? c('category', 'Category', 'pass', category.trim()) : c('category', 'Category', 'fail', 'No category set.', { type: 'open', place: 'activity' }));
+    }
+    out.push(queue.paused ? c('alerts_paused', 'Alerts', 'fail', 'Paused. New alerts wait in the queue.', { type: 'resume_alerts' }) : c('alerts_paused', 'Alerts', 'pass', 'Playing'));
+    out.push(queue.muted ? c('alerts_muted', 'Alert sound', 'warn', 'Muted. Alerts play without sound.', { type: 'unmute_alerts' }) : c('alerts_muted', 'Alert sound', 'pass', 'On'));
+    if (connected) out.push(c('disk', 'Recording space', 'pass', '412.6 GB free'));
+    return out;
+  };
+
   const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
     get_project: () => project,
     save_overlay: ({ overlay }) => {
@@ -432,11 +568,29 @@ export function createDemoBackend(): Backend {
       const i = assets.findIndex((a) => a.name === name);
       if (i >= 0) assets.splice(i, 1);
     },
-    list_snapshots: () => snapshots,
-    create_snapshot: () => {
-      snapshots.unshift({ file: `project-${now()}.json`, ts: now(), bytes: 18_400 });
+    list_backups: () => backups.map((b) => b.info),
+    create_backup: () => makeBackup('manual'),
+    restore_backup: ({ file }) => {
+      const b = backups.find((x) => x.info.file === file);
+      if (!b) throw { code: 'not_found', message: `Not found: ${String(file)}` };
+      return restoreFrom(b);
     },
-    restore_snapshot: () => project,
+    restore_backup_file: () => {
+      throw { code: 'user', message: 'Restoring from a file needs the desktop app.' };
+    },
+    delete_backup: ({ file }) => {
+      const i = backups.findIndex((b) => b.info.file === file);
+      if (i < 0) throw { code: 'not_found', message: `Not found: ${String(file)}` };
+      backups.splice(i, 1);
+    },
+    export_backup: () => undefined,
+    save_backup_settings: ({ backups: b }) => {
+      const v = b as BackupSettings;
+      const clamp = (n: number, max: number) => Math.min(max, Math.max(1, Math.round(Number(n) || 1)));
+      settings.backups = { keep_daily: clamp(v.keep_daily, 365), keep_other: clamp(v.keep_other, 100) };
+      pruneBackups();
+      return settings.backups;
+    },
     project_dir: () => '~/Castwright/Projects/Default',
     set_project_dir: () => undefined,
     alert_queue: () => queue,
@@ -446,6 +600,17 @@ export function createDemoBackend(): Backend {
       pump();
     },
     alert_skip: () => skip(),
+    alert_replay_last: () => {
+      if (!queue.last) throw { code: 'user', message: 'No alert has played yet.' };
+      queue.waiting.push({ ...clone(queue.last), id: uid() });
+      emitQueue();
+      pump();
+    },
+    alert_mute: ({ muted }) => {
+      queue.muted = Boolean(muted);
+      settings.alerts_muted = queue.muted;
+      emitQueue();
+    },
     alert_remove: ({ id }) => {
       queue.waiting = queue.waiting.filter((w) => w.id !== id);
       emitQueue();
@@ -467,7 +632,6 @@ export function createDemoBackend(): Backend {
       const a = project.actions.find((x) => x.id === id);
       if (!a) throw { code: 'user', message: 'That action no longer exists.' };
       // Walk the graph like the engine; variable and log steps really happen.
-      const started = now();
       const run = planRun(a.graph, null, (s) => evaluateGroup(s.conditions, vars), {
         onStep: (s) => {
           if (s.type === 'add_to_variable') setVars({ [s.key]: (Number(vars[s.key]) || 0) + s.amount });
@@ -475,18 +639,36 @@ export function createDemoBackend(): Backend {
           else if (s.type === 'log') log('info', 'automation', render(s.message, vars));
         }
       });
+      // Report each node as it starts and finishes, like the engine; Wait nodes take a while.
+      const runId = ++runIds;
+      let at = 200;
+      let waited = 0;
+      for (const st of run.steps) {
+        const n = a.graph.nodes.find((x) => x.id === st.node_id);
+        const step = n?.kind.type === 'step' ? n.kind.step : null;
+        const p = { run_id: runId, action_id: a.id, node_id: st.node_id, via: st.via };
+        if (step && step.type !== 'if') {
+          const start = at;
+          setTimeout(() => emit('cw://action-progress', { ...p, state: null }), start);
+          if (step.type === 'delay') waited += step.ms;
+          at += step.type === 'delay' ? Math.min(step.ms, 1500) : 360;
+        } else at += 140;
+        setTimeout(() => emit('cw://action-progress', { ...p, state: st.state }), at);
+      }
       setTimeout(() => {
         emit('cw://action-run', {
+          run_id: runId,
           action_id: a.id,
           name: a.name,
           trigger: 'manual',
           ok: run.errors.length === 0,
           errors: run.errors,
-          duration_ms: Math.max(4, now() - started) + 8 * run.order.length,
-          nodes: run.nodes
+          duration_ms: 6 * run.steps.length + waited,
+          nodes: run.nodes,
+          steps: run.steps
         });
         log('info', 'automation', `Ran "${a.name}"`);
-      }, 250);
+      }, at + 60);
     },
     get_vars: () => vars,
     set_var: ({ key, value }) => setVars({ [String(key)]: value }),
@@ -544,14 +726,31 @@ export function createDemoBackend(): Backend {
       settings.twitch.client_id = String(clientId);
     },
     app_info: () => ({
-      version: '0.3.0',
+      version: '0.4.0',
       os: 'demo',
       project_dir: '~/Castwright/Projects/Default',
       config_dir: '~/.config/castwright',
+      backup_dir: '~/.local/share/castwright/backups',
       secrets_in_file: false,
       built_in_client_id: true
     }),
     set_window_effect: () => 'solid',
+    save_golive: ({ golive }) => {
+      const g = clone(golive as GoLiveSettings);
+      g.items = g.items.filter((i) => i.label.trim()).map((i) => ({ id: i.id || uid(), label: i.label.trim() }));
+      settings.golive = g;
+      return g;
+    },
+    golive_check: () => goLiveChecks(),
+    golive_fix: ({ fix }) => {
+      const f = fix as CheckFix;
+      if (f.type === 'resume_alerts') handlers.alert_pause!({ paused: false });
+      else if (f.type === 'unmute_alerts') handlers.alert_mute!({ muted: false });
+      else if (f.type === 'connect_obs') {
+        obs.state = 'connected';
+        emit('cw://obs', obs);
+      }
+    },
     twitch_status: () => twitch,
     twitch_login: ({ role }) => {
       // Pretend the user approves the code a few seconds later.

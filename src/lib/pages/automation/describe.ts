@@ -143,6 +143,10 @@ export function describeStep(s: Step, ctx: { actions?: readonly Action[]; overla
     }
     case 'play_alert':
       return s.title.trim() || s.message.trim();
+    case 'pause_alerts':
+      return { on: 'Pause the alert queue', off: 'Resume the alert queue', toggle: 'Pause or resume alerts' }[s.state];
+    case 'skip_alert':
+      return 'End the alert on screen';
     case 'play_sound':
       return s.src ? `${s.src.split('/').pop()} at ${s.volume}%` : '';
     case 'http_request':

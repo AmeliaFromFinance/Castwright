@@ -1,4 +1,5 @@
 use super::*;
+use crate::hub::RecordingUi;
 use crate::model::condition::{Condition, ConditionGroup, MatchMode, Op};
 use crate::model::project::Project;
 use crate::services::Recorder;
@@ -7,6 +8,7 @@ use serde_json::json;
 struct Rig {
     auto: Arc<Automation>,
     hub: Arc<Hub>,
+    ui: Arc<RecordingUi>,
     rec: Arc<Recorder>,
     project: Arc<ProjectStore>,
     _dir: tempfile::TempDir,
@@ -20,7 +22,12 @@ fn rig(actions: Vec<Action>) -> Rig {
         ..Project::starter()
     });
     let project = Arc::new(store);
-    let hub = Hub::test();
+    let ui = Arc::new(RecordingUi::default());
+    let hub = Hub::new(
+        ui.clone(),
+        Arc::new(crate::vars::Vars::new()),
+        Arc::new(crate::store::db::Db::open_in_memory()),
+    );
     let alerts = AlertEngine::new(hub.clone(), project.clone());
     let auto = Automation::new(hub.clone(), project.clone(), alerts);
     let rec = Arc::new(Recorder::default());
@@ -29,6 +36,7 @@ fn rig(actions: Vec<Action>) -> Rig {
     Rig {
         auto,
         hub,
+        ui,
         rec,
         project,
         _dir: dir,
@@ -424,6 +432,37 @@ async fn obs_steps_and_missing_services() {
     let run = fresh.auto.execute(&a, "test", Map::new(), None).await;
     assert_eq!(run.errors.len(), 5);
     assert!(run.errors[0].contains("OBS isn't connected"));
+}
+
+#[tokio::test]
+async fn alert_queue_steps() {
+    let r = rig(vec![]);
+    let pause = |state| Action {
+        steps: vec![Step::PauseAlerts { state }, Step::SkipAlert],
+        ..Action::default()
+    };
+    assert!(
+        r.auto
+            .execute(&pause(Toggle::On), "test", Map::new(), None)
+            .await
+            .ok
+    );
+    assert!(r.auto.alerts().queue_state().paused);
+    assert!(
+        r.auto
+            .execute(&pause(Toggle::Toggle), "test", Map::new(), None)
+            .await
+            .ok
+    );
+    assert!(!r.auto.alerts().queue_state().paused);
+    r.auto.alerts().set_paused(true);
+    assert!(
+        r.auto
+            .execute(&pause(Toggle::Off), "test", Map::new(), None)
+            .await
+            .ok
+    );
+    assert!(!r.auto.alerts().queue_state().paused);
 }
 
 #[tokio::test]
@@ -912,4 +951,117 @@ async fn run_action_starts_the_other_action_like_a_button() {
     assert_eq!(chat_lines(r.rec.take()), vec!["first", "back"]);
     // Only the caller's nodes are reported.
     assert_eq!(run.nodes.len(), 2);
+}
+
+#[tokio::test]
+async fn runs_report_each_step_and_the_line_taken() {
+    let r = rig(vec![]);
+    let a = graph(
+        "g",
+        vec![
+            trig("t", 0.0, Trigger::Manual),
+            step("if", 0.0, 100.0, amount_over(100)),
+            step("big", 0.0, 200.0, say("big")),
+            step("small", 300.0, 200.0, say("small")),
+        ],
+        vec![
+            next("t", "if"),
+            line("if", "big", EdgeBranch::Then),
+            line("if", "small", EdgeBranch::Otherwise),
+        ],
+    );
+    let run = r.auto.execute(&a, "test", Map::new(), None).await;
+    let steps: Vec<(&str, Option<&str>)> = run
+        .steps
+        .iter()
+        .map(|s| (s.node_id.as_str(), s.via.as_deref()))
+        .collect();
+    assert_eq!(
+        steps,
+        vec![
+            ("t", None),
+            ("if", Some("t-if-Next")),
+            ("small", Some("if-small-Otherwise")),
+        ]
+    );
+    // Live progress: steps say when they start, and every node when it finishes.
+    let sent: Vec<RunProgress> =
+        r.ui.0
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(name, _)| name == ui::ACTION_PROGRESS)
+            .map(|(_, v)| serde_json::from_value(v.clone()).unwrap())
+            .collect();
+    let seen: Vec<(&str, Option<NodeState>)> =
+        sent.iter().map(|p| (p.node_id.as_str(), p.state)).collect();
+    assert_eq!(
+        seen,
+        vec![
+            ("t", Some(NodeState::Ok)),
+            ("if", Some(NodeState::Ok)),
+            ("small", None),
+            ("small", Some(NodeState::Ok)),
+        ]
+    );
+    assert!(
+        sent.iter()
+            .all(|p| p.run_id == run.run_id && p.action_id == "g")
+    );
+    // Each run gets its own id.
+    let again = r.auto.execute(&a, "test", Map::new(), None).await;
+    assert_ne!(again.run_id, run.run_id);
+}
+
+#[tokio::test]
+async fn failed_steps_and_nested_actions_in_the_trace() {
+    let callee = graph(
+        "inner",
+        vec![
+            trig("it", 0.0, Trigger::Manual),
+            step("is", 0.0, 100.0, say("inner")),
+        ],
+        vec![next("it", "is")],
+    );
+    let r = rig(vec![callee]);
+    let a = graph(
+        "outer",
+        vec![
+            trig("t", 0.0, Trigger::Manual),
+            step(
+                "bad",
+                0.0,
+                100.0,
+                Step::SetVariable {
+                    key: "bad key".into(),
+                    value: "x".into(),
+                    persist: false,
+                },
+            ),
+            step(
+                "call",
+                0.0,
+                200.0,
+                Step::RunAction {
+                    action_id: "inner".into(),
+                },
+            ),
+        ],
+        vec![next("t", "bad"), next("bad", "call")],
+    );
+    let run = r.auto.execute(&a, "test", Map::new(), None).await;
+    let steps: Vec<(&str, NodeState)> = run
+        .steps
+        .iter()
+        .map(|s| (s.node_id.as_str(), s.state))
+        .collect();
+    // The other action's nodes aren't part of this trace.
+    assert_eq!(
+        steps,
+        vec![
+            ("t", NodeState::Ok),
+            ("bad", NodeState::Error),
+            ("call", NodeState::Ok)
+        ]
+    );
 }

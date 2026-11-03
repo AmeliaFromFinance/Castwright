@@ -40,7 +40,6 @@ import {
   unreachable
 } from './graph';
 import { ActionHistory } from './history';
-import { runStatus } from './runstatus';
 import { clampZoom, fitView, toScreen, toWorld, zoomAt } from './view';
 
 const say = (message: string): Step => ({ type: 'chat_send', message, as_bot: false, reply: false });
@@ -114,9 +113,17 @@ describe('runs', () => {
     const run = planRun(g, null, () => false);
     expect(run.order).toEqual(['if', 'no', 'join']);
     expect(run.nodes.find((n) => n.node_id === 'yes')?.state).toBe('skipped');
-    const status = runStatus({ action_id: 'a', name: 'a', trigger: 'manual', ok: true, errors: [], duration_ms: 1, nodes: run.nodes });
-    expect([...status.keys()].slice(0, 4)).toEqual(['t', 'if', 'no', 'join']);
-    expect(status.get('yes')?.state).toBe('skipped');
+    expect(run.nodes.slice(0, 4).map((n) => n.node_id)).toEqual(['t', 'if', 'no', 'join']);
+  });
+
+  it('lists each step with the line taken to reach it', () => {
+    const run = planRun(g, null, () => true);
+    expect(run.steps.map((s) => [s.node_id, s.via])).toEqual([
+      ['t', null],
+      ['if', 't>if'],
+      ['yes', 'if>yes'],
+      ['join', 'yes>join']
+    ]);
   });
 
   it('runs a merge each time it is reached, depth first by position', () => {

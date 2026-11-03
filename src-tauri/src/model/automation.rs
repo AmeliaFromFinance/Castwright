@@ -176,6 +176,12 @@ pub enum Step {
         #[serde(default = "default_alert_ms")]
         duration_ms: u32,
     },
+    /// On = pause, Off = resume. The alert on screen still finishes.
+    PauseAlerts {
+        #[serde(default)]
+        state: Toggle,
+    },
+    SkipAlert,
     PlaySound {
         src: String,
         #[serde(default = "default_volume")]

@@ -31,6 +31,10 @@ Many of them. Paste the HTML, CSS, JS and Fields into a **Custom code** layer. S
 
 Put the project folder somewhere synced (**Settings → General → Project folder**) and point both installs at it. Don't run both at the same time.
 
+## I broke my project. Can I undo it?
+
+Yes. Castwright backs up your project every day and before big changes. See [I broke my project](/guide/troubleshooting/#i-broke-my-project-how-do-i-go-back).
+
 ## Where are my files?
 
 See [files and folders](/reference/files/).

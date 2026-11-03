@@ -186,8 +186,12 @@ pub struct AlertPlay {
 #[ts(export)]
 pub struct QueueState {
     pub paused: bool,
+    /// Alert sounds, videos and speech are silent while muted.
+    pub muted: bool,
     pub playing: Option<AlertPlay>,
     pub waiting: Vec<AlertPlay>,
+    /// The alert that played most recently, for "Replay last".
+    pub last: Option<AlertPlay>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]

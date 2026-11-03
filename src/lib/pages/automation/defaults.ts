@@ -43,6 +43,7 @@ export function newStep(type: StepType): Step {
       return { type, user: '', message: '' };
     case 'create_clip':
     case 'save_replay':
+    case 'skip_alert':
     case 'stop':
       return { type };
     case 'create_marker':
@@ -71,6 +72,8 @@ export function newStep(type: StepType): Step {
       return { type, overlay_id: '', layer_id: '', state: 'on' };
     case 'play_alert':
       return { type, title: '', message: '', image: '', sound: '', duration_ms: 6000 };
+    case 'pause_alerts':
+      return { type, state: 'on' };
     case 'play_sound':
       return { type, src: '', volume: 70 };
     case 'http_request':
@@ -149,6 +152,8 @@ export const STEP_LABELS: Record<StepType, string> = {
   save_replay: 'Save replay',
   set_layer_visible: 'Show/hide overlay layer',
   play_alert: 'Play alert',
+  pause_alerts: 'Pause alerts',
+  skip_alert: 'Skip alert',
   play_sound: 'Play sound',
   http_request: 'Web request',
   run_script: 'Run script',
@@ -175,7 +180,16 @@ export const STEP_GROUPS: Array<{ label: string; items: Array<[StepType, string?
     label: 'OBS',
     items: [['switch_scene'], ['set_source_visible'], ['set_input_mute'], ['recording', 'Start, stop or toggle'], ['save_replay']]
   },
-  { label: 'Overlays & alerts', items: [['set_layer_visible'], ['play_alert', 'Queue a custom alert'], ['play_sound']] },
+  {
+    label: 'Overlays & alerts',
+    items: [
+      ['set_layer_visible'],
+      ['play_alert', 'Queue a custom alert'],
+      ['pause_alerts', 'Pause or resume the queue'],
+      ['skip_alert', 'End the alert on screen'],
+      ['play_sound']
+    ]
+  },
   { label: 'Variables', items: [['set_variable'], ['add_to_variable', 'Counters, totals']] },
   {
     label: 'Logic',

@@ -1,6 +1,7 @@
 import { api, on } from '$lib/api';
 import type { Action } from '$lib/bindings/Action';
 import type { ActionRun } from '$lib/bindings/ActionRun';
+import type { RunProgress } from '$lib/bindings/RunProgress';
 import type { Graph } from '$lib/bindings/Graph';
 import { Autosaver } from '$lib/editors/autosave.svelte';
 import { clone } from '$lib/editors/ids';
@@ -8,6 +9,7 @@ import { app } from '$lib/state/app.svelte';
 import { loadPref, savePref } from '$lib/state/persist';
 import { syncTriggers, type Clip } from './graph';
 import { ActionHistory } from './history';
+import { addToHistory, applyProgress, finishTrace, type Trace } from './trace';
 import type { View } from './view';
 import { blocking, validateAction, type Issue } from './validate';
 
@@ -191,9 +193,13 @@ export interface RunEntry extends ActionRun {
   seq: number;
 }
 
-/** Results of recent action runs, newest first. */
+/** Results of recent action runs, newest first, and a trace of each action's latest runs. */
 class RunLog {
   runs = $state<RunEntry[]>([]);
+  /** Latest run of each action, live while it runs. */
+  live = $state<Record<string, Trace<RunEntry>>>({});
+  /** Finished runs of each action, newest first. */
+  history = $state<Record<string, Trace<RunEntry>[]>>({});
   #listening = false;
   #seq = 0;
 
@@ -206,9 +212,22 @@ class RunLog {
   listen(): void {
     if (this.#listening) return;
     this.#listening = true;
-    void on('cw://action-run', (r) => {
-      this.runs = [{ ...r, ts: Date.now(), seq: ++this.#seq }, ...this.runs].slice(0, 200);
-    });
+    void on('cw://action-progress', (p) => this.progress(p));
+    void on('cw://action-run', (r) => this.add(r));
+  }
+
+  progress(p: RunProgress): void {
+    this.live[p.action_id] = applyProgress(this.live[p.action_id], p);
+  }
+
+  add(r: ActionRun): void {
+    const entry: RunEntry = { ...r, ts: Date.now(), seq: ++this.#seq };
+    this.runs = [entry, ...this.runs].slice(0, 200);
+    const t = finishTrace(entry);
+    // A newer run may already be under way.
+    const cur = this.live[r.action_id];
+    if (!cur || cur.runId === r.run_id || cur.run) this.live[r.action_id] = t;
+    this.history[r.action_id] = addToHistory(this.history[r.action_id], t);
   }
 
   clear(): void {

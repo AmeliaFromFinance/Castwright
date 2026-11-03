@@ -35,9 +35,24 @@ The **Preview** on the right shows the selected variation with a sample event. C
 
 Alerts play one at a time. The queue on the right shows what's playing and waiting.
 
-- **Pause alerts** holds new alerts until you resume. Handy during a cutscene.
+- **Pause alerts** holds new alerts until you resume. The alert on screen still finishes. Handy during a cutscene.
 - **Skip current** ends the playing alert early.
 - Remove a waiting alert with ×, or **Clear** them all.
+
+### Quick controls
+
+The **Alerts** button in the status bar works from any page. It shows how many alerts are playing or waiting, and turns yellow when alerts are paused or muted. Click it for:
+
+| Control | What it does |
+| --- | --- |
+| **Pause alerts** / **Resume alerts** | Holds or releases the queue. |
+| **Skip current** | Ends the alert on screen. |
+| **Replay last** | Plays the last alert again. Its action doesn't run a second time. |
+| **Mute alert sound** | Alerts still show, but without sound, video sound or text to speech. |
+
+The same commands are in the command palette (<kbd>Ctrl</kbd> + <kbd>K</kbd>), the [HTTP API](/reference/http-api/#alert-controls) and the [automation steps](/reference/automation-steps/#overlays-and-alerts) **Pause alerts** and **Skip alert**.
+
+Mute is remembered after a restart. Pause isn't: alerts always play when Castwright starts.
 
 ## Alert settings
 

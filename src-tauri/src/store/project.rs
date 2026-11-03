@@ -1,28 +1,15 @@
-//! The project folder: `project.json`, `variables.json`, `assets/` and `snapshots/`.
+//! The project folder: `project.json`, `variables.json` and `assets/`.
 
-use crate::error::{AppError, AppResult, user_err};
-use crate::model::project::Project;
+use crate::error::{AppResult, user_err};
+use crate::model::project::{PROJECT_FORMAT, Project};
 use crate::util::{now_ms, safe_file_name, write_atomic};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 use ts_rs::TS;
 
-pub const MAX_SNAPSHOTS: usize = 20;
-/// Automatic snapshots are taken at most this often.
-pub const SNAPSHOT_EVERY_MS: i64 = 10 * 60 * 1000;
 /// Largest asset accepted (images, video, audio).
 pub const MAX_ASSET_BYTES: u64 = 512 * 1024 * 1024;
-
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-pub struct SnapshotInfo {
-    pub file: String,
-    #[ts(type = "number")]
-    pub ts: i64,
-    #[ts(type = "number")]
-    pub bytes: u64,
-}
 
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
@@ -41,16 +28,20 @@ pub struct AssetInfo {
 pub enum LoadOutcome {
     Loaded,
     Created,
-    /// project.json was unreadable; a snapshot was restored (file name given).
-    RecoveredFromSnapshot(String),
-    /// project.json and all snapshots were unreadable; a new project was started.
+    /// project.json was unreadable; a backup was restored (file name given).
+    RecoveredFromBackup(String),
+    /// project.json and all backups were unreadable; a new project was started.
     StartedFresh,
 }
+
+/// Finds the newest good backup when project.json can't be read.
+pub type Recover<'a> = &'a dyn Fn() -> Option<(Project, String)>;
 
 pub struct ProjectStore {
     dir: PathBuf,
     project: RwLock<Project>,
-    last_snapshot: RwLock<i64>,
+    /// Format of project.json when it was opened, if older than the current one.
+    migrated_from: Option<u32>,
     dirty: std::sync::atomic::AtomicBool,
     changed: tokio::sync::Notify,
     /// One save at a time, so an older write can't land after a newer one.
@@ -59,21 +50,31 @@ pub struct ProjectStore {
 
 impl ProjectStore {
     pub fn open(dir: &Path) -> AppResult<(ProjectStore, LoadOutcome)> {
+        Self::open_with(dir, &|| None)
+    }
+
+    pub fn open_with(dir: &Path, recover: Recover) -> AppResult<(ProjectStore, LoadOutcome)> {
         std::fs::create_dir_all(dir)?;
         std::fs::create_dir_all(dir.join("assets"))?;
-        std::fs::create_dir_all(dir.join("snapshots"))?;
         let file = dir.join("project.json");
+        let mut migrated_from = None;
         let (project, outcome) = if file.exists() {
-            match read_project(&file) {
-                Ok(p) => (p, LoadOutcome::Loaded),
+            match std::fs::read(&file)
+                .map_err(Into::into)
+                .and_then(|b| Ok((stored_format(&b), parse_project(&b)?)))
+            {
+                Ok((format, p)) => {
+                    migrated_from = (format < PROJECT_FORMAT).then_some(format);
+                    (p, LoadOutcome::Loaded)
+                }
                 // Saved by a newer version: leave it alone rather than "recover" over it.
                 Err(e @ crate::error::AppError::User(_)) => return Err(e),
                 Err(_) => {
                     let ts = now_ms();
                     let _ =
                         std::fs::rename(&file, dir.join(format!("project.unreadable-{ts}.json")));
-                    match Self::newest_good_snapshot(dir) {
-                        Some((p, name)) => (p, LoadOutcome::RecoveredFromSnapshot(name)),
+                    match recover().or_else(|| newest_old_snapshot(dir)) {
+                        Some((p, name)) => (p, LoadOutcome::RecoveredFromBackup(name)),
                         None => (Project::starter(), LoadOutcome::StartedFresh),
                     }
                 }
@@ -84,7 +85,7 @@ impl ProjectStore {
         let store = ProjectStore {
             dir: dir.to_path_buf(),
             project: RwLock::new(project),
-            last_snapshot: RwLock::new(0),
+            migrated_from,
             dirty: std::sync::atomic::AtomicBool::new(false),
             changed: tokio::sync::Notify::new(),
             save_lock: std::sync::Mutex::new(()),
@@ -95,22 +96,18 @@ impl ProjectStore {
         Ok((store, outcome))
     }
 
-    fn newest_good_snapshot(dir: &Path) -> Option<(Project, String)> {
-        let mut snaps = list_snapshots(dir);
-        snaps.sort_by_key(|s| std::cmp::Reverse(s.ts));
-        snaps.into_iter().find_map(|s| {
-            read_project(&dir.join("snapshots").join(&s.file))
-                .ok()
-                .map(|p| (p, s.file))
-        })
-    }
-
     pub fn dir(&self) -> &Path {
         &self.dir
     }
 
     pub fn assets_dir(&self) -> PathBuf {
         self.dir.join("assets")
+    }
+
+    /// Format of project.json when it was opened, when older than the current one.
+    /// The file on disk stays in that format until the next save.
+    pub fn migrated_from(&self) -> Option<u32> {
+        self.migrated_from
     }
 
     pub fn read<R>(&self, f: impl FnOnce(&Project) -> R) -> R {
@@ -176,61 +173,25 @@ impl ProjectStore {
 
     pub fn save(&self) -> AppResult<()> {
         let _guard = self.save_lock.lock().unwrap_or_else(|e| e.into_inner());
-        let file = self.dir.join("project.json");
-        let now = now_ms();
-        let due = now - *self.last_snapshot.read().unwrap() >= SNAPSHOT_EVERY_MS;
-        if due && file.exists() {
-            self.snapshot_file(&file, now)?;
-        }
+        self.write_file()
+    }
+
+    fn write_file(&self) -> AppResult<()> {
         let json = serde_json::to_vec_pretty(&*self.project.read().unwrap())?;
-        write_atomic(&file, &json)?;
+        write_atomic(&self.dir.join("project.json"), &json)?;
         Ok(())
     }
 
-    /// Copy the saved project into `snapshots/` now, regardless of timing.
-    pub fn snapshot_now(&self) -> AppResult<()> {
-        self.save()?;
-        self.snapshot_file(&self.dir.join("project.json"), now_ms())
-    }
-
-    fn snapshot_file(&self, file: &Path, now: i64) -> AppResult<()> {
-        let snaps = self.dir.join("snapshots");
-        std::fs::create_dir_all(&snaps)?;
-        let mut name = format!("project-{now}.json");
-        let mut n = 1;
-        while snaps.join(&name).exists() {
-            name = format!("project-{now}-{n}.json");
-            n += 1;
-        }
-        std::fs::copy(file, snaps.join(name))?;
-        *self.last_snapshot.write().unwrap() = now;
-        let mut all = list_snapshots(&self.dir);
-        all.sort_by(|a, b| b.ts.cmp(&a.ts).then(b.file.cmp(&a.file)));
-        for old in all.into_iter().skip(MAX_SNAPSHOTS) {
-            let _ = std::fs::remove_file(snaps.join(old.file));
+    /// Replace the project and save it. If saving fails, the old project is kept.
+    pub fn restore(&self, mut project: Project) -> AppResult<()> {
+        project.normalize();
+        let _guard = self.save_lock.lock().unwrap_or_else(|e| e.into_inner());
+        let old = std::mem::replace(&mut *self.project.write().unwrap(), project);
+        if let Err(e) = self.write_file() {
+            *self.project.write().unwrap() = old;
+            return Err(e);
         }
         Ok(())
-    }
-
-    pub fn snapshots(&self) -> Vec<SnapshotInfo> {
-        let mut s = list_snapshots(&self.dir);
-        s.sort_by_key(|s| std::cmp::Reverse(s.ts));
-        s
-    }
-
-    /// Load a snapshot as the current project. The current one is snapshotted first.
-    pub fn restore_snapshot(&self, file: &str) -> AppResult<()> {
-        let Some(name) = safe_file_name(file) else {
-            return user_err("Invalid snapshot name.");
-        };
-        let path = self.dir.join("snapshots").join(&name);
-        if !path.exists() {
-            return Err(AppError::NotFound(name));
-        }
-        let p = read_project(&path)?;
-        self.snapshot_now()?;
-        self.replace(p);
-        self.save()
     }
 
     pub fn load_variables(&self) -> serde_json::Map<String, serde_json::Value> {
@@ -341,10 +302,11 @@ impl ProjectStore {
     }
 }
 
-fn read_project(path: &Path) -> AppResult<Project> {
-    let bytes = std::fs::read(path)?;
-    let mut p: Project = serde_json::from_slice(&bytes)?;
-    if p.format > crate::model::project::PROJECT_FORMAT {
+/// Read project JSON: newer formats are refused, older ones converted.
+/// Opening a project and restoring a backup both go through here.
+pub fn parse_project(bytes: &[u8]) -> AppResult<Project> {
+    let mut p: Project = serde_json::from_slice(bytes)?;
+    if p.format > PROJECT_FORMAT {
         return user_err(
             "This project was saved by a newer version of Castwright. Install the latest version to open it.",
         );
@@ -353,27 +315,30 @@ fn read_project(path: &Path) -> AppResult<Project> {
     Ok(p)
 }
 
-fn list_snapshots(dir: &Path) -> Vec<SnapshotInfo> {
-    let mut out = Vec::new();
-    if let Ok(rd) = std::fs::read_dir(dir.join("snapshots")) {
-        for entry in rd.flatten() {
-            let file = entry.file_name().to_string_lossy().into_owned();
-            let Some(rest) = file
-                .strip_prefix("project-")
-                .and_then(|r| r.strip_suffix(".json"))
-            else {
-                continue;
-            };
-            let ts = rest
-                .split('-')
-                .next()
-                .and_then(|t| t.parse::<i64>().ok())
-                .unwrap_or(0);
-            let bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
-            out.push(SnapshotInfo { file, ts, bytes });
-        }
+fn stored_format(bytes: &[u8]) -> u32 {
+    #[derive(serde::Deserialize)]
+    struct F {
+        format: Option<u32>,
     }
-    out
+    serde_json::from_slice::<F>(bytes)
+        .ok()
+        .and_then(|f| f.format)
+        .unwrap_or(PROJECT_FORMAT)
+}
+
+/// Copies older versions kept in `snapshots/`, used only when there's no backup.
+fn newest_old_snapshot(dir: &Path) -> Option<(Project, String)> {
+    let mut files: Vec<String> = std::fs::read_dir(dir.join("snapshots"))
+        .ok()?
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|f| f.starts_with("project-") && f.ends_with(".json"))
+        .collect();
+    files.sort_by(|a, b| b.cmp(a));
+    files.into_iter().find_map(|f| {
+        let bytes = std::fs::read(dir.join("snapshots").join(&f)).ok()?;
+        parse_project(&bytes).ok().map(|p| (p, f))
+    })
 }
 
 pub fn asset_kind(name: &str) -> &'static str {
@@ -410,12 +375,18 @@ mod tests {
     #[test]
     fn recovers_from_corrupt_file() {
         let dir = tempfile::tempdir().unwrap();
-        let (s, _) = ProjectStore::open(dir.path()).unwrap();
-        s.update(|p| p.name = "Good".into());
-        s.snapshot_now().unwrap();
+        ProjectStore::open(dir.path()).unwrap();
         std::fs::write(dir.path().join("project.json"), b"{ not json").unwrap();
-        let (s2, outcome) = ProjectStore::open(dir.path()).unwrap();
-        assert!(matches!(outcome, LoadOutcome::RecoveredFromSnapshot(_)));
+        let recover = || {
+            let mut p = Project::starter();
+            p.name = "Good".into();
+            Some((p, "b.cwbackup".to_string()))
+        };
+        let (s2, outcome) = ProjectStore::open_with(dir.path(), &recover).unwrap();
+        assert_eq!(
+            outcome,
+            LoadOutcome::RecoveredFromBackup("b.cwbackup".into())
+        );
         assert_eq!(s2.get().name, "Good");
         let kept = std::fs::read_dir(dir.path()).unwrap().flatten().any(|e| {
             e.file_name()
@@ -423,6 +394,29 @@ mod tests {
                 .starts_with("project.unreadable-")
         });
         assert!(kept, "the unreadable file is kept for the user");
+    }
+
+    #[test]
+    fn falls_back_to_old_snapshots() {
+        let dir = tempfile::tempdir().unwrap();
+        let snaps = dir.path().join("snapshots");
+        std::fs::create_dir_all(&snaps).unwrap();
+        for (ts, name) in [
+            (1_700_000_000_000_i64, "Older"),
+            (1_700_000_100_000, "Newer"),
+        ] {
+            let mut p = Project::starter();
+            p.name = name.into();
+            std::fs::write(
+                snaps.join(format!("project-{ts}.json")),
+                serde_json::to_vec(&p).unwrap(),
+            )
+            .unwrap();
+        }
+        std::fs::write(dir.path().join("project.json"), b"garbage").unwrap();
+        let (s, outcome) = ProjectStore::open(dir.path()).unwrap();
+        assert!(matches!(outcome, LoadOutcome::RecoveredFromBackup(_)));
+        assert_eq!(s.get().name, "Newer");
     }
 
     #[test]
@@ -435,27 +429,26 @@ mod tests {
     }
 
     #[test]
-    fn snapshots_are_capped() {
+    fn restore_replaces_and_saves() {
         let dir = tempfile::tempdir().unwrap();
         let (s, _) = ProjectStore::open(dir.path()).unwrap();
-        for _ in 0..(MAX_SNAPSHOTS + 5) {
-            s.snapshot_now().unwrap();
-        }
-        assert_eq!(s.snapshots().len(), MAX_SNAPSHOTS);
+        let mut p = Project::starter();
+        p.name = "Restored".into();
+        s.restore(p).unwrap();
+        let (s2, _) = ProjectStore::open(dir.path()).unwrap();
+        assert_eq!(s2.get().name, "Restored");
     }
 
     #[test]
-    fn restore_snapshot() {
+    fn failed_restore_keeps_the_project() {
         let dir = tempfile::tempdir().unwrap();
         let (s, _) = ProjectStore::open(dir.path()).unwrap();
-        s.update(|p| p.name = "Before".into());
-        s.snapshot_now().unwrap();
-        let file = s.snapshots()[0].file.clone();
-        s.update(|p| p.name = "After".into());
-        s.save().unwrap();
-        s.restore_snapshot(&file).unwrap();
-        assert_eq!(s.get().name, "Before");
-        assert!(s.restore_snapshot("../project.json").is_err());
+        s.update(|p| p.name = "Current".into());
+        let file = dir.path().join("project.json");
+        std::fs::remove_file(&file).unwrap();
+        std::fs::create_dir(&file).unwrap();
+        assert!(s.restore(Project::default()).is_err());
+        assert_eq!(s.get().name, "Current");
     }
 
     #[test]
@@ -552,6 +545,7 @@ mod tests {
         .unwrap();
         let (s, outcome) = ProjectStore::open(dir.path()).unwrap();
         assert_eq!(outcome, LoadOutcome::Loaded);
+        assert_eq!(s.migrated_from(), Some(1));
         let p = s.get();
         assert_eq!(p.format, crate::model::project::PROJECT_FORMAT);
         let a = &p.actions[0];
@@ -562,6 +556,7 @@ mod tests {
         // Saved in the new form; reading it again changes nothing.
         s.save().unwrap();
         let (s2, _) = ProjectStore::open(dir.path()).unwrap();
+        assert_eq!(s2.migrated_from(), None);
         assert_eq!(s2.get(), p);
         let raw: serde_json::Value =
             serde_json::from_slice(&std::fs::read(dir.path().join("project.json")).unwrap())

@@ -34,7 +34,7 @@ On Linux, `XDG_CONFIG_HOME` and `XDG_DATA_HOME` change these if set.
 | `variables.json` | Saved [variables](/reference/variables/) |
 | `events.sqlite` | Event history and [custom widget](/reference/custom-widgets/#storage) storage. The `-wal` and `-shm` files next to it belong to it. |
 | `assets/` | Images, video, sound and fonts you added |
-| `snapshots/` | Automatic backups of `project.json` |
+| `snapshots/` | Only from older versions. Old copies of `project.json`, used for recovery when there are no backups. |
 | `project.unreadable-<time>.json` | Only after a recovery. See [Recovery](#recovery). |
 
 ### When files are saved
@@ -75,25 +75,43 @@ On Linux, `XDG_CONFIG_HOME` and `XDG_DATA_HOME` change these if set.
 
 ## Backups
 
+Backups are kept in a `backups` folder next to the default project folder:
+
+| System | Backups folder |
+| --- | --- |
+| Windows | `%APPDATA%\com.castwright.studio\backups\` |
+| macOS | `~/Library/Application Support/com.castwright.studio/backups/` |
+| Linux | `~/.local/share/com.castwright.studio/backups/` |
+
 | Rule | Value |
 | --- | --- |
-| When | Before a save, if the last backup is 10 minutes old or more. The first save after each start always makes one. |
-| How many | The newest 20. Older ones are deleted. |
-| Where | `snapshots/project-<time>.json` |
+| When | On start, once a day, before a restore or import, and before an update converts the project |
+| Skipped | When nothing changed since the last backup of the same project |
+| How many | One start-up or daily backup per day for the last 14 days, plus the 5 newest others. Change both in **Settings → Backups and data**. |
+| File name | `<date>_<time>Z_<reason>.cwbackup`, in UTC |
 
-A backup is a copy of `project.json` only. Variables, history and assets aren't included.
+Each project folder has its own backups, even though they share one folder. Files that can't be read are never deleted automatically.
 
-In **Settings → Backups and data**:
+### `.cwbackup` files
 
-- **Back up now** makes one right away.
-- **Restore** loads a backup. Your current project is backed up first, so you can undo it.
+A zip file with:
+
+| Entry | Holds |
+| --- | --- |
+| `backup.json` | Date, reason, project name, format and app version |
+| `project.json` | Overlays, alerts and actions |
+| `variables.json` | Saved [variables](/reference/variables/) |
+
+Not included: `settings.json`, secrets, event history, custom widget storage and `assets/`. Keep a copy of `assets/` yourself if you need it.
+
+**Restore from file…** also accepts a plain `project.json`. It keeps your current variables.
 
 ### Recovery
 
 If `project.json` can't be read when Castwright starts:
 
 1. The file is renamed to `project.unreadable-<time>.json` and kept.
-2. The newest backup that can be read is restored.
+2. The newest backup of that project that can be read is restored.
 3. If none can be read, a new starter project is made.
 
 The log says which one happened.

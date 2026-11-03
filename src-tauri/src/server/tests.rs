@@ -343,3 +343,67 @@ async fn overlay_page_carries_asset_key_not_in_links() {
         asset_key(TOKEN)
     )));
 }
+
+#[tokio::test]
+async fn alert_controls_endpoint() {
+    let r = rig().await;
+    let client = reqwest::Client::new();
+    let post = |cmd: &str| {
+        client
+            .post(format!("{}/api/alerts/{cmd}", r.base))
+            .header("x-castwright-token", TOKEN)
+            .send()
+    };
+    assert_eq!(
+        status(&format!("{}/api/alerts", r.base)).await,
+        403,
+        "needs the secret"
+    );
+    let resp = post("pause").await.unwrap();
+    assert_eq!(resp.status().as_u16(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["paused"], true);
+    let body: serde_json::Value = post("toggle-mute").await.unwrap().json().await.unwrap();
+    assert_eq!(
+        (body["paused"].clone(), body["muted"].clone()),
+        (true.into(), true.into())
+    );
+    post("resume").await.unwrap();
+    post("unmute").await.unwrap();
+    let body: serde_json::Value = client
+        .get(format!("{}/api/alerts?token={TOKEN}", r.base))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        body,
+        serde_json::json!({ "paused": false, "muted": false, "playing": false, "waiting": 0 })
+    );
+    assert_eq!(post("skip").await.unwrap().status().as_u16(), 200);
+    assert_eq!(
+        post("replay").await.unwrap().status().as_u16(),
+        409,
+        "nothing has played yet"
+    );
+    assert_eq!(post("dance").await.unwrap().status().as_u16(), 404);
+}
+
+#[tokio::test]
+async fn open_overlay_pages_are_counted() {
+    let r = rig().await;
+    assert_eq!(r.server.overlay_clients(&r.overlay_id), 0);
+    let mut ws = connect(&r, &r.overlay_id, TOKEN).await.unwrap();
+    next_msg(&mut ws).await;
+    assert_eq!(r.server.overlay_clients(&r.overlay_id), 1);
+    ws.close(None).await.unwrap();
+    for _ in 0..100 {
+        if r.server.overlay_clients(&r.overlay_id) == 0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    assert_eq!(r.server.overlay_clients(&r.overlay_id), 0);
+}

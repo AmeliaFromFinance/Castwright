@@ -3,6 +3,7 @@ pub mod automation;
 pub mod commands;
 pub mod core;
 pub mod error;
+pub mod golive;
 pub mod hub;
 pub mod model;
 pub mod obs;
@@ -48,9 +49,11 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
             let handle = app.handle().clone();
+            let data_dir = app.path().app_data_dir()?;
             let paths = core::Paths {
                 config_dir: app.path().app_config_dir()?,
-                default_project_dir: app.path().app_data_dir()?.join("Projects").join("Default"),
+                default_project_dir: data_dir.join("Projects").join("Default"),
+                backup_dir: data_dir.join("backups"),
             };
             let core = tauri::async_runtime::block_on(core::Core::start(
                 paths,
@@ -79,9 +82,13 @@ pub fn run() {
             commands::list_assets,
             commands::import_assets,
             commands::delete_asset,
-            commands::list_snapshots,
-            commands::create_snapshot,
-            commands::restore_snapshot,
+            commands::list_backups,
+            commands::create_backup,
+            commands::restore_backup,
+            commands::restore_backup_file,
+            commands::delete_backup,
+            commands::export_backup,
+            commands::save_backup_settings,
             commands::project_dir,
             commands::set_project_dir,
             commands::alert_queue,
@@ -90,6 +97,8 @@ pub fn run() {
             commands::alert_remove,
             commands::alert_clear,
             commands::alert_replay,
+            commands::alert_replay_last,
+            commands::alert_mute,
             commands::test_event,
             commands::run_action,
             commands::get_vars,
@@ -111,6 +120,9 @@ pub fn run() {
             commands::set_twitch_client_id,
             commands::app_info,
             commands::set_window_effect,
+            commands::save_golive,
+            commands::golive_check,
+            commands::golive_fix,
             commands::twitch_status,
             commands::twitch_login,
             commands::twitch_cancel_login,

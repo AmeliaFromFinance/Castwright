@@ -7,6 +7,7 @@ import type { Graph } from '$lib/bindings/Graph';
 import type { GraphEdge } from '$lib/bindings/GraphEdge';
 import type { GraphNode } from '$lib/bindings/GraphNode';
 import type { NodeResult } from '$lib/bindings/NodeResult';
+import type { RunStep } from '$lib/bindings/RunStep';
 import type { Step } from '$lib/bindings/Step';
 import type { Trigger } from '$lib/bindings/Trigger';
 import { newId } from '$lib/editors/ids';
@@ -135,15 +136,19 @@ export function planRun(
   trigger: number | null,
   test: (step: Extract<Step, { type: 'if' }>) => boolean,
   opts: { budget?: number; onStep?: (step: Step) => void } = {}
-): { nodes: NodeResult[]; errors: string[]; order: string[] } {
+): { nodes: NodeResult[]; errors: string[]; order: string[]; steps: RunStep[] } {
   let budget = opts.budget ?? MAX_NODE_RUNS;
   const plan = startPlan(g, trigger);
   const nodes: NodeResult[] = plan.fired.map((node_id) => ({ node_id, state: 'ok', errors: [] }));
+  const steps: RunStep[] = plan.fired.map((node_id) => ({ node_id, via: null, state: 'ok' }));
   const errors: string[] = [];
   const order: string[] = [];
-  const stack = [...plan.first].reverse();
+  // Each entry is a node and the line that led to it.
+  const stack: Array<[string, string | null]> = plan.first
+    .map((id): [string, string | null] => [id, g.edges.find((e) => e.to === id && plan.fired.includes(e.from))?.id ?? null])
+    .reverse();
   while (stack.length) {
-    const id = stack.pop()!;
+    const [id, via] = stack.pop()!;
     const n = nodeById(g, id);
     if (!n) continue;
     if (budget-- <= 0) {
@@ -151,18 +156,19 @@ export function planRun(
       break;
     }
     order.push(id);
+    steps.push({ node_id: id, via, state: 'ok' });
     if (!nodes.some((r) => r.node_id === id)) nodes.push({ node_id: id, state: 'ok', errors: [] });
     const s = stepOf(n);
     if (s) opts.onStep?.(s);
     if (s?.type === 'stop') break;
     const yes = s?.type === 'if' ? test(s) : null;
     const next = outgoing(g, id).filter((e) => e.branch === 'next' || yes === null || (e.branch === 'then') === yes);
-    for (let i = next.length - 1; i >= 0; i--) stack.push(next[i]!.to);
+    for (let i = next.length - 1; i >= 0; i--) stack.push([next[i]!.to, next[i]!.id]);
   }
   const ran = new Set(nodes.map((r) => r.node_id));
   const reach = reachable(g, [...plan.fired, ...plan.first]);
   for (const n of g.nodes) if (reach.has(n.id) && !ran.has(n.id)) nodes.push({ node_id: n.id, state: 'skipped', errors: [] });
-  return { nodes, errors, order };
+  return { nodes, errors, order, steps };
 }
 
 // Geometry

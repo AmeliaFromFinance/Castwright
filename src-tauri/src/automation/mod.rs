@@ -39,6 +39,10 @@ pub const MAX_NODE_RUNS: u32 = 500;
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct ActionRun {
+    /// Matches the `run_id` of the progress sent while it ran.
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub run_id: u64,
     pub action_id: String,
     pub name: String,
     pub trigger: String,
@@ -50,6 +54,31 @@ pub struct ActionRun {
     /// have reached but didn't are `skipped`.
     #[serde(default)]
     pub nodes: Vec<NodeResult>,
+    /// Every node run, in order, with the line taken to reach it.
+    #[serde(default)]
+    pub steps: Vec<RunStep>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct RunStep {
+    pub node_id: String,
+    /// Line the run took to get here; `None` where the run started.
+    pub via: Option<String>,
+    pub state: NodeState,
+}
+
+/// Sent when a node starts and again when it finishes, so the app can follow a run live.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct RunProgress {
+    #[ts(type = "number")]
+    pub run_id: u64,
+    pub action_id: String,
+    pub node_id: String,
+    pub via: Option<String>,
+    /// `None` while the node runs.
+    pub state: Option<NodeState>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -85,6 +114,9 @@ struct RunCtx {
     /// Nodes left before the run is stopped as a loop.
     budget: u32,
     nodes: Vec<NodeResult>,
+    run_id: u64,
+    action_id: String,
+    steps: Vec<RunStep>,
 }
 
 impl RunCtx {
@@ -128,6 +160,7 @@ pub struct Automation {
     live: AtomicBool,
     /// Account ids whose chat messages never trigger commands (the bot).
     ignored_users: RwLock<Vec<String>>,
+    run_ids: AtomicU64,
 }
 
 impl Automation {
@@ -150,7 +183,12 @@ impl Automation {
             chat_lines: AtomicU64::new(0),
             live: AtomicBool::new(false),
             ignored_users: RwLock::new(Vec::new()),
+            run_ids: AtomicU64::new(0),
         })
+    }
+
+    pub fn alerts(&self) -> &Arc<AlertEngine> {
+        &self.alerts
     }
 
     pub fn set_twitch(&self, t: Arc<dyn TwitchActions>) {
@@ -592,13 +630,29 @@ impl Automation {
             depth: 0,
             budget: MAX_NODE_RUNS,
             nodes: Vec::new(),
+            run_id: self.run_ids.fetch_add(1, Ordering::Relaxed) + 1,
+            action_id: action.id.clone(),
+            steps: Vec::new(),
         };
         let g = &action.graph;
         let plan = g.start_plan(start);
         for id in &plan.fired {
             run.record(id, None);
+            self.progress(&mut run, id, None, Some(NodeState::Ok));
         }
-        self.run_graph(g, plan.first.clone(), &mut run).await;
+        let first = plan
+            .first
+            .iter()
+            .map(|id| {
+                let via = g
+                    .edges
+                    .iter()
+                    .find(|e| e.to == *id && plan.fired.contains(&e.from))
+                    .map(|e| e.id.clone());
+                (id.clone(), via)
+            })
+            .collect();
+        self.run_graph(g, first, &mut run).await;
         // Nodes this run could have reached but didn't.
         let reach = g.reachable(plan.fired.iter().chain(&plan.first).map(String::as_str));
         for n in &g.nodes {
@@ -618,6 +672,7 @@ impl Automation {
             );
         }
         ActionRun {
+            run_id: run.run_id,
             action_id: action.id.clone(),
             name: action.name.clone(),
             trigger: trigger.to_string(),
@@ -625,7 +680,32 @@ impl Automation {
             errors: run.errors,
             duration_ms: started.elapsed().as_millis() as u64,
             nodes: run.nodes,
+            steps: run.steps,
         }
+    }
+
+    /// Report a node starting (`state: None`) or finishing. Only for the action that was started.
+    fn progress(&self, run: &mut RunCtx, id: &str, via: Option<&str>, state: Option<NodeState>) {
+        if run.depth > 0 {
+            return;
+        }
+        if let Some(state) = state {
+            run.steps.push(RunStep {
+                node_id: id.to_string(),
+                via: via.map(str::to_string),
+                state,
+            });
+        }
+        self.hub.emit_ui(
+            ui::ACTION_PROGRESS,
+            &RunProgress {
+                run_id: run.run_id,
+                action_id: run.action_id.clone(),
+                node_id: id.to_string(),
+                via: via.map(str::to_string),
+                state,
+            },
+        );
     }
 
     /// Run nodes depth first: everything after one line finishes before the next line
@@ -633,12 +713,13 @@ impl Automation {
     fn run_graph<'a>(
         self: &'a Arc<Self>,
         g: &'a Graph,
-        first: Vec<String>,
+        first: Vec<(String, Option<String>)>,
         run: &'a mut RunCtx,
     ) -> BoxFuture<'a, Flow> {
         Box::pin(async move {
-            let mut stack: Vec<String> = first.into_iter().rev().collect();
-            while let Some(id) = stack.pop() {
+            // Each entry is a node and the line that led to it.
+            let mut stack: Vec<(String, Option<String>)> = first.into_iter().rev().collect();
+            while let Some((id, via)) = stack.pop() {
                 let Some(node) = g.node(&id) else { continue };
                 if run.budget == 0 {
                     run.errors.push(format!(
@@ -647,26 +728,38 @@ impl Automation {
                     return Flow::Stop;
                 }
                 run.budget -= 1;
+                let via = via.as_deref();
                 let mut branch = None;
+                let mut stop = false;
+                let mut error = None;
                 match &node.kind {
-                    NodeKind::Trigger { .. } => run.record(&id, None),
+                    NodeKind::Trigger { .. } => {}
                     NodeKind::Step {
                         step: Step::If { conditions, .. },
                     } => {
                         branch = Some(conditions.evaluate(&Value::Object(run.ctx.clone())));
-                        run.record(&id, None);
                     }
-                    NodeKind::Step { step } => match self.run_step(step, run).await {
-                        Ok(Flow::Continue) => run.record(&id, None),
-                        Ok(Flow::Stop) => {
-                            run.record(&id, None);
-                            return Flow::Stop;
+                    NodeKind::Step { step } => {
+                        self.progress(run, &id, via, None);
+                        match self.run_step(step, run).await {
+                            Ok(Flow::Continue) => {}
+                            Ok(Flow::Stop) => stop = true,
+                            Err(e) => {
+                                run.errors.push(format!("{}: {e}", step_label(step)));
+                                error = Some(e.to_string());
+                            }
                         }
-                        Err(e) => {
-                            run.errors.push(format!("{}: {e}", step_label(step)));
-                            run.record(&id, Some(e.to_string()));
-                        }
-                    },
+                    }
+                }
+                let state = if error.is_some() {
+                    NodeState::Error
+                } else {
+                    NodeState::Ok
+                };
+                run.record(&id, error);
+                self.progress(run, &id, via, Some(state));
+                if stop {
+                    return Flow::Stop;
                 }
                 let next = g
                     .outgoing(&id)
@@ -676,7 +769,8 @@ impl Automation {
                         (Some(yes), EdgeBranch::Then) => yes,
                         (Some(yes), EdgeBranch::Otherwise) => !yes,
                     });
-                let next: Vec<String> = next.map(|e| e.to.clone()).collect();
+                let next: Vec<(String, Option<String>)> =
+                    next.map(|e| (e.to.clone(), Some(e.id.clone()))).collect();
                 stack.extend(next.into_iter().rev());
             }
             Flow::Continue
@@ -821,6 +915,15 @@ impl Automation {
             } => self
                 .alerts
                 .enqueue_custom(&t(title), &t(message), image, sound, *duration_ms),
+            Step::PauseAlerts { state } => {
+                let paused = match state {
+                    Toggle::On => true,
+                    Toggle::Off => false,
+                    Toggle::Toggle => !self.alerts.queue_state().paused,
+                };
+                self.alerts.set_paused(paused);
+            }
+            Step::SkipAlert => self.alerts.skip(),
             Step::PlaySound { src, volume } => self.hub.to_overlays(
                 None,
                 OverlayMsg::PlaySound {
@@ -876,7 +979,13 @@ impl Automation {
                     return user_err("The action to run no longer exists.");
                 };
                 let other = other.normalized();
-                let first = other.graph.start_plan(None).first;
+                let first = other
+                    .graph
+                    .start_plan(None)
+                    .first
+                    .into_iter()
+                    .map(|id| (id, None))
+                    .collect();
                 run.depth += 1;
                 let flow = self.run_graph(&other.graph, first, run).await;
                 run.depth -= 1;
@@ -1013,6 +1122,8 @@ pub fn step_label(step: &Step) -> &'static str {
         Step::SaveReplay => "Save replay",
         Step::SetLayerVisible { .. } => "Show/hide overlay layer",
         Step::PlayAlert { .. } => "Play alert",
+        Step::PauseAlerts { .. } => "Pause alerts",
+        Step::SkipAlert => "Skip alert",
         Step::PlaySound { .. } => "Play sound",
         Step::HttpRequest { .. } => "Web request",
         Step::RunScript { .. } => "Run script",

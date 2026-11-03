@@ -48,6 +48,16 @@ Window effects are Windows only. Mica needs Windows 11, Acrylic works on Windows
 
 Castwright stores sign-ins in your system keyring. Install and unlock GNOME Keyring or KWallet. Without one, they're kept in a private file in the settings folder.
 
+## I broke my project. How do I go back?
+
+1. Open **Settings → Backups and data**.
+2. Find a backup from before the problem. The date and reason columns help.
+3. Click **Restore** and confirm.
+
+Your current project is backed up first, so if you picked the wrong one, restore the newest **Before restore** backup.
+
+Uploaded files aren't in backups. If you deleted one, add it again.
+
 ## Start fresh
 
 Close Castwright and delete its settings folder (shown in **Settings → About**). Your project folder isn't touched.

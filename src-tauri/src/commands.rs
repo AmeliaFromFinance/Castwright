@@ -9,8 +9,11 @@ use crate::model::event::{Event, EventKind};
 use crate::model::overlay::Overlay;
 use crate::model::project::Project;
 use crate::model::runtime::{LogEntry, OverlayMsg, QueueState, ServerInfo};
-use crate::model::settings::{AppearanceSettings, Settings, WindowEffect};
-use crate::store::project::{AssetInfo, SnapshotInfo};
+use crate::model::settings::{
+    AppearanceSettings, BackupSettings, GoLiveSettings, Settings, WindowEffect,
+};
+use crate::store::backup::{BackupInfo, BackupReason};
+use crate::store::project::AssetInfo;
 use serde_json::{Map, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -161,26 +164,73 @@ pub fn delete_asset(core: Ctx, name: String) -> AppResult<()> {
     core.project.delete_asset(&name)
 }
 
-#[tauri::command]
-pub fn list_snapshots(core: Ctx) -> Vec<SnapshotInfo> {
-    core.project.snapshots()
+/// Run blocking file work off the UI thread.
+async fn blocking<T: Send + 'static>(
+    core: &Arc<Core>,
+    f: impl FnOnce(&Core) -> AppResult<T> + Send + 'static,
+) -> AppResult<T> {
+    let c = core.clone();
+    tokio::task::spawn_blocking(move || f(&c))
+        .await
+        .map_err(|e| AppError::User(e.to_string()))?
 }
 
 #[tauri::command]
-pub fn create_snapshot(core: Ctx) -> AppResult<()> {
-    core.project.snapshot_now()
+pub async fn list_backups(core: Ctx<'_>) -> AppResult<Vec<BackupInfo>> {
+    blocking(&core, |c| Ok(c.backups.list())).await
+}
+
+/// None when nothing changed since the last backup.
+#[tauri::command]
+pub async fn create_backup(core: Ctx<'_>) -> AppResult<Option<BackupInfo>> {
+    blocking(&core, |c| c.backup(BackupReason::Manual)).await
 }
 
 #[tauri::command]
-pub fn restore_snapshot(core: Ctx, file: String) -> AppResult<Project> {
-    core.project.restore_snapshot(&file)?;
-    let p = core.project.get();
-    for o in &p.overlays {
-        core.hub
-            .to_overlays(Some(&o.id), OverlayMsg::Overlay { overlay: o.clone() });
-    }
-    core.hub.emit_ui(ui::PROJECT, &serde_json::json!({}));
-    Ok(p)
+pub async fn restore_backup(core: Ctx<'_>, file: String) -> AppResult<Project> {
+    blocking(&core, move |c| {
+        let path = c.backups.path_of(&file)?;
+        c.restore(&path, BackupReason::BeforeRestore)
+    })
+    .await
+}
+
+/// Restore from a `.cwbackup` or `project.json` anywhere on disk.
+#[tauri::command]
+pub async fn restore_backup_file(core: Ctx<'_>, path: String) -> AppResult<Project> {
+    blocking(&core, move |c| {
+        c.restore(&PathBuf::from(path), BackupReason::BeforeImport)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn delete_backup(core: Ctx<'_>, file: String) -> AppResult<()> {
+    blocking(&core, move |c| c.backups.delete(&file)).await
+}
+
+#[tauri::command]
+pub async fn export_backup(core: Ctx<'_>, file: String, path: String) -> AppResult<()> {
+    blocking(&core, move |c| {
+        c.backups.export(&file, &PathBuf::from(path))
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn save_backup_settings(
+    core: Ctx<'_>,
+    backups: BackupSettings,
+) -> AppResult<BackupSettings> {
+    let b = backups.clamped();
+    core.settings.update(|s| s.backups = b.clone())?;
+    let keep = b.clone();
+    blocking(&core, move |c| {
+        c.backups.prune(&keep);
+        Ok(())
+    })
+    .await?;
+    Ok(b)
 }
 
 #[tauri::command]
@@ -228,6 +278,16 @@ pub fn alert_clear(core: Ctx) {
 #[tauri::command]
 pub fn alert_replay(core: Ctx, event_id: String) -> AppResult<()> {
     core.alerts.replay(&event_id)
+}
+
+#[tauri::command]
+pub fn alert_replay_last(core: Ctx) -> AppResult<()> {
+    core.alerts.replay_last()
+}
+
+#[tauri::command]
+pub fn alert_mute(core: Ctx, muted: bool) -> AppResult<()> {
+    core.alerts.set_muted(muted)
 }
 
 /// Send a sample event through the whole app (alerts, automation, overlays).
@@ -713,6 +773,48 @@ pub async fn set_twitch_client_id(core: Ctx<'_>, client_id: String) -> AppResult
     Ok(())
 }
 
+const CHECKLIST_MAX: usize = 30;
+const CHECKLIST_LABEL_MAX: usize = 80;
+
+pub fn clean_golive(mut g: GoLiveSettings) -> AppResult<GoLiveSettings> {
+    g.items.retain(|i| !i.label.trim().is_empty());
+    if g.items.len() > CHECKLIST_MAX {
+        return user_err(format!("Keep the list to {CHECKLIST_MAX} items or fewer."));
+    }
+    let mut ids = std::collections::HashSet::new();
+    for item in &mut g.items {
+        item.label = item
+            .label
+            .trim()
+            .chars()
+            .take(CHECKLIST_LABEL_MAX)
+            .collect();
+        if item.id.trim().is_empty() || !ids.insert(item.id.clone()) {
+            item.id = crate::util::new_id();
+            ids.insert(item.id.clone());
+        }
+    }
+    Ok(g)
+}
+
+#[tauri::command]
+pub fn save_golive(core: Ctx, golive: GoLiveSettings) -> AppResult<GoLiveSettings> {
+    let g = clean_golive(golive)?;
+    core.settings.update(|s| s.golive = g.clone())?;
+    Ok(g)
+}
+
+#[tauri::command]
+pub async fn golive_check(core: Ctx<'_>) -> AppResult<Vec<crate::golive::Check>> {
+    let input = crate::golive::gather(&core).await;
+    Ok(crate::golive::evaluate(&input))
+}
+
+#[tauri::command]
+pub async fn golive_fix(core: Ctx<'_>, fix: crate::golive::CheckFix) -> AppResult<()> {
+    crate::golive::fix(&core, fix).await
+}
+
 #[derive(serde::Serialize, ts_rs::TS)]
 #[ts(export)]
 pub struct AppInfo {
@@ -720,6 +822,7 @@ pub struct AppInfo {
     pub os: String,
     pub project_dir: String,
     pub config_dir: String,
+    pub backup_dir: String,
     pub secrets_in_file: bool,
     pub built_in_client_id: bool,
 }
@@ -731,6 +834,7 @@ pub fn app_info(core: Ctx) -> AppInfo {
         os: std::env::consts::OS.to_string(),
         project_dir: core.project_dir().to_string_lossy().into_owned(),
         config_dir: core.paths.config_dir.to_string_lossy().into_owned(),
+        backup_dir: core.backups.dir().to_string_lossy().into_owned(),
         secrets_in_file: core.secrets.using_file(),
         built_in_client_id: option_env!("CASTWRIGHT_TWITCH_CLIENT_ID")
             .is_some_and(|s| !s.is_empty()),
@@ -760,6 +864,35 @@ mod tests {
         assert_eq!(format_rfc3339(0), "1970-01-01T00:00:00Z");
         assert_eq!(format_rfc3339(1_793_522_947_000), "2026-11-01T08:49:07Z");
         assert_eq!(format_rfc3339(951_782_400_000), "2000-02-29T00:00:00Z");
+    }
+
+    #[test]
+    fn checklist_is_cleaned() {
+        use crate::model::settings::ChecklistItem;
+        let item = |id: &str, label: &str| ChecklistItem {
+            id: id.into(),
+            label: label.into(),
+        };
+        let g = clean_golive(GoLiveSettings {
+            open_on_live: false,
+            items: vec![
+                item("a", "  Mic on "),
+                item("", "Water"),
+                item("a", "Cam"),
+                item("b", "  "),
+            ],
+        })
+        .unwrap();
+        let labels: Vec<_> = g.items.iter().map(|i| i.label.as_str()).collect();
+        assert_eq!(labels, ["Mic on", "Water", "Cam"]);
+        assert_eq!(g.items[0].id, "a");
+        assert!(!g.items[1].id.is_empty());
+        assert_ne!(g.items[2].id, "a", "duplicate ids are replaced");
+        let too_many = GoLiveSettings {
+            open_on_live: true,
+            items: (0..31).map(|n| item("", &n.to_string())).collect(),
+        };
+        assert!(clean_golive(too_many).is_err());
     }
 
     #[test]

@@ -20,6 +20,7 @@ Drag the dividers to resize any column.
 Nodes can sit anywhere. Lines can go from any side of a node to any side of another, and many lines can leave or arrive at the same side.
 
 - **Move a node**: drag it. With **Snap** on it lines up with the grid; hold <kbd>Alt</kbd> to place it freely.
+- **Drag past the edge**: while you drag a node, a line or a selection box, hold the pointer near the edge of the canvas and the view scrolls. The closer to the edge, the faster. <kbd>Esc</kbd> stops.
 - **Connect two nodes**: hover a node, drag from one of the dots on its sides and drop on another node.
 - **Add a step**: double-click empty space, use the bar at the bottom (with a node selected, the new step goes under it and is connected), or drag a line from a dot and let go on empty space.
 - **Edit**: click a node. Its settings open beside the flow.
@@ -39,9 +40,27 @@ A dashed node with **Not connected** can't run because no trigger leads to it. T
 | <kbd>Ctrl</kbd> + <kbd>A</kbd> | Select every node |
 | Arrow keys | Nudge the selected nodes (<kbd>Shift</kbd> for a grid step) |
 | <kbd>Enter</kbd> / <kbd>Esc</kbd> | Open or close the settings; <kbd>Esc</kbd> again clears the selection |
+| <kbd>Esc</kbd> while dragging | Stop where you are (a line being drawn is dropped) |
+| <kbd>Esc</kbd> on a past run | Back to the latest run |
 | <kbd>F</kbd> | Fit the whole flow in view |
 | <kbd>Space</kbd> + drag | Move around (so does the middle mouse button) |
 | <kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> | Undo and redo |
+
+## Watch a run
+
+While an action runs (from **Test** or a real trigger), the flow follows along:
+
+- The node that's running has a glowing outline. A **Wait** stays like that until it's done.
+- Each line the run takes lights up in the accent colour and stays lit.
+- When it's done, every node shows its result.
+
+**Runs** next to the result at the top left lists the last 10 runs of the action. Pick one to see what it did:
+
+- The lines it took are lit and each node shows its result.
+- The arrows step through the run one node at a time. The current node has an outline.
+- **Live** or <kbd>Esc</kbd> goes back to the latest run.
+
+The run list is kept until Castwright closes. With reduced motion on, nothing pulses; the running node just has a steady outline.
 
 ## Start an action
 

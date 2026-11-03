@@ -45,6 +45,16 @@ Requests from other web pages are refused, so a website you visit can't run your
 | `403` | Missing or wrong secret. Copy the link again. |
 | `404` | No action with that ID. |
 
+## Alert buttons
+
+Pause, skip, replay or mute alerts without an action. Send a **POST** to:
+
+```
+http://127.0.0.1:7470/api/alerts/toggle-pause?token=YOUR_SECRET
+```
+
+Swap `toggle-pause` for `skip`, `replay` or `toggle-mute`. See [Alert controls](/reference/http-api/#alert-controls) for the full list.
+
 ## From another device
 
 Turn on **Settings → Overlay server → Allow other devices**. Links then use your computer's network address (for example `192.168.1.20`) instead of `127.0.0.1`. Copy them again after turning it on.

@@ -68,7 +68,7 @@ class AppState {
   obs = $state<ObsSnapshot>(emptyObs());
   levels = $state<Record<string, number[]>>({});
   twitch = $state<TwitchStatus | null>(null);
-  queue = $state<QueueState>({ paused: false, playing: null, waiting: [] });
+  queue = $state<QueueState>({ paused: false, muted: false, playing: null, waiting: [], last: null });
   vars = $state<Vars>({});
   chat = $state<Event[]>([]);
   feed = $state<Event[]>([]);

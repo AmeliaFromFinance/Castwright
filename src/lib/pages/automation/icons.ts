@@ -1,5 +1,6 @@
 import {
   Bell,
+  BellOff,
   Bookmark,
   Braces,
   Clapperboard,
@@ -22,6 +23,7 @@ import {
   Repeat,
   Scissors,
   ScrollText,
+  SkipForward,
   Split,
   Sparkles,
   Tv,
@@ -56,6 +58,8 @@ export const STEP_ICONS: Record<StepType, Icon> = {
   save_replay: Repeat,
   set_layer_visible: Layers,
   play_alert: Bell,
+  pause_alerts: BellOff,
+  skip_alert: SkipForward,
   play_sound: Volume2,
   http_request: Globe,
   run_script: Code,

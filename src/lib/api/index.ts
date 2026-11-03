@@ -3,15 +3,21 @@ import { isTauri } from './backend';
 import type { AccountRole } from '$lib/bindings/AccountRole';
 import type { Action } from '$lib/bindings/Action';
 import type { ActionRun } from '$lib/bindings/ActionRun';
+import type { RunProgress } from '$lib/bindings/RunProgress';
 import type { AlertConfig } from '$lib/bindings/AlertConfig';
 import type { AppearanceSettings } from '$lib/bindings/AppearanceSettings';
 import type { AppInfo } from '$lib/bindings/AppInfo';
 import type { AssetInfo } from '$lib/bindings/AssetInfo';
 import type { AudioLevel } from '$lib/bindings/AudioLevel';
+import type { BackupInfo } from '$lib/bindings/BackupInfo';
+import type { BackupSettings } from '$lib/bindings/BackupSettings';
 import type { Category } from '$lib/bindings/Category';
+import type { Check } from '$lib/bindings/Check';
+import type { CheckFix } from '$lib/bindings/CheckFix';
 import type { DeviceLogin } from '$lib/bindings/DeviceLogin';
 import type { Event } from '$lib/bindings/Event';
 import type { EventKind } from '$lib/bindings/EventKind';
+import type { GoLiveSettings } from '$lib/bindings/GoLiveSettings';
 import type { LogEntry } from '$lib/bindings/LogEntry';
 import type { ObsSnapshot } from '$lib/bindings/ObsSnapshot';
 import type { Overlay } from '$lib/bindings/Overlay';
@@ -19,7 +25,6 @@ import type { Project } from '$lib/bindings/Project';
 import type { QueueState } from '$lib/bindings/QueueState';
 import type { ServerInfo } from '$lib/bindings/ServerInfo';
 import type { Settings } from '$lib/bindings/Settings';
-import type { SnapshotInfo } from '$lib/bindings/SnapshotInfo';
 import type { TwitchStatus } from '$lib/bindings/TwitchStatus';
 import type { WindowEffect } from '$lib/bindings/WindowEffect';
 
@@ -63,7 +68,8 @@ export const events = {
   project: 'cw://project',
   server: 'cw://server',
   chatDelete: 'cw://chat-delete',
-  actionRun: 'cw://action-run'
+  actionRun: 'cw://action-run',
+  actionProgress: 'cw://action-progress'
 } as const;
 
 export interface PushPayloads {
@@ -78,6 +84,7 @@ export interface PushPayloads {
   'cw://server': ServerInfo;
   'cw://chat-delete': { message_id?: string; user_id?: string; all?: boolean };
   'cw://action-run': ActionRun;
+  'cw://action-progress': RunProgress;
 }
 
 export function on<K extends keyof PushPayloads>(name: K, cb: (p: PushPayloads[K]) => void): Promise<Unlisten> {
@@ -101,9 +108,17 @@ export const api = {
   listAssets: () => call<AssetInfo[]>('list_assets'),
   importAssets: (paths: string[]) => call<AssetInfo[]>('import_assets', { paths }),
   deleteAsset: (name: string) => call<void>('delete_asset', { name }),
-  listSnapshots: () => call<SnapshotInfo[]>('list_snapshots'),
-  createSnapshot: () => call<void>('create_snapshot'),
-  restoreSnapshot: (file: string) => call<Project>('restore_snapshot', { file }),
+
+  // backups
+  listBackups: () => call<BackupInfo[]>('list_backups'),
+  /** Null when nothing changed since the last backup. */
+  createBackup: () => call<BackupInfo | null>('create_backup'),
+  restoreBackup: (file: string) => call<Project>('restore_backup', { file }),
+  restoreBackupFile: (path: string) => call<Project>('restore_backup_file', { path }),
+  deleteBackup: (file: string) => call<void>('delete_backup', { file }),
+  exportBackup: (file: string, path: string) => call<void>('export_backup', { file, path }),
+  saveBackupSettings: (backups: BackupSettings) => call<BackupSettings>('save_backup_settings', { backups }),
+
   projectDir: () => call<string>('project_dir'),
   setProjectDir: (dir: string) => call<void>('set_project_dir', { dir }),
 
@@ -114,6 +129,8 @@ export const api = {
   alertRemove: (id: string) => call<void>('alert_remove', { id }),
   alertClear: () => call<void>('alert_clear'),
   alertReplay: (eventId: string) => call<void>('alert_replay', { eventId }),
+  alertReplayLast: () => call<void>('alert_replay_last'),
+  alertMute: (muted: boolean) => call<void>('alert_mute', { muted }),
   testEvent: (kind: EventKind) => call<void>('test_event', { kind }),
 
   // automation
@@ -146,6 +163,11 @@ export const api = {
   setTwitchClientId: (clientId: string) => call<void>('set_twitch_client_id', { clientId }),
   appInfo: () => call<AppInfo>('app_info'),
   setWindowEffect: (effect: WindowEffect, dark: boolean) => call<WindowEffect>('set_window_effect', { effect, dark }),
+  saveGoLive: (golive: GoLiveSettings) => call<GoLiveSettings>('save_golive', { golive }),
+
+  // go-live check
+  goLiveCheck: () => call<Check[]>('golive_check'),
+  goLiveFix: (fix: CheckFix) => call<void>('golive_fix', { fix }),
 
   // twitch
   twitchStatus: () => call<TwitchStatus>('twitch_status'),

@@ -43,6 +43,12 @@ const LEVELS_GAP: Duration = Duration::from_millis(45);
 const EVENT_BUFFER: usize = 1024;
 const SCREENSHOT_QUALITY: u32 = 70;
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct BrowserSource {
+    pub name: String,
+    pub url: String,
+}
+
 pub struct ObsService {
     hub: Arc<Hub>,
     secrets: Arc<Secrets>,
@@ -878,6 +884,57 @@ impl ObsService {
             None if !data.is_empty() => Ok(format!("data:image/jpeg;base64,{data}")),
             None => Err(AppError::Obs("sent an empty screenshot.".into())),
         }
+    }
+
+    /// Every browser source in OBS with its URL, asked for in parallel.
+    pub async fn browser_sources(&self) -> AppResult<Vec<BrowserSource>> {
+        let c = self.client()?;
+        let v = call(&c, "GetInputList", json!({ "inputKind": "browser_source" })).await?;
+        let names: Vec<String> = v["inputs"]
+            .as_array()
+            .map(|a| a.iter().map(|i| str_of(i, "inputName")).collect())
+            .unwrap_or_default();
+        let found = join_all(names.into_iter().map(|name| {
+            let c = c.clone();
+            async move {
+                let s = c
+                    .request("GetInputSettings", json!({ "inputName": name }))
+                    .await
+                    .ok()?;
+                Some(BrowserSource {
+                    url: str_of(&s["inputSettings"], "url"),
+                    name,
+                })
+            }
+        }))
+        .await;
+        Ok(found.into_iter().flatten().collect())
+    }
+
+    /// Free space where OBS saves recordings, in MB.
+    pub async fn disk_free_mb(&self) -> AppResult<f64> {
+        let v = self.run("GetStats", Value::Null).await?;
+        Ok(num_of(&v, "availableDiskSpace"))
+    }
+
+    /// Point a browser source at a new address. OBS reloads it.
+    pub async fn set_browser_url(&self, input: &str, url: &str) -> AppResult<()> {
+        self.run(
+            "SetInputSettings",
+            json!({ "inputName": input, "inputSettings": { "url": url }, "overlay": true }),
+        )
+        .await
+        .map(drop)
+    }
+
+    /// Same as "Refresh cache of current page" in the source properties.
+    pub async fn reload_browser(&self, input: &str) -> AppResult<()> {
+        self.run(
+            "PressInputPropertiesButton",
+            json!({ "inputName": input, "propertyName": "refreshnocache" }),
+        )
+        .await
+        .map(drop)
     }
 
     /// Adds an overlay as a browser source covering the canvas, or updates the one

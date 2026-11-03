@@ -9,6 +9,7 @@ use crate::model::alert::{AlertConfig, AlertSettings, Variation};
 use crate::model::event::{Event, EventKind};
 use crate::model::runtime::{AlertPlay, LogLevel, OverlayMsg, QueueState};
 use crate::store::project::ProjectStore;
+use crate::store::settings::SettingsStore;
 use crate::template::render;
 use serde_json::{Map, Value};
 use std::sync::{Arc, Mutex};
@@ -32,6 +33,8 @@ pub struct AlertEngine {
     skip: Notify,
     played: broadcast::Sender<Played>,
     pending_actions: Mutex<Vec<(String, Option<String>)>>,
+    /// Where mute is saved. None in tests.
+    settings: Mutex<Option<Arc<SettingsStore>>>,
 }
 
 impl AlertEngine {
@@ -45,7 +48,14 @@ impl AlertEngine {
             skip: Notify::new(),
             played,
             pending_actions: Mutex::new(Vec::new()),
+            settings: Mutex::new(None),
         })
+    }
+
+    /// Load the saved mute and save it again whenever it changes.
+    pub fn use_settings(&self, settings: Arc<SettingsStore>) {
+        self.state.lock().unwrap().muted = settings.get().alerts_muted;
+        *self.settings.lock().unwrap() = Some(settings);
     }
 
     pub fn start(self: &Arc<Self>) {
@@ -172,6 +182,27 @@ impl AlertEngine {
         }
     }
 
+    pub fn set_muted(&self, muted: bool) -> crate::error::AppResult<()> {
+        self.state.lock().unwrap().muted = muted;
+        let settings = self.settings.lock().unwrap().clone();
+        if let Some(s) = settings {
+            s.update(|s| s.alerts_muted = muted)?;
+        }
+        self.emit_state();
+        Ok(())
+    }
+
+    /// Queue the last played alert again. Its action doesn't run a second time.
+    pub fn replay_last(&self) -> crate::error::AppResult<()> {
+        let Some(mut play) = self.state.lock().unwrap().last.clone() else {
+            return crate::error::user_err("No alert has played yet.");
+        };
+        play.id = crate::util::new_id();
+        let max = self.project.read(|p| p.alerts.settings.max_queue);
+        self.enqueue(play, None, max);
+        Ok(())
+    }
+
     /// End the alert on screen now.
     pub fn skip(&self) {
         if self.state.lock().unwrap().playing.is_some() {
@@ -206,7 +237,8 @@ impl AlertEngine {
         }
         let play = st.waiting.remove(0);
         st.playing = Some(play.clone());
-        Some(play)
+        st.last = Some(play.clone());
+        Some(if st.muted { silenced(play) } else { play })
     }
 
     async fn player(self: Arc<Self>) {
@@ -245,6 +277,13 @@ impl AlertEngine {
             tokio::time::sleep(Duration::from_millis(gap as u64)).await;
         }
     }
+}
+
+fn silenced(mut play: AlertPlay) -> AlertPlay {
+    play.sound.clear();
+    play.volume = 0;
+    play.tts = false;
+    play
 }
 
 /// Event fields plus every variable; event fields win on a clash.
@@ -620,6 +659,93 @@ mod tests {
             engine.queue_state().playing.is_some(),
             "second alert still playing"
         );
+    }
+
+    fn engine() -> (Arc<AlertEngine>, Arc<Hub>, tempfile::TempDir) {
+        let dir = tempfile::tempdir().unwrap();
+        let (store, _) = ProjectStore::open(dir.path()).unwrap();
+        let hub = Hub::test();
+        (AlertEngine::new(hub.clone(), Arc::new(store)), hub, dir)
+    }
+
+    async fn next_play(ov: &mut broadcast::Receiver<crate::hub::OverlayOut>) -> AlertPlay {
+        loop {
+            if let OverlayMsg::AlertPlay { play } = ov.recv().await.unwrap().msg {
+                return play;
+            }
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn pause_lets_the_current_alert_finish_and_holds_the_rest() {
+        let (engine, hub, _dir) = engine();
+        let mut ov = hub.subscribe_overlays();
+        engine.start();
+        engine.handle_event(&sub(3));
+        engine.handle_event(&sub(1));
+        let first = next_play(&mut ov).await;
+        assert_eq!(first.title, "Nova is a legend!");
+        engine.set_paused(true);
+        tokio::time::sleep(Duration::from_secs(60)).await;
+        let st = engine.queue_state();
+        assert!(st.playing.is_none(), "first alert finished");
+        assert_eq!(st.waiting.len(), 1, "second alert waits");
+        while let Ok(out) = ov.try_recv() {
+            assert!(!matches!(out.msg, OverlayMsg::AlertPlay { .. }));
+        }
+        engine.set_paused(false);
+        assert_eq!(next_play(&mut ov).await.title, "Nova subscribed!");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn mute_silences_alerts_until_turned_off() {
+        let (engine, hub, _dir) = engine();
+        let mut ov = hub.subscribe_overlays();
+        engine.start();
+        engine.set_muted(true).unwrap();
+        assert!(engine.queue_state().muted);
+        engine.enqueue_custom("quiet", "", "", "assets/ding.mp3", 1000);
+        let p = next_play(&mut ov).await;
+        assert_eq!((p.sound.as_str(), p.volume, p.tts), ("", 0, false));
+        assert_eq!(
+            engine.queue_state().last.unwrap().sound,
+            "assets/ding.mp3",
+            "replay keeps the real sound"
+        );
+        engine.set_muted(false).unwrap();
+        engine.enqueue_custom("loud", "", "", "assets/ding.mp3", 1000);
+        let p = next_play(&mut ov).await;
+        assert_eq!(p.sound, "assets/ding.mp3");
+        assert!(p.volume > 0);
+    }
+
+    #[test]
+    fn mute_is_saved_and_pause_is_not() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("settings.json");
+        let (first, _, _d) = engine();
+        first.use_settings(Arc::new(SettingsStore::open(file.clone())));
+        first.set_muted(true).unwrap();
+        first.set_paused(true);
+        let (after_restart, _, _d2) = engine();
+        after_restart.use_settings(Arc::new(SettingsStore::open(file)));
+        let st = after_restart.queue_state();
+        assert!(st.muted);
+        assert!(!st.paused);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn replay_last_queues_the_last_alert_again() {
+        let (engine, hub, _dir) = engine();
+        let mut ov = hub.subscribe_overlays();
+        assert!(engine.replay_last().is_err(), "nothing played yet");
+        engine.start();
+        engine.handle_event(&sub(1));
+        let first = next_play(&mut ov).await;
+        engine.replay_last().unwrap();
+        let again = next_play(&mut ov).await;
+        assert_eq!(again.title, first.title);
+        assert_ne!(again.id, first.id);
     }
 
     #[test]

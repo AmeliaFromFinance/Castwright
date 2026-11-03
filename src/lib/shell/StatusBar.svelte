@@ -3,6 +3,16 @@
   import { updates } from '$lib/state/updates.svelte';
   import { openExternal } from '$lib/util/os';
   import { count, duration } from '$lib/format';
+  import { golive } from '$lib/state/golive.svelte';
+  import { ListChecks } from '@lucide/svelte';
+  import AlertControl from './AlertControl.svelte';
+  import { tally } from './golive';
+
+  const checkTone = $derived.by(() => {
+    if (!golive.checks) return null;
+    const t = tally(golive.checks);
+    return t.fail ? 'bad' : t.warn ? 'warn' : 'ok';
+  });
 
   const obs = $derived(app.obs);
   const tw = $derived(app.twitch);
@@ -35,22 +45,27 @@
 </script>
 
 <footer class="status" aria-label="Status">
-  <button type="button" class="item link" title="OBS settings" onclick={() => openSettings('obs')}><i class="dot {tone(obs.state)}"></i>{obsLabel}</button>
-  <button type="button" class="item link" title="Twitch settings" onclick={() => openSettings('twitch')}
-    ><i class="dot {tw?.broadcaster ? tone(tw.eventsub) : 'off'}"></i>{twLabel}</button
-  >
-  {#if live}
-    <span class="item"><i class="dot live"></i>Live <span class="mono">{duration(obs.stream.duration_ms)}</span></span>
-  {/if}
-  {#if obs.state === 'connected'}
-    <span class="item">CPU <span class="mono">{obs.stats.cpu_percent.toFixed(1)}%</span></span>
-    <span class="item">FPS <span class="mono">{obs.stats.active_fps.toFixed(0)}</span></span>
+  <div class="left">
+    <button type="button" class="item link" title="OBS settings" onclick={() => openSettings('obs')}><i class="dot {tone(obs.state)}"></i>{obsLabel}</button>
+    <button type="button" class="item link" title="Twitch settings" onclick={() => openSettings('twitch')}
+      ><i class="dot {tw?.broadcaster ? tone(tw.eventsub) : 'off'}"></i>{twLabel}</button
+    >
     {#if live}
-      <span class="item">Bitrate <span class="mono">{count(obs.stats.stream_kbps)} kb/s</span></span>
-      <span class="item" class:warn={obs.stats.stream_dropped_percent > 1}>Dropped <span class="mono">{obs.stats.stream_dropped_percent.toFixed(1)}%</span></span>
+      <span class="item"><i class="dot live"></i>Live <span class="mono">{duration(obs.stream.duration_ms)}</span></span>
     {/if}
-  {/if}
-  <span class="grow"></span>
+    {#if obs.state === 'connected'}
+      <span class="item">CPU <span class="mono">{obs.stats.cpu_percent.toFixed(1)}%</span></span>
+      <span class="item">FPS <span class="mono">{obs.stats.active_fps.toFixed(0)}</span></span>
+      {#if live}
+        <span class="item">Bitrate <span class="mono">{count(obs.stats.stream_kbps)} kb/s</span></span>
+        <span class="item" class:warn={obs.stats.stream_dropped_percent > 1}>Dropped <span class="mono">{obs.stats.stream_dropped_percent.toFixed(1)}%</span></span>
+      {/if}
+    {/if}
+  </div>
+  <button type="button" class="item link" title="Run the go-live check" onclick={() => golive.show()}>
+    {#if checkTone}<i class="dot {checkTone}"></i>{:else}<ListChecks size={12} />{/if}Go-live check
+  </button>
+  <AlertControl />
   {#if app.server}
     <button type="button" class="item link" title={app.server.error ?? 'Overlay server settings'} onclick={() => openSettings('server')}>
       <i class="dot {app.server.running ? 'ok' : 'bad'}"></i>Overlay server
@@ -77,8 +92,18 @@
     background: color-mix(in srgb, var(--bg-1) 80%, transparent);
     font-size: 11.5px;
     color: var(--text-muted);
-    overflow: hidden;
     white-space: nowrap;
+  }
+  .left {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    overflow: hidden;
+    /* Room for the hover background of the first link. */
+    padding-left: 4px;
+    margin-left: -4px;
   }
   .item {
     display: inline-flex;

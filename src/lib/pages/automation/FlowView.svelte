@@ -14,7 +14,9 @@
   import { toasts } from '$lib/state/toast.svelte';
   import IconButton from '$lib/ui/IconButton.svelte';
   import ResizeHandle from '$lib/ui/ResizeHandle.svelte';
-  import { Grid3x3, Maximize, Minus, Plus, Sparkles, Zap } from '@lucide/svelte';
+  import { ChevronLeft, ChevronRight, Grid3x3, History, Maximize, Minus, Plus, Sparkles, Zap } from '@lucide/svelte';
+  import Menu from '$lib/editors/Menu.svelte';
+  import { clock } from '$lib/format';
   import { STEP_GROUPS, STEP_LABELS, STEP_MENU, TRIGGER_LABELS, TRIGGER_MENU, newStep, newTrigger, type StepType, type TriggerType } from './defaults';
   import { describeStep, describeTrigger, every, tokensForAction } from './describe';
   import {
@@ -54,10 +56,11 @@
   import { GROUP_ICONS, STEP_ICONS, TRIGGER_ICONS, stepTone } from './icons';
   import Inspector from './Inspector.svelte';
   import Minimap from './Minimap.svelte';
-  import { runStatus } from './runstatus';
+  import type { NodeStatus } from './runstatus';
   import StepPicker from './StepPicker.svelte';
   import { actionsEditor as ed, flow, runLog } from './store.svelte';
-  import { centerOn, fitView, toScreen, toWorld, visibleRect, zoomAt, type View } from './view';
+  import { traceView } from './trace';
+  import { centerOn, edgePan, fitView, toScreen, toWorld, visibleRect, zoomAt, type View } from './view';
 
   interface Props {
     action: Action;
@@ -96,36 +99,53 @@
   const ctx = $derived({ actions: ed.actions ?? [], overlays: app.project?.overlays ?? [] });
   const selected = $derived(new Set(flow.selected));
 
-  // Results of the latest run, revealed node by node in the order they ran.
+  // Run trace: the latest run, live while it runs, or a past run picked from the history.
+  const live = $derived(runLog.live[action.id]);
+  const past = $derived(runLog.history[action.id] ?? []);
   const lastRun = $derived(runLog.last[action.id]);
-  const status = $derived(lastRun ? runStatus(lastRun) : new Map());
-  const order = $derived([...status.keys()]);
-  const running = $derived(flow.testing?.actionId === action.id);
-  let revealed = $state(Infinity);
-  let seenSeq = -1;
+  let picked = $state<number | null>(null);
+  let stepAt = $state(0);
+  const replay = $derived(picked === null ? null : (past.find((t) => t.runId === picked) ?? null));
+  const inProgress = $derived(!!live && !live.run);
+  const running = $derived(flow.testing?.actionId === action.id || inProgress);
+  const trace = $derived(traceView(replay ?? live, replay ? stepAt : undefined));
 
-  $effect(() => {
-    const seq = lastRun?.seq ?? 0;
-    if (seenSeq === -1 || seq === seenSeq) {
-      seenSeq = seq;
-      return;
-    }
-    seenSeq = seq;
-    revealed = 0;
-    const timer = setInterval(() => {
-      revealed++;
-      if (revealed >= order.length) {
-        revealed = Infinity;
-        clearInterval(timer);
-      }
-    }, 70);
-    return () => clearInterval(timer);
-  });
-
-  const statusOf = (id: string) => {
-    const i = order.indexOf(id);
-    return i >= 0 && i < revealed ? status.get(id) : undefined;
+  const statusOf = (id: string): NodeStatus | undefined => {
+    const s = trace.nodes.get(id);
+    return s && s.state !== 'running' ? { state: s.state, errors: s.errors } : undefined;
   };
+
+  function pickRun(id: string) {
+    const t = past.find((x) => x.runId === Number(id));
+    if (!t) return;
+    picked = t.runId;
+    stepAt = t.steps.length - 1;
+  }
+
+  function stepTo(i: number) {
+    if (!replay) return;
+    stepAt = Math.max(0, Math.min(replay.steps.length - 1, i));
+    const id = replay.steps[stepAt]?.node;
+    if (id) reveal(id);
+  }
+
+  function leaveReplay() {
+    picked = null;
+  }
+
+  const runItems = $derived([
+    {
+      items: past.map((t) => ({
+        value: String(t.runId),
+        label: `${clock(t.run!.ts)} · ${t.run!.ok ? 'Worked' : `${t.run!.errors.length} error${t.run!.errors.length === 1 ? '' : 's'}`}`,
+        hint: `${t.steps.length} step${t.steps.length === 1 ? '' : 's'} · ${t.run!.duration_ms} ms · ${t.run!.trigger}`
+      }))
+    }
+  ]);
+  const currentTitle = $derived.by(() => {
+    const n = trace.current ? nodeById(g, trace.current) : undefined;
+    return n ? nodeProps(n).title : '';
+  });
 
   // Drop selections of nodes and lines that are gone (after undo, for example).
   $effect(() => {
@@ -143,8 +163,9 @@
       const b = rects.get(e.to);
       if (!a || !b) return [];
       const c = edgeCurve(a, e.from_side, b, e.to_side);
-      const ran = !!statusOf(e.from) && statusOf(e.from)?.state !== 'skipped' && !!statusOf(e.to) && statusOf(e.to)?.state !== 'skipped';
-      return [{ e, d: pathOf(c), tip: anchor(b, e.to_side), mid: pointAt(c, 0.5), fromIf: isIf(nodeById(g, e.from)), ran }];
+      const ran = trace.edges.has(e.id);
+      const fresh = ran && !replay && inProgress && trace.latest === e.id;
+      return [{ e, d: pathOf(c), tip: anchor(b, e.to_side), mid: pointAt(c, 0.5), fromIf: isIf(nodeById(g, e.from)), ran, fresh }];
     })
   );
   const BRANCH_TEXT = { then: 'Then', otherwise: 'Otherwise', next: 'Always' } as const;
@@ -153,14 +174,18 @@
 
   type Gesture =
     | { kind: 'pan'; start: Point; from: View; moved: boolean; clear: boolean }
-    | { kind: 'box'; a: Point; b: Point; base: string[] }
-    | { kind: 'drag'; id: string; start: Point; origin: Map<string, Point>; moved: boolean; toggle: boolean; additive: boolean }
-    | { kind: 'connect'; from: string; side: EdgeSide; p: Point; target: { id: string; side: EdgeSide } | null };
+    | { kind: 'box'; start: Point; a: Point; b: Point; base: string[]; moved: boolean }
+    | { kind: 'drag'; id: string; start: Point; from: Point; origin: Map<string, Point>; moved: boolean; toggle: boolean; additive: boolean }
+    | { kind: 'connect'; start: Point; from: string; side: EdgeSide; p: Point; target: { id: string; side: EdgeSide } | null; moved: boolean };
 
   let gesture = $state<Gesture | null>(null);
   let space = $state(false);
   /** Last pointer position on the canvas, in world units; where Ctrl+V pastes. */
   let pointer: Point | null = null;
+  /** Latest pointer during a gesture, in canvas pixels, for panning at the edges. */
+  let last: { p: Point; alt: boolean; id: number } | null = null;
+  let edgeFrame = 0;
+  let edgeTime = 0;
 
   function local(e: { clientX: number; clientY: number }): Point {
     const r = viewport!.getBoundingClientRect();
@@ -185,7 +210,7 @@
     const handle = t.closest<HTMLElement>('[data-handle]');
     if (wrap && handle) {
       const from = wrap.dataset.nodeWrap!;
-      gesture = { kind: 'connect', from, side: handle.dataset.handle as EdgeSide, p: toWorld(view, p), target: null };
+      gesture = { kind: 'connect', start: p, from, side: handle.dataset.handle as EdgeSide, p: toWorld(view, p), target: null, moved: false };
       viewport!.setPointerCapture(e.pointerId);
       e.preventDefault();
       return;
@@ -199,7 +224,7 @@
         else flow.select([...flow.selected, id], false);
       } else if (!selected.has(id)) flow.select([id]);
       const origin = new Map(g.nodes.filter((n) => flow.selected.includes(n.id)).map((n) => [n.id, { x: n.x, y: n.y }]));
-      gesture = { kind: 'drag', id, start: p, origin, moved: false, toggle, additive };
+      gesture = { kind: 'drag', id, start: p, from: toWorld(view, p), origin, moved: false, toggle, additive };
       viewport!.setPointerCapture(e.pointerId);
       return;
     }
@@ -211,7 +236,7 @@
       return;
     }
     viewport!.focus({ preventScroll: true });
-    if (e.shiftKey) gesture = { kind: 'box', a: p, b: p, base: e.ctrlKey || e.metaKey || e.shiftKey ? [...flow.selected] : [] };
+    if (e.shiftKey) gesture = { kind: 'box', start: p, a: toWorld(view, p), b: p, base: [...flow.selected], moved: false };
     else gesture = { kind: 'pan', start: p, from: { ...view }, moved: false, clear: true };
     viewport!.setPointerCapture(e.pointerId);
     e.preventDefault();
@@ -220,24 +245,39 @@
   function move(e: PointerEvent) {
     const p = local(e);
     pointer = toWorld(view, p);
+    if (!gesture) return;
+    last = { p, alt: e.altKey, id: e.pointerId };
+    apply(p, e.altKey);
+    if (!edgeFrame && edgeArmed()) {
+      edgeTime = 0;
+      edgeFrame = requestAnimationFrame(edgeTick);
+    }
+  }
+
+  /** Update the gesture for the pointer at `p` (canvas pixels) and the current view. */
+  function apply(p: Point, alt: boolean) {
     const gs = gesture;
     if (!gs) return;
+    const w = toWorld(view, p);
+    const far = (a: Point, n: number) => Math.hypot(p.x - a.x, p.y - a.y) >= n;
     if (gs.kind === 'pan') {
       const dx = p.x - gs.start.x;
       const dy = p.y - gs.start.y;
-      if (!gs.moved && Math.hypot(dx, dy) < 3) return;
+      if (!gs.moved && !far(gs.start, 3)) return;
       gs.moved = true;
       view = { ...gs.from, x: gs.from.x + dx, y: gs.from.y + dy };
     } else if (gs.kind === 'box') {
-      gs.b = p;
-      const box = rectFrom(toWorld(view, gs.a), toWorld(view, p));
-      flow.select([...new Set([...gs.base, ...inBox(g, sizes, box)])], false);
-    } else if (gs.kind === 'drag') {
-      const dx = (p.x - gs.start.x) / view.zoom;
-      const dy = (p.y - gs.start.y) / view.zoom;
-      if (!gs.moved && Math.hypot(dx * view.zoom, dy * view.zoom) < 4) return;
+      if (!gs.moved && !far(gs.start, 3)) return;
       gs.moved = true;
-      const grid = flow.snap && !e.altKey;
+      gs.b = p;
+      flow.select([...new Set([...gs.base, ...inBox(g, sizes, rectFrom(gs.a, w))])], false);
+    } else if (gs.kind === 'drag') {
+      if (!gs.moved && !far(gs.start, 4)) return;
+      gs.moved = true;
+      // Measured in the world, so the nodes stay under the pointer while the view pans.
+      const dx = w.x - gs.from.x;
+      const dy = w.y - gs.from.y;
+      const grid = flow.snap && !alt;
       const to = new Map([...gs.origin].map(([id, o]) => [id, { x: grid ? snap(o.x + dx) : o.x + dx, y: grid ? snap(o.y + dy) : o.y + dy }]));
       ed.updateGraph(
         action.id,
@@ -252,12 +292,37 @@
         Infinity
       );
     } else {
-      gs.p = pointer;
-      gs.target = dropTarget(g, sizes, pointer, 18 / view.zoom, gs.from);
+      if (!gs.moved && far(gs.start, 4)) gs.moved = true;
+      gs.p = w;
+      gs.target = dropTarget(g, sizes, w, 18 / view.zoom, gs.from);
     }
   }
 
+  /** Dragging a node, drawing a line or a selection box pans the view near the edges. */
+  function edgeArmed(): boolean {
+    const gs = gesture;
+    return !!gs && gs.kind !== 'pan' && gs.moved && !!last;
+  }
+
+  function edgeTick(t: number) {
+    edgeFrame = 0;
+    if (!edgeArmed()) return;
+    const d = edgePan(last!.p, vw, vh, edgeTime ? t - edgeTime : undefined);
+    edgeTime = t;
+    if (!d.x && !d.y) return;
+    view = { ...view, x: view.x + d.x, y: view.y + d.y };
+    apply(last!.p, last!.alt);
+    edgeFrame = requestAnimationFrame(edgeTick);
+  }
+
+  function stopEdge() {
+    if (edgeFrame) cancelAnimationFrame(edgeFrame);
+    edgeFrame = 0;
+    last = null;
+  }
+
   function up(e: PointerEvent) {
+    stopEdge();
     const gs = gesture;
     gesture = null;
     if (viewport?.hasPointerCapture(e.pointerId)) viewport.releasePointerCapture(e.pointerId);
@@ -276,6 +341,16 @@
         openPicker({ kind: 'step', at: p, link: { from: gs.from, side: gs.side }, anchor: new DOMRect(e.clientX, e.clientY, 0, 0) });
       }
     }
+  }
+
+  /** Esc during a gesture: stop where it is. A line being drawn is dropped. */
+  function cancelGesture() {
+    const id = last?.id;
+    stopEdge();
+    const gs = gesture;
+    gesture = null;
+    if (id !== undefined && viewport?.hasPointerCapture(id)) viewport.releasePointerCapture(id);
+    if (gs?.kind === 'drag' && gs.moved) ed.seal(action.id);
   }
 
   const contains = (r: { x: number; y: number; w: number; h: number }, p: Point) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
@@ -326,9 +401,11 @@
   });
 
   function fit() {
-    // Room for the toolbar on top, and the add bar and overview below.
+    // Room for the toolbar on top, and the add bar and overview below. A narrow canvas
+    // has no room beside the overview, so keep clear above it.
     const side = vw > 900 ? 230 : 56;
-    view = fitView(bounds(g.nodes, sizes), vw, vh, { top: 64, right: side, bottom: 84, left: side }, 1);
+    const bottom = vw > 900 || vw <= 760 ? 84 : 190;
+    view = fitView(bounds(g.nodes, sizes), vw, vh, { top: 64, right: side, bottom, left: side }, 1);
   }
 
   onMount(() => {
@@ -357,6 +434,7 @@
       requestAnimationFrame(() => fit());
     }
     return () => {
+      stopEdge();
       el.removeEventListener('wheel', wheel);
       el.removeEventListener('scroll', scroll);
     };
@@ -514,6 +592,11 @@
   }
 
   function onKey(e: KeyboardEvent) {
+    if (e.key === 'Escape' && gesture && gesture.kind !== 'pan') {
+      cancelGesture();
+      e.preventDefault();
+      return;
+    }
     // Escape closes the inspector from anywhere on the page, except in fields and popups.
     if (e.key === 'Escape' && flow.inspecting && !e.defaultPrevented && !isTypingTarget(e.target) && !picker) {
       const t = e.target as Element | null;
@@ -542,7 +625,10 @@
     const arrows: Record<string, [number, number]> = { ArrowUp: [0, -step], ArrowDown: [0, step], ArrowLeft: [-step, 0], ArrowRight: [step, 0] };
     if (arrows[key] && flow.selected.length) nudge(...arrows[key]!);
     else if (key === 'Delete' || key === 'Backspace') removeSelected();
-    else if (key === 'Escape') flow.clear();
+    else if (key === 'Escape') {
+      if (replay) leaveReplay();
+      else flow.clear();
+    }
     else if (key === 'f') fit();
     else if (key === ' ' && (!(e.target as Element)?.closest?.('button') || (e.target as Element).closest('[data-node]'))) space = true;
     else if (key === 'Enter' && flow.selected.length === 1 && !(e.target as Element)?.closest?.('button')) flow.select(flow.selected, true);
@@ -607,7 +693,7 @@
     return pathOf(curve(a, gs.side, gs.p, null));
   });
 
-  const marquee = $derived(gesture?.kind === 'box' ? rectFrom(gesture.a, gesture.b) : null);
+  const marquee = $derived(gesture?.kind === 'box' && gesture.moved ? rectFrom(toScreen(view, gesture.a), gesture.b) : null);
   const dot = $derived(GRID * (view.zoom < 0.6 ? 2 : 1) * view.zoom);
   const visible = $derived(visibleRect(view, vw, vh));
   const mapNodes = $derived(g.nodes.map((n) => ({ ...rects.get(n.id)!, id: n.id, trigger: n.kind.type === 'trigger', selected: selected.has(n.id) })));
@@ -643,9 +729,10 @@
       <div class="world" class:connecting={gesture?.kind === 'connect'} style="transform:translate({view.x}px, {view.y}px) scale({view.zoom})">
         <svg class="edges" width="1" height="1" aria-hidden="true">
           {#each lines as l (l.e.id)}
-            <g class="edge b-{l.e.branch}" class:if={l.fromIf} class:selected={flow.edge === l.e.id} class:ran={l.ran} data-edge={l.e.id} data-from={l.e.from} data-to={l.e.to} data-to-side={l.e.to_side} data-branch={l.e.branch}>
+            <g class="edge b-{l.e.branch}" class:if={l.fromIf} class:selected={flow.edge === l.e.id} class:ran={l.ran} class:fresh={l.fresh} data-edge={l.e.id} data-from={l.e.from} data-to={l.e.to} data-to-side={l.e.to_side} data-branch={l.e.branch}>
               <path class="hit" d={l.d} />
               <path class="line" d={l.d} />
+              {#if l.fresh}<path class="spark" d={l.d} />{/if}
               <polygon class="head" points={arrowHead(l.tip, l.e.to_side)} />
             </g>
           {/each}
@@ -690,7 +777,8 @@
               trigger={p.trigger}
               issues={issuesOf(n.id)}
               status={statusOf(n.id)}
-              {running}
+              running={trace.nodes.get(n.id)?.state === 'running'}
+              current={trace.current === n.id}
               selected={selected.has(n.id)}
               loose={loose.has(n.id)}
               hot={gesture?.kind === 'connect' && gesture.target?.id === n.id ? gesture.target.side : null}
@@ -715,13 +803,30 @@
       {/if}
     </div>
 
-    {#if running || lastRun}
-      <div class="runchip" class:bad={!running && lastRun && !lastRun.ok} role="status">
-        {#if running}
-          <span class="spin" aria-hidden="true"></span>Running…
-        {:else if lastRun}
-          <span class="dot" aria-hidden="true"></span>Last run {lastRun.ok ? 'worked' : `had ${lastRun.errors.length} error${lastRun.errors.length === 1 ? '' : 's'}`}
-          <span class="faint mono">{lastRun.duration_ms} ms · {lastRun.trigger}</span>
+    {#if replay}
+      {@const r = replay.run!}
+      <div class="runbar replay" role="toolbar" aria-label="Past run">
+        <span class="label"><span class="dot" class:bad={!r.ok} aria-hidden="true"></span>Run at {clock(r.ts)}</span>
+        <IconButton size="sm" label="Previous step" disabled={stepAt <= 0} onclick={() => stepTo(stepAt - 1)}><ChevronLeft /></IconButton>
+        <span class="stepno mono" aria-live="polite">Step {Math.max(0, stepAt + 1)} of {replay.steps.length}</span>
+        <IconButton size="sm" label="Next step" disabled={stepAt >= replay.steps.length - 1} onclick={() => stepTo(stepAt + 1)}><ChevronRight /></IconButton>
+        {#if currentTitle}<span class="cur truncate" title={currentTitle}>{currentTitle}</span>{/if}
+        <button type="button" class="live" title="Back to the latest run (Esc)" onclick={leaveReplay}>Live</button>
+      </div>
+    {:else if running || lastRun}
+      <div class="runbar">
+        <div class="runchip" class:bad={!running && lastRun && !lastRun.ok} role="status">
+          {#if running}
+            <span class="spin" aria-hidden="true"></span>Running…
+          {:else if lastRun}
+            <span class="dot" aria-hidden="true"></span>Last run {lastRun.ok ? 'worked' : `had ${lastRun.errors.length} error${lastRun.errors.length === 1 ? '' : 's'}`}
+            <span class="faint mono">{lastRun.duration_ms} ms · {lastRun.trigger}</span>
+          {/if}
+        </div>
+        {#if past.length}
+          <span class="runs">
+            <Menu groups={runItems} label="Past runs" variant="ghost" onselect={pickRun}><History size={13} />Runs <span class="mono faint">{past.length}</span></Menu>
+          </span>
         {/if}
       </div>
     {/if}
@@ -879,7 +984,10 @@
     --c: color-mix(in srgb, var(--warn) 75%, var(--line));
   }
   .edge.ran {
-    --c: color-mix(in srgb, var(--ok) 85%, var(--text));
+    --c: var(--accent);
+  }
+  .edge.ran .line {
+    stroke-width: 3;
   }
   .edge:hover {
     --c: var(--text-muted);
@@ -906,6 +1014,22 @@
   }
   .edge.selected .line {
     filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 60%, transparent));
+  }
+  .spark {
+    fill: none;
+    stroke: var(--on-accent);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-dasharray: 2 10;
+    animation: march 0.5s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spark {
+      display: none;
+    }
+  }
+  :global(:root[data-reduce-motion='true']) .spark {
+    display: none;
   }
   .head {
     fill: var(--c);
@@ -1027,10 +1151,89 @@
   }
 
   /* Overlays on the canvas */
-  .runchip {
+  .runbar {
     position: absolute;
     top: 12px;
     left: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: calc(100% - 340px);
+  }
+  .runbar.replay {
+    gap: 2px;
+    height: 34px;
+    padding: 0 4px 0 12px;
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--bg-1) 94%, transparent);
+    backdrop-filter: blur(8px);
+    box-shadow: var(--shadow-pop);
+    font-size: 12px;
+  }
+  .replay .label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 6px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .replay .dot,
+  .runchip .dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--ok);
+  }
+  .replay .dot.bad {
+    background: var(--danger);
+  }
+  .stepno {
+    min-width: 76px;
+    text-align: center;
+    font-size: 11.5px;
+    white-space: nowrap;
+    color: var(--text-muted);
+  }
+  .cur {
+    min-width: 0;
+    max-width: 180px;
+    margin: 0 6px;
+    color: var(--text);
+  }
+  .live {
+    flex: none;
+    height: 26px;
+    margin-left: 4px;
+    padding: 0 10px;
+    border-radius: 7px;
+    font-weight: 600;
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+  .live:hover {
+    background: var(--accent-hover);
+  }
+  .runs {
+    display: inline-flex;
+  }
+  .runs :global(button[aria-haspopup]) {
+    height: 30px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-1) 92%, transparent);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+    color: var(--text);
+  }
+  .runs :global(button[aria-haspopup]:hover),
+  .runs :global(button[aria-haspopup][aria-expanded='true']) {
+    background: var(--bg-3);
+  }
+  .runchip {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -1042,12 +1245,6 @@
     backdrop-filter: blur(6px);
     font-size: 12px;
     box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
-  }
-  .runchip .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--ok);
   }
   .runchip.bad .dot {
     background: var(--danger);

@@ -52,6 +52,8 @@ A new secret also disconnects every open overlay page within a few seconds.
 | `GET` | `/api/overlay/{id}` | The overlay's settings and layers as JSON | `200` JSON, `404` |
 | `GET` | `/assets/{name}` | A file from the project `assets` folder. Accepts the secret or the asset key. Supports partial downloads (needed for video). | `200` or `206`, `404` |
 | `POST` | `/api/actions/{id}/run` | Runs an action | `202` `ok`, `404` if there's no such action |
+| `GET` | `/api/alerts` | Alert queue state as JSON | `200` JSON |
+| `POST` | `/api/alerts/{command}` | Controls the alert queue. See [Alert controls](#alert-controls). | `200` JSON, `404`, `409` |
 | `GET` | `/ws?overlay={id}` | WebSocket used by overlay pages | See [WebSocket](#websocket) |
 
 Using the wrong method, for example `GET` on the run route, gets `405 Method Not Allowed`.
@@ -73,6 +75,27 @@ curl -X POST -H "X-Castwright-Token: YOUR_SECRET" \
 - `202` means the run started. It doesn't wait for the steps or report their errors; check the log on the Activity page.
 - The action runs even when it's turned off, and its cooldown is ignored. The [burst limit](/reference/automation-steps/#loop-protection) still applies.
 - `ACTION_ID` is the action's `id` in `project.json`.
+
+### Alert controls
+
+```bash
+curl -X POST "http://127.0.0.1:7470/api/alerts/toggle-pause?token=YOUR_SECRET"
+```
+
+| Command | What it does |
+| --- | --- |
+| `pause`, `resume`, `toggle-pause` | Pauses or resumes the queue. The alert on screen still finishes. |
+| `skip` | Ends the alert on screen. |
+| `replay` | Plays the last alert again, without running its action. `409` if nothing has played yet. |
+| `mute`, `unmute`, `toggle-mute` | Turns alert sound off or on. Saved between runs. |
+
+Both routes answer with the queue state:
+
+```json
+{ "paused": true, "muted": false, "playing": false, "waiting": 2 }
+```
+
+An unknown command gets `404`.
 
 ### Overlay JSON
 

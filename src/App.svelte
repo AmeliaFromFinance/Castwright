@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { app, type Page } from '$lib/state/app.svelte';
   import { isTauri } from '$lib/api/backend';
   import { flushAll } from '$lib/state/flush';
@@ -18,6 +18,8 @@
   import { Layers, BellRing, Zap, History, Settings, Search } from '@lucide/svelte';
   import CommandPalette from '$lib/shell/CommandPalette.svelte';
   import ShortcutsDialog from '$lib/shell/ShortcutsDialog.svelte';
+  import GoLiveDialog from '$lib/shell/GoLiveDialog.svelte';
+  import { golive } from '$lib/state/golive.svelte';
   import { loadPref, savePref } from '$lib/state/persist';
 
   const pages: Array<{ id: Page; label: string; icon: typeof Layers }> = [
@@ -36,6 +38,12 @@
   const lastPage = loadPref<Page>('page', 'overlays');
   if (['overlays', 'alerts', 'automation', 'activity', 'settings'].includes(lastPage)) app.page = lastPage;
   $effect(() => savePref('page', app.page));
+
+  $effect(() => {
+    if (!app.ready) return;
+    const live = app.obs.stream.active || !!app.twitch?.stream.live;
+    untrack(() => golive.watchLive(live));
+  });
 
   onMount(() => {
     app.init();
@@ -181,6 +189,7 @@
 {#if app.ready}
   <CommandPalette bind:open={paletteOpen} onshortcuts={() => (shortcutsOpen = true)} />
   <ShortcutsDialog bind:open={shortcutsOpen} />
+  <GoLiveDialog />
 {/if}
 
 <style>

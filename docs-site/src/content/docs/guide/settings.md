@@ -43,6 +43,15 @@ OBS loads overlays from a small web server inside Castwright, at `http://127.0.0
 | **Allow other devices** | Lets a phone, tablet or second PC on your network open overlays and run actions. Links then use this computer's network address. Off by default. |
 | **Link secret** | A random code in every overlay link so other programs can't read your overlays. **New secret** disconnects every open overlay and breaks existing links, so add the overlays to OBS again afterwards. |
 
+## Go-live check
+
+Settings for the [go-live check](/guide/go-live-check/).
+
+| Setting | Default | |
+| --- | --- | --- |
+| **Open when the stream starts** | On | Runs the check when you go live and opens it only if something fails. |
+| **Your list** | empty | Your own tick boxes, like "Mic on". Up to 30. Ticks clear when the stream ends. |
+
 ## Themes
 
 Pick **Match system**, one of the built-in themes, or your own. Every built-in theme passes WCAG AA contrast.
@@ -66,8 +75,39 @@ Also here:
 
 ## Backups and data
 
-- Castwright backs up your project every 10 minutes while you make changes and keeps the latest 20. **Back up now** makes one straight away.
-- **Restore** puts a backup back. Your current project is backed up first, so you can undo it.
+### Backups
+
+Castwright backs up your project:
+
+- when it starts
+- once a day while it runs
+- before a restore or import
+- before an update converts your project to a new format
+
+A backup holds your overlays, alerts, actions and saved variables. Uploaded files, event history, passwords and sign-ins aren't included. If nothing changed since the last backup, no new one is made.
+
+The list shows each backup's date, reason, project name and size.
+
+| Button | Does |
+| --- | --- |
+| **Back up now** | Makes a backup straight away. |
+| **Restore** | Puts that backup back. Your current project is backed up first, so you can undo it. |
+| **Export** (arrow) | Saves a copy anywhere, for example a USB stick or cloud folder. |
+| **Delete** (bin) | Removes that backup. |
+| **Restore from file…** | Loads a `.cwbackup` file, or a `project.json` from any project folder. |
+| **Open folder** | Shows the backups folder. |
+
+How many are kept:
+
+- **Daily backups**: days to keep, one backup per day. Default 14.
+- **Other backups**: ones made with **Back up now** or before a restore, import or upgrade. Default 5.
+
+Backups made by older versions of Castwright still restore. They're converted the same way as an old project. If a restore fails, your project stays as it was and the error says why.
+
+See [Files and data](/reference/files/#backups) for where they're stored.
+
+### Data
+
 - **Reset session counters** sets this stream's follow, sub, bit and raid totals to zero.
 - **Clear history** deletes saved events.
 

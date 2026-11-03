@@ -5,8 +5,6 @@
   import { isTauri } from '$lib/api/backend';
   import { updates } from '$lib/state/updates.svelte';
   import { attempt, attemptOk, toasts } from '$lib/state/toast.svelte';
-  import type { SnapshotInfo } from '$lib/bindings/SnapshotInfo';
-  import { ago, bytes } from '$lib/format';
   import { copyText, openExternal, reveal } from '$lib/util/os';
   import Button from '$lib/ui/Button.svelte';
   import Badge from '$lib/ui/Badge.svelte';
@@ -18,6 +16,8 @@
   import Section from './Section.svelte';
   import Row from './Row.svelte';
   import Appearance from './Appearance.svelte';
+  import GoLiveSettings from './GoLiveSettings.svelte';
+  import Backups from './Backups.svelte';
   import { Copy, Eye, EyeOff, FolderOpen, RefreshCw, ExternalLink, TriangleAlert } from '@lucide/svelte';
 
   const SITE = 'https://castwright.sinist3r.lol';
@@ -28,6 +28,7 @@
     { id: 'obs', label: 'OBS' },
     { id: 'twitch', label: 'Twitch' },
     { id: 'server', label: 'Overlay server' },
+    { id: 'golive', label: 'Go-live check' },
     { id: 'appearance', label: 'Appearance' },
     { id: 'backups', label: 'Backups and data' },
     { id: 'about', label: 'About' }
@@ -53,35 +54,31 @@
   const portValid = $derived(Number.isInteger(port) && port >= 1024 && port <= 65535);
   const serverDirty = $derived(port !== app.settings?.server.port || allowLan !== app.settings?.server.allow_lan);
 
-  // Backups
-  let snapshots = $state<SnapshotInfo[]>([]);
-  let restoreTarget = $state<SnapshotInfo | null>(null);
+  // Data
   let confirmClear = $state(false);
   let confirmSession = $state(false);
 
-  onMount(() => {
-    loadSnapshots();
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) active = visible[0].target.id;
-      },
-      { root: scroller, rootMargin: '0px 0px -65% 0px' }
-    );
+  // The active section is the last one whose heading is in the top third of the view.
+  function track() {
+    if (!scroller) return;
+    const line = scroller.getBoundingClientRect().top + scroller.clientHeight * 0.35;
+    let current = sections[0]!.id;
     for (const s of sections) {
-      const el = document.getElementById(s.id);
-      if (el) obs.observe(el);
+      const el = document.getElementById(s.id)?.querySelector('h2');
+      if (el && el.getBoundingClientRect().top <= line) current = s.id;
     }
-    return () => obs.disconnect();
+    active = current;
+  }
+
+  onMount(() => {
+    const el = scroller;
+    el?.addEventListener('scroll', track, { passive: true });
+    return () => el?.removeEventListener('scroll', track);
   });
 
   function go(id: string) {
     active = id;
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  async function loadSnapshots() {
-    snapshots = (await attempt(() => api.listSnapshots())) ?? [];
   }
 
   async function saveName() {
@@ -140,18 +137,6 @@
     if (info) {
       app.server = info;
       await app.reloadSettings();
-    }
-  }
-
-  async function restore() {
-    if (!restoreTarget) return;
-    const file = restoreTarget.file;
-    restoreTarget = null;
-    const p = await attempt(() => api.restoreSnapshot(file), 'Backup restored');
-    if (p) {
-      app.project = p;
-      projectName = p.name;
-      await loadSnapshots();
     }
   }
 
@@ -273,28 +258,20 @@
         </Row>
       </Section>
 
+      <Section id="golive" title="Go-live check" description="Checks OBS, overlays, Twitch and alerts in a few seconds. Open it from the status bar or the command palette.">
+        <GoLiveSettings />
+      </Section>
+
       <Section id="appearance" title="Appearance" description="Pick a theme or make your own. Every built-in theme meets WCAG AA contrast.">
         <Appearance />
       </Section>
 
-      <Section id="backups" title="Backups and data" description="Castwright saves a backup of your project every 10 minutes while you make changes and keeps the latest 20.">
-        <div class="row gap">
-          <Button size="sm" onclick={() => attempt(() => api.createSnapshot(), 'Backup saved').then(loadSnapshots)}>Back up now</Button>
-        </div>
-        {#if snapshots.length}
-          <ul class="snaps">
-            {#each snapshots as s (s.file)}
-              <li>
-                <span>{new Date(s.ts).toLocaleString()}</span>
-                <span class="faint">{ago(s.ts)} · {bytes(s.bytes)}</span>
-                <div class="grow"></div>
-                <Button size="sm" variant="ghost" onclick={() => (restoreTarget = s)}>Restore</Button>
-              </li>
-            {/each}
-          </ul>
-        {:else}
-          <p class="faint small">No backups yet.</p>
-        {/if}
+      <Section
+        id="backups"
+        title="Backups and data"
+        description="Castwright backs up your project when it starts, once a day while it runs, and before a restore or import. Backups hold overlays, alerts, actions and saved variables. Uploaded files, passwords and sign-ins are never included."
+      >
+        <Backups onrestored={(p) => (projectName = p.name)} />
         <Row label="Session counters" hint="Sets this stream's follow, sub, bit and raid totals back to zero.">
           <Button size="sm" onclick={() => (confirmSession = true)}>Reset</Button>
         </Row>
@@ -342,19 +319,6 @@
   {#snippet footer()}
     <Button onclick={() => (confirmToken = false)}>Cancel</Button>
     <Button variant="danger" onclick={newToken}>Create new secret</Button>
-  {/snippet}
-</Dialog>
-
-<Dialog
-  open={restoreTarget !== null}
-  onclose={() => (restoreTarget = null)}
-  title="Restore this backup?"
-  description="Your current project is backed up first, so you can undo this."
-  width={420}
->
-  {#snippet footer()}
-    <Button onclick={() => (restoreTarget = null)}>Cancel</Button>
-    <Button variant="primary" onclick={restore}>Restore</Button>
   {/snippet}
 </Dialog>
 
@@ -475,24 +439,6 @@
   }
   .small {
     font-size: 12px;
-  }
-  .snaps {
-    list-style: none;
-    max-width: 640px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    max-height: 260px;
-    overflow-y: auto;
-  }
-  .snaps li {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 6px 8px 6px 12px;
-    font-size: 13px;
-  }
-  .snaps li + li {
-    border-top: 1px solid var(--border);
   }
   .about {
     display: flex;

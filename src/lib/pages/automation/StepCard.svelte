@@ -270,6 +270,11 @@
         </div>
         {@render number('On screen (seconds)', 'duration_ms', step.duration_ms, 0.5, 120, 0.5, 1000)}
       </div>
+    {:else if step.type === 'pause_alerts'}
+      <div class="grid3">{@render toggle('Alerts', step.state, toggleText('Pause', 'Resume'))}</div>
+      <p class="hint">The alert on screen still finishes. New alerts wait until you resume.</p>
+    {:else if step.type === 'skip_alert'}
+      <p class="hint">Ends the alert on screen. The next one in the queue starts after it.</p>
     {:else if step.type === 'play_sound'}
       <div class="grid2">
         <div class="f">

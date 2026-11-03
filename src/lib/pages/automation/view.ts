@@ -53,3 +53,25 @@ export function centerOn(v: View, p: Point, w: number, h: number): View {
 export function visibleRect(v: View, w: number, h: number): Rect {
   return { x: -v.x / v.zoom, y: -v.y / v.zoom, w: w / v.zoom, h: h / v.zoom };
 }
+
+/** Width of the strip along the canvas edges where dragging pans the view. */
+export const EDGE_BAND = 40;
+/** Fastest edge pan, in screen pixels per frame at 60 fps. */
+export const EDGE_SPEED = 14;
+
+/**
+ * How far to pan this frame while dragging with the pointer at `p` (canvas pixels) in a
+ * `w` by `h` canvas. Zero outside the edge strip, faster closer to the edge, fastest past
+ * it. `dt` is the time since the last frame in ms. A positive x shows more of the left.
+ */
+export function edgePan(p: Point, w: number, h: number, dt = 1000 / 60, band = EDGE_BAND, max = EDGE_SPEED): Point {
+  const k = Math.min(Math.max(dt, 0), 50) / (1000 / 60);
+  const axis = (v: number, size: number): number => {
+    if (size < band * 3) return 0;
+    const depth = v < band ? band - v : v > size - band ? size - band - v : 0;
+    if (!depth) return 0;
+    const t = Math.min(1, Math.abs(depth) / band);
+    return Math.sign(depth) * max * t * t * k;
+  };
+  return { x: axis(p.x, w), y: axis(p.y, h) };
+}

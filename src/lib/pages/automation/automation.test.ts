@@ -44,6 +44,7 @@ const SERDE_DEFAULTS: Partial<Record<string, Record<string, unknown>>> = {
   recording: { state: 'on' },
   set_layer_visible: { state: 'on' },
   play_alert: { message: '', image: '', sound: '', duration_ms: 6000 },
+  pause_alerts: { state: 'on' },
   play_sound: { volume: 70 },
   http_request: { method: 'get', body: '', save_to: '' },
   if: { then: [], else: [] }
