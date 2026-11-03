@@ -18,12 +18,13 @@ type Ws = WebSocketStream<MaybeTlsStream<TcpStream>>;
 type PendingConnect =
     std::pin::Pin<Box<dyn std::future::Future<Output = Result<(Ws, Session), String>> + Send>>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Cond {
     Broadcaster,
     WithModerator,
     WithUser,
     ToBroadcaster,
+    FromBroadcaster,
 }
 
 struct SubSpec {
@@ -77,6 +78,12 @@ const SUBSCRIPTIONS: &[SubSpec] = &[
     sub("channel.chat.clear", V1, Cond::WithUser, "see chat clears"),
     sub("channel.cheer", V1, Cond::Broadcaster, "read cheers"),
     sub("channel.raid", V1, Cond::ToBroadcaster, "read raids"),
+    sub(
+        "channel.raid",
+        V1,
+        Cond::FromBroadcaster,
+        "see your raids out",
+    ),
     sub(
         "channel.channel_points_custom_reward_redemption.add",
         V1,
@@ -173,6 +180,7 @@ fn condition(cond: Cond, id: &str) -> Value {
         Cond::WithModerator => json!({ "broadcaster_user_id": id, "moderator_user_id": id }),
         Cond::WithUser => json!({ "broadcaster_user_id": id, "user_id": id }),
         Cond::ToBroadcaster => json!({ "to_broadcaster_user_id": id }),
+        Cond::FromBroadcaster => json!({ "from_broadcaster_user_id": id }),
     }
 }
 
@@ -419,6 +427,11 @@ impl TwitchService {
             Normalized::DeleteChat(id) => self.hub.delete_chat(&id),
             Normalized::ClearUser(id) => self.hub.clear_chat_user(&id),
             Normalized::ClearChat => self.hub.clear_chat(),
+            Normalized::RaidOut {
+                login,
+                name,
+                viewers,
+            } => self.hub.sessions.on_raid_out(&login, &name, viewers),
             Normalized::Ignore => {}
         }
     }
@@ -510,10 +523,10 @@ mod tests {
     fn subscription_list_is_unique() {
         let mut seen = std::collections::HashSet::new();
         for s in SUBSCRIPTIONS {
-            assert!(seen.insert(s.kind), "{}", s.kind);
+            assert!(seen.insert((s.kind, s.cond)), "{}", s.kind);
             assert!(!s.versions.is_empty());
         }
-        assert_eq!(SUBSCRIPTIONS.len(), 26);
+        assert_eq!(SUBSCRIPTIONS.len(), 27);
     }
 
     #[test]

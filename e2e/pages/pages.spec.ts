@@ -7,10 +7,6 @@ import { stubProviders } from '../providers';
 const here = dirname(fileURLToPath(import.meta.url));
 const screens = join(here, '__screens__');
 
-
-// The app runs on the shared server from playwright.config.ts.
-const base = 'http://localhost:4317';
-
 test.beforeAll(() => {
   mkdirSync(screens, { recursive: true });
 });
@@ -24,7 +20,7 @@ async function open(page: Page, section: 'Alerts' | 'Automation'): Promise<strin
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
   await stubProviders(page);
-  await page.goto(`${base}/?demo=static`);
+  await page.goto('/?demo=static');
   await page.getByRole('navigation', { name: 'Main sections' }).getByRole('button', { name: section }).click();
   await expect(page.getByRole('heading', { level: 1, name: section })).toBeVisible();
   return errors;

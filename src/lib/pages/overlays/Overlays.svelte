@@ -4,6 +4,7 @@
   import type { Overlay } from '$lib/bindings/Overlay';
   import Editor from '$lib/editor/Editor.svelte';
   import { newOverlay } from '$lib/editor/starter';
+  import { BUILT_IN_TEMPLATES, fromTemplate } from '$lib/overlay/templates';
   import { app } from '$lib/state/app.svelte';
   import { attempt, toasts } from '$lib/state/toast.svelte';
   import Button from '$lib/ui/Button.svelte';
@@ -11,7 +12,7 @@
   import EmptyState from '$lib/ui/EmptyState.svelte';
   import { CircleHelp, Layers, Plus, Upload } from '@lucide/svelte';
   import AddToObsDialog from './AddToObsDialog.svelte';
-  import NewOverlayDialog from './NewOverlayDialog.svelte';
+  import NewOverlayDialog, { type NewOverlaySource } from './NewOverlayDialog.svelte';
   import ObsHelpDialog from './ObsHelpDialog.svelte';
   import OverlayCard from './OverlayCard.svelte';
 
@@ -47,16 +48,38 @@
     return () => clearInterval(t);
   });
 
-  async function create(opts: { name: string; width: number; height: number; starter: boolean }) {
+  async function create({ name, source }: { name: string; source: NewOverlaySource }) {
     creating = true;
-    const o = newOverlay(opts.name, opts.width, opts.height, opts.starter);
-    const saved = await attempt(() => api.saveOverlay(o));
+    const saved = await attempt(() => {
+      if (source.kind === 'user') return api.overlayFromTemplate(source.id, name);
+      if (source.kind === 'blank') return api.saveOverlay(newOverlay(name, source.width, source.height, false));
+      const t = BUILT_IN_TEMPLATES.find((x) => x.id === source.id)!;
+      return api.saveOverlay(fromTemplate(t.overlay, name));
+    });
     if (saved) {
       await attempt(() => app.reloadProject());
       newOpen = false;
-      app.editingOverlay = o.id;
+      app.editingOverlay = saved.id;
     }
     creating = false;
+  }
+
+  let templateTarget = $state<Overlay | null>(null);
+  let templateOpen = $state(false);
+  let templateName = $state('');
+  let savingTemplate = $state(false);
+
+  async function saveTemplate(e: SubmitEvent) {
+    e.preventDefault();
+    const o = templateTarget;
+    if (!o) return;
+    savingTemplate = true;
+    const t = await attempt(() => api.saveOverlayTemplate(o.id, templateName.trim() || o.name));
+    savingTemplate = false;
+    if (t) {
+      templateOpen = false;
+      toasts.success(`Saved "${t.name}". Pick it under New overlay.`);
+    }
   }
 
   async function copyLink(id: string) {
@@ -156,6 +179,11 @@
               }}
               onduplicate={() => duplicate(o)}
               onexport={() => exportOverlay(o)}
+              ontemplate={() => {
+                templateTarget = o;
+                templateName = o.name;
+                templateOpen = true;
+              }}
               ondelete={() => {
                 deleteTarget = o;
                 deleteOpen = true;
@@ -177,6 +205,17 @@
 <NewOverlayDialog bind:open={newOpen} busy={creating} oncreate={create} />
 <ObsHelpDialog bind:open={helpOpen} {overlays} oncopy={copyLink} />
 <AddToObsDialog bind:open={obsOpen} overlay={obsTarget} />
+<Dialog bind:open={templateOpen} title="Save as template" description="New overlays can start from it. Its images and other files are saved with it." width={420}>
+  <form id="save-template" onsubmit={saveTemplate}>
+    <label class="label" for="template-name">Template name</label>
+    <!-- svelte-ignore a11y_autofocus -->
+    <input id="template-name" class="input" bind:value={templateName} maxlength="80" autocomplete="off" autofocus />
+  </form>
+  {#snippet footer()}
+    <Button onclick={() => (templateOpen = false)}>Cancel</Button>
+    <Button variant="primary" type="submit" form="save-template" busy={savingTemplate}>Save template</Button>
+  {/snippet}
+</Dialog>
 <Dialog bind:open={deleteOpen} title={deleteTarget ? `Delete "${deleteTarget.name}"?` : 'Delete overlay?'} width={420}>
   <p class="muted">This removes the overlay and all its layers. OBS sources using its link will go blank.</p>
   {#snippet footer()}
@@ -217,6 +256,13 @@
     min-height: 0;
     overflow: auto;
     padding: 16px;
+  }
+  .label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 550;
+    color: var(--text-muted);
   }
   .grid {
     display: grid;

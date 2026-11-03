@@ -1,6 +1,6 @@
 ---
 title: Settings and themes
-description: Connections, the overlay server, themes and backups.
+description: Connections, the overlay server, hotkeys, themes, backups and portable mode.
 ---
 
 Open **Settings** from the gear at the bottom left, or press **Ctrl + ,** (**⌘ + ,** on Mac).
@@ -15,7 +15,7 @@ Open **Settings** from the gear at the bottom left, or press **Ctrl + ,** (**⌘
 
 ## OBS
 
-Address, port and password for the OBS WebSocket server. **Test** checks them without saving. The password is kept in your system keychain, never in a plain file. See [Connect OBS](/guide/first-run/#3-connect-obs).
+Address, port and password for the OBS WebSocket server. **Test** checks them without saving. The password is kept in your system keychain (in [portable mode](#portable-mode), in the data folder). See [Connect OBS](/guide/first-run/#3-connect-obs).
 
 ## Twitch
 
@@ -51,6 +51,54 @@ Settings for the [go-live check](/guide/go-live-check/).
 | --- | --- | --- |
 | **Open when the stream starts** | On | Runs the check when you go live and opens it only if something fails. |
 | **Your list** | empty | Your own tick boxes, like "Mic on". Up to 30. Ticks clear when the stream ends. |
+
+## Hotkeys
+
+Global hotkeys work even while a game or another app has focus.
+
+| Hotkey | Does |
+| --- | --- |
+| **Replay last alert** | Plays the last alert again |
+| **Skip alert** | Ends the alert on screen |
+| **Pause or resume alerts** | Holds the queue, or lets it play again |
+| **Mute or unmute alerts** | Silences alert sounds, videos and speech |
+| **Open the go-live check** | Brings Castwright to the front and runs the [go-live check](/guide/go-live-check/) |
+| **Add action hotkey** | Runs an [automation action](/guide/automation/) you pick |
+
+To set one:
+
+1. Click the box next to it.
+2. Press the keys, like <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>R</kbd>.
+3. <kbd>Esc</kbd> cancels. <kbd>Backspace</kbd> clears the hotkey.
+
+Rules:
+
+- Use <kbd>Ctrl</kbd>, <kbd>Alt</kbd> or <kbd>Super</kbd> (<kbd>Cmd</kbd> on Mac) with the key, so normal typing still works. F1 to F24 and media keys work on their own.
+- One combination can only do one thing.
+- Shortcuts the app uses itself, like <kbd>Ctrl</kbd> + <kbd>K</kbd>, can't be used.
+- If another app already uses a combination, Castwright says so next to it. Pick a different one.
+- **Use global hotkeys** switches all of them off and on without losing them.
+
+Hotkeys are saved on this computer, not in the project. An action hotkey runs the action even if the action is switched off.
+
+:::note[Linux]
+Global hotkeys need X11. On Wayland they may only work while an X11 app or game has focus, or not at all. Castwright shows a note when it detects Wayland.
+:::
+
+The browser demo saves hotkeys but can't listen for them.
+
+## Stream summary
+
+The text **Copy for socials** puts on your clipboard. Click a name under the box to add it, or type `{{placeholders}}` yourself. A preview shows the text for your last stream. **Use the default** puts the original text back.
+
+The default:
+
+```text
+Thanks for hanging out! {{duration}} of {{category | default:"streaming"}} with a peak of {{peak_viewers | number}} viewers.
+{{follows}} new follows, {{subs}} subs and {{bits | number}} bits. Top chatter: {{top_chatter | default:"nobody yet"}}.
+```
+
+Every placeholder is listed in [Templates](/reference/templates/#stream-summary). See [Activity](/guide/activity/#sessions-and-summary) for the summary itself.
 
 ## Themes
 
@@ -114,3 +162,22 @@ See [Files and data](/reference/files/#backups) for where they're stored.
 ## About
 
 Version, where settings are stored and links to this guide. **Check for updates** asks GitHub for a newer release. Castwright also checks once a day and shows a link in the status bar when one is out.
+
+### Portable mode
+
+Portable mode keeps all of Castwright's data in a `data` folder next to the app, so you can run it from a USB drive or move it between computers.
+
+When it's on, **About** shows **Portable mode** and the data folder.
+
+**Make portable…** copies your settings, default project, backups and sign-ins into that `data` folder. Your current data stays where it was. Restart Castwright to start using the copy.
+
+The button is greyed out, with the reason under it, when:
+
+- Castwright can't write to its own folder (for example `C:\Program Files` or `/usr/bin`). Move the app somewhere you own first.
+- Something called `data` is already next to the app.
+
+:::caution
+In portable mode, passwords and sign-ins are kept in `data/secrets.json`. It isn't encrypted. Anyone who has the drive can use those accounts, so keep it safe.
+:::
+
+See [Install → Portable](/guide/install/#portable) and [Files and data → Portable mode](/reference/files/#portable-mode).

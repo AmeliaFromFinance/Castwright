@@ -1,5 +1,6 @@
 import { test, type Page } from '@playwright/test';
 import { fixture, stubProviders } from '../providers';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const out = (name: string) => fileURLToPath(new URL(`../../docs-site/src/assets/screens/${name}.png`, import.meta.url));
@@ -63,6 +64,13 @@ test('activity', async ({ page }) => {
   await shot(page, 'activity');
 });
 
+test('session summary', async ({ page }) => {
+  await open(page, 'demo=static&ended');
+  await page.getByRole('button', { name: 'View' }).click();
+  await page.getByRole('article', { name: 'Stream summary' }).locator('svg path').first().waitFor();
+  await shot(page, 'session-summary');
+});
+
 test('settings', async ({ page }) => {
   await open(page);
   await nav(page, 'Settings');
@@ -103,12 +111,21 @@ test('overlays', async ({ page }) => {
   await nav(page, 'Overlays');
   await page.getByRole('button', { name: 'New overlay' }).first().click();
   const dlg = page.getByRole('dialog', { name: 'New overlay' });
-  await dlg.getByLabel('Name').fill('Just Chatting');
-  await dlg.getByText('Starter layout', { exact: true }).click();
+  await dlg.locator('label', { has: dlg.page().getByRole('radio', { name: 'Just Chatting', exact: true }) }).click();
   await dlg.getByRole('button', { name: 'Create overlay' }).click();
   await page.getByRole('button', { name: 'Back to overlays' }).click();
   await page.waitForTimeout(800);
   await shot(page, 'overlays');
+});
+
+test('overlay templates', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Overlays');
+  await page.getByRole('button', { name: 'New overlay' }).first().click();
+  const dlg = page.getByRole('dialog', { name: 'New overlay' });
+  await dlg.locator('label', { has: dlg.page().getByRole('radio', { name: 'Starting soon', exact: true }) }).click();
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: out('overlay-templates') });
 });
 
 test('overlay editor', async ({ page }) => {
@@ -124,8 +141,8 @@ test('overlay editor alert test', async ({ page }) => {
   await nav(page, 'Overlays');
   await page.getByRole('button', { name: 'New overlay' }).first().click();
   const dlg = page.getByRole('dialog', { name: 'New overlay' });
-  await dlg.getByLabel('Name').fill('Starter');
-  await dlg.getByText('Starter layout', { exact: true }).click();
+  await dlg.getByLabel('Name', { exact: true }).fill('Starter');
+  await dlg.locator('label', { has: dlg.page().getByRole('radio', { name: 'Gameplay', exact: true }) }).click();
   await dlg.getByRole('button', { name: 'Create overlay' }).click();
   await page.getByRole('button', { name: 'Test' }).click();
   await page.getByLabel('Play an alert').selectOption('raid');
@@ -159,6 +176,34 @@ test('automation', async ({ page }) => {
   await page.getByText('Big raid welcome', { exact: true }).first().click();
   await page.waitForTimeout(600);
   await shot(page, 'automation');
+});
+
+test('import actions', async ({ page }, info) => {
+  await open(page);
+  await nav(page, 'Automation');
+  await page.getByRole('navigation', { name: 'Actions' }).locator('li').filter({ hasText: 'Count deaths' }).click({ button: 'right' });
+  const [file] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: 'Export…' }).click()]);
+  const pkg = JSON.parse(readFileSync((await file.path())!, 'utf8'));
+  // As if it came from another project: a layer and a sound that aren't here.
+  const a = pkg.actions[0];
+  const last = a.graph.nodes[a.graph.nodes.length - 1];
+  const step = (id: string, dy: number, s: object) => ({ id, x: last.x, y: last.y + dy, kind: { type: 'step', step: s } });
+  a.graph.nodes.push(
+    step('n-layer', 136, { type: 'set_layer_visible', overlay_id: 'x-main', layer_id: 'x-chat', state: 'on' }),
+    step('n-sound', 272, { type: 'play_sound', src: 'assets/airhorn.mp3', volume: 80 })
+  );
+  const edge = (id: string, from: string, to: string) => ({ id, from, from_side: 'bottom', to, to_side: 'top', branch: 'next' });
+  a.graph.edges.push(edge('e-1', last.id, 'n-layer'), edge('e-2', 'n-layer', 'n-sound'));
+  pkg.refs.push(
+    { kind: 'layer', id: 'x-chat', name: 'Chat', overlay_id: 'x-main', overlay_name: 'Main' },
+    { kind: 'asset', id: 'airhorn.mp3', name: 'airhorn.mp3', overlay_id: '', overlay_name: '' }
+  );
+  const path = info.outputPath('count-deaths.cwactions');
+  writeFileSync(path, JSON.stringify(pkg));
+  await page.getByLabel('Actions file to import').setInputFiles(path);
+  await page.getByRole('dialog', { name: 'Import actions' }).waitFor();
+  await page.waitForTimeout(3500);
+  await shot(page, 'import-actions');
 });
 
 test('chat with 7TV', async ({ page }) => {

@@ -85,7 +85,8 @@ pub fn import(project: &ProjectStore, src: &Path) -> AppResult<Overlay> {
     }
     let tmp_dir = tempdir_in(&project.assets_dir())?;
     let mut renames: HashMap<String, String> = HashMap::new();
-    let result = read_entries(project, &mut zip, &tmp_dir, &mut renames);
+    let mut added: Vec<String> = Vec::new();
+    let result = read_entries(project, &mut zip, &tmp_dir, &mut renames, &mut added);
     let _ = std::fs::remove_dir_all(&tmp_dir);
     let built = result.and_then(|value| {
         let mut value = value.ok_or_else(|| {
@@ -101,7 +102,7 @@ pub fn import(project: &ProjectStore, src: &Path) -> AppResult<Overlay> {
         Ok(o) => o,
         Err(e) => {
             // Don't leave half an import behind.
-            for name in renames.values() {
+            for name in &added {
                 let _ = project.delete_asset(name);
             }
             return Err(e);
@@ -121,6 +122,7 @@ fn read_entries(
     zip: &mut zip::ZipArchive<std::fs::File>,
     tmp_dir: &Path,
     renames: &mut HashMap<String, String>,
+    added: &mut Vec<String>,
 ) -> AppResult<Option<Value>> {
     let mut overlay: Option<Value> = None;
     let mut total: u64 = 0;
@@ -156,12 +158,44 @@ fn read_entries(
                 return user_err("The overlay file is too large.");
             }
             total += copied;
-            let added = project.import_asset(&staged)?;
+            // The same file is already here, e.g. from a template made in this project.
+            if project
+                .asset_path(&asset)
+                .is_some_and(|have| same_file(&have, &staged))
+            {
+                let _ = std::fs::remove_file(&staged);
+                renames.insert(asset.clone(), asset);
+                continue;
+            }
+            let info = project.import_asset(&staged)?;
             let _ = std::fs::remove_file(&staged);
-            renames.insert(asset, added.name);
+            added.push(info.name.clone());
+            renames.insert(asset, info.name);
         }
     }
     Ok(overlay)
+}
+
+fn same_file(a: &Path, b: &Path) -> bool {
+    let len = |p: &Path| std::fs::metadata(p).map(|m| m.len()).ok();
+    len(a).is_some() && len(a) == len(b) && std::fs::read(a).ok() == std::fs::read(b).ok()
+}
+
+/// The overlay in a `.cwoverlay`, without touching the project.
+pub fn peek(src: &Path) -> AppResult<Overlay> {
+    let file = std::fs::File::open(src)?;
+    let mut zip = zip::ZipArchive::new(file).map_err(|_| {
+        crate::error::AppError::User("That isn't a Castwright overlay file.".into())
+    })?;
+    let entry = zip
+        .by_name("overlay.json")
+        .map_err(|_| crate::error::AppError::User("That file has no overlay in it.".into()))?;
+    if entry.size() > MAX_JSON_BYTES {
+        return user_err("The overlay file is too large.");
+    }
+    let mut buf = Vec::new();
+    entry.take(MAX_JSON_BYTES + 1).read_to_end(&mut buf)?;
+    Ok(serde_json::from_slice(&buf)?)
 }
 
 fn tempdir_in(base: &Path) -> AppResult<std::path::PathBuf> {

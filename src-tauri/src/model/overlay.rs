@@ -871,6 +871,58 @@ mod tests {
     }
 
     #[test]
+    fn built_in_templates_load() {
+        let presets: serde_json::Value =
+            serde_json::from_str(include_str!("../../../src/lib/overlay/box-presets.json"))
+                .unwrap();
+        let known: Vec<&str> = presets
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| p["id"].as_str().unwrap())
+            .collect();
+        for (file, raw) in [
+            (
+                "just-chatting",
+                include_str!("../../../src/lib/overlay/templates/just-chatting.json"),
+            ),
+            (
+                "gameplay",
+                include_str!("../../../src/lib/overlay/templates/gameplay.json"),
+            ),
+            (
+                "starting-soon",
+                include_str!("../../../src/lib/overlay/templates/starting-soon.json"),
+            ),
+            (
+                "brb",
+                include_str!("../../../src/lib/overlay/templates/brb.json"),
+            ),
+            (
+                "ending",
+                include_str!("../../../src/lib/overlay/templates/ending.json"),
+            ),
+            (
+                "vertical",
+                include_str!("../../../src/lib/overlay/templates/vertical.json"),
+            ),
+        ] {
+            // Wrong enum values or field types fail here; the app fills in the rest.
+            let o: Overlay = serde_json::from_str(raw).unwrap_or_else(|e| panic!("{file}: {e}"));
+            assert!(!o.layers.is_empty(), "{file}");
+            let v: serde_json::Value = serde_json::from_str(raw).unwrap();
+            for l in v["layers"].as_array().unwrap() {
+                for key in ["box", "items"] {
+                    if let Some(id) = l.get(key) {
+                        let id = id.as_str().unwrap();
+                        assert!(known.contains(&id), "{file}: unknown preset {id}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn boxes_from_before_frames_keep_their_look() {
         let json = r##"{"background":"#000","border_color":"#fff","border_width":2,"radius":12,"padding":16,"shadow":"0 0 4px #000","backdrop_blur":8}"##;
         let b: BoxStyle = serde_json::from_str(json).unwrap();

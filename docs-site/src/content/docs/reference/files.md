@@ -1,6 +1,6 @@
 ---
 title: Files and data
-description: Where Castwright keeps its data, the project folder layout, backups, secrets and the .cwoverlay format.
+description: Where Castwright keeps its data, the project folder layout, backups, secrets and the .cwoverlay and .cwactions formats.
 sidebar:
   order: 10
 ---
@@ -19,12 +19,15 @@ On Linux, `XDG_CONFIG_HOME` and `XDG_DATA_HOME` change these if set.
 
 **Settings → About** shows the settings folder. **Settings → General → Project folder** shows the project folder, with a button to open it.
 
+In [portable mode](#portable-mode) everything is in one `data` folder next to the app instead.
+
 ## Settings folder
 
 | File | Holds |
 | --- | --- |
 | `settings.json` | App settings: OBS address, Twitch Client ID, overlay server port and link secret, theme, project folder |
-| `secrets.json` | Only when there's no system keychain. See [Secrets](#secrets). |
+| `secrets.json` | Only when there's no system keychain, or in portable mode. See [Secrets](#secrets). |
+| `.window-state.json` | Window size and position |
 
 ## Project folder
 
@@ -34,6 +37,7 @@ On Linux, `XDG_CONFIG_HOME` and `XDG_DATA_HOME` change these if set.
 | `variables.json` | Saved [variables](/reference/variables/) |
 | `events.sqlite` | Event history and [custom widget](/reference/custom-widgets/#storage) storage. The `-wal` and `-shm` files next to it belong to it. |
 | `assets/` | Images, video, sound and fonts you added |
+| `templates/` | [Overlay templates](/guide/overlays/#your-own-templates) you saved, as `.cwoverlay` files |
 | `snapshots/` | Only from older versions. Old copies of `project.json`, used for recovery when there are no backups. |
 | `project.unreadable-<time>.json` | Only after a recovery. See [Recovery](#recovery). |
 
@@ -134,7 +138,45 @@ Entries are saved under the service name `com.castwright.studio`.
 
 If no keychain works, they go in `secrets.json` in the settings folder. On macOS and Linux only your user account can read that file. The log shows a warning, and **Settings → About** shows a note.
 
+In portable mode the keychain isn't used at all, so sign-ins travel with the app. They're in `data/secrets.json`, which isn't encrypted and says so at the top. Encrypting it wouldn't help much: the key would have to sit on the same drive, or you'd type a password every time Castwright starts.
+
 Castwright doesn't write passwords or sign-in tokens to `settings.json` or `project.json`. The overlay link secret is the exception: it's in `settings.json`.
+
+## Portable mode
+
+Castwright is portable when either of these is next to the app when it starts:
+
+- a file called `portable` (it can be empty)
+- a folder called `data`
+
+"Next to the app" means:
+
+| System | Folder |
+| --- | --- |
+| Windows | The folder with `Castwright.exe` |
+| macOS | The folder with `Castwright.app` |
+| Linux AppImage | The folder with the `.AppImage` file |
+| Linux, other | The folder with the `castwright` program |
+
+All data then goes in `data`:
+
+| In `data/` | Holds |
+| --- | --- |
+| `settings.json` | App settings and hotkeys |
+| `secrets.json` | Passwords and sign-ins. Not encrypted. |
+| `.window-state.json` | Window size and position |
+| `Projects/Default/` | The default [project folder](#project-folder) |
+| `backups/` | [Backups](#backups) |
+| `webview/` | The app window's own storage, like panel sizes (Windows and Linux) |
+| `cache/`, `logs/` | Made if needed |
+
+On macOS the app window's storage stays in the usual place, because macOS doesn't let apps move it.
+
+A project folder set in **Settings → General** to somewhere outside `data` is still used. Point it inside `data` if it should travel too.
+
+**Settings → About → Make portable…** sets this up for you. See [Settings → Portable mode](/guide/settings/#portable-mode).
+
+To stop using portable mode, close Castwright and move or rename `data` (and delete `portable` if you made one).
 
 ## `.cwoverlay` files
 
@@ -156,7 +198,33 @@ It's a zip file with:
 | All files together | 512 MB |
 | `overlay.json` | 16 MB |
 
-- Files in `assets/` are copied into your project. Names already in use get `-2`, `-3` and so on, and the overlay is updated to match.
+- Files in `assets/` are copied into your project. If the project already has the same file under the same name, that one is used. Other names already in use get `-2`, `-3` and so on, and the overlay is updated to match.
 - Unsafe file names (with folders, or starting with a dot) are skipped.
 - The overlay and its layers get new IDs, so it never replaces an existing overlay.
 - [Custom widget](/reference/custom-widgets/) storage isn't included.
+
+## `.cwactions` files
+
+[Exporting actions](/guide/automation/#share-actions) makes one `.cwactions` file. It's plain JSON:
+
+| Field | Holds |
+| --- | --- |
+| `kind` | Always `castwright-actions` |
+| `version` | File format version, now `1` |
+| `app_version` | Castwright version that made it |
+| `exported_at` | Time of export, in ms since 1970 |
+| `actions` | The actions, as in `project.json` |
+| `variables` | `name`, `default` and `secret` for each variable the actions use |
+| `refs` | What the steps point at that isn't in the file |
+
+Each entry in `refs` has a `kind` (`layer`, `action` or `asset`), the `id` and `name` it had in the project it came from, and for layers the `overlay_id` and `overlay_name`. On import these are linked to items in your project.
+
+### Importing
+
+- Files from a newer version of Castwright are refused. Update Castwright to import them.
+- Files over 16 MB are refused.
+- Actions get new IDs. **Replace** keeps the ID and name of the action it replaces, so steps and Stream Deck buttons that run it keep working.
+- Steps that run another action from the same file are linked to its new copy.
+- Every imported action is turned off.
+- Variables that don't exist yet are created with their `default` and saved. Existing ones keep their value.
+- `default` is always empty for `secret` variables, even if the file says otherwise.

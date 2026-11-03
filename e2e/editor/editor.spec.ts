@@ -9,9 +9,6 @@ const screens = join(here, '__screens__');
 
 let errors: string[] = [];
 
-// The app runs on the shared server from playwright.config.ts.
-const base = 'http://localhost:4317';
-
 test.beforeAll(() => {
   mkdirSync(screens, { recursive: true });
 });
@@ -25,7 +22,7 @@ test.beforeEach(async ({ page }) => {
   await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (r) => r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
   await stubProviders(page);
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(`${base}/?demo=static`, { timeout: 90_000 });
+  await page.goto('/?demo=static', { timeout: 90_000 });
   await page.getByRole('button', { name: 'Overlays', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Overlays' })).toBeVisible();
 });
@@ -47,8 +44,8 @@ async function selectedId(page: Page): Promise<string> {
 async function createOverlay(page: Page, name: string, starter = false) {
   await page.getByRole('button', { name: 'New overlay' }).first().click();
   const dlg = page.getByRole('dialog', { name: 'New overlay' });
-  await dlg.getByLabel('Name').fill(name);
-  await dlg.getByText(starter ? 'Starter layout' : 'Empty', { exact: true }).click();
+  await dlg.getByLabel('Name', { exact: true }).fill(name);
+  await dlg.locator('label', { has: dlg.page().getByRole('radio', { name: starter ? 'Gameplay' : 'Blank', exact: true }) }).click();
   await dlg.getByRole('button', { name: 'Create overlay' }).click();
   await expect(page.getByLabel('Overlay name')).toHaveValue(name);
 }
@@ -186,7 +183,7 @@ test('creates an overlay and edits, moves, undoes, reorders and hides layers', a
 
 test('keyboard shortcuts, resizing and saving on the way out', async ({ page }) => {
   await createOverlay(page, 'Keys', true);
-  await expect(rows(page)).toHaveCount(5);
+  await expect(rows(page)).toHaveCount(6);
 
   await page.locator('#layer-' + (await rows(page).filter({ hasText: 'Sub goal' }).getAttribute('data-layer-row'))).click();
   const id = await selectedId(page);
@@ -206,16 +203,16 @@ test('keyboard shortcuts, resizing and saving on the way out', async ({ page }) 
   await name.focus();
   await page.keyboard.press('End');
   await page.keyboard.press('Backspace');
-  await expect(rows(page)).toHaveCount(5);
+  await expect(rows(page)).toHaveCount(6);
 
   // Ctrl+D duplicates, Delete removes, Escape deselects.
   await page.locator('.surface').focus();
   await page.keyboard.press('Control+d');
-  await expect(rows(page)).toHaveCount(6);
+  await expect(rows(page)).toHaveCount(7);
   const copy = await selectedId(page);
   expect(copy).not.toBe(id);
   await page.keyboard.press('Delete');
-  await expect(rows(page)).toHaveCount(5);
+  await expect(rows(page)).toHaveCount(6);
   await page.locator(`#layer-${id}`).click();
   await page.locator('.surface').focus();
   await page.keyboard.press('Escape');

@@ -1,6 +1,6 @@
 ---
 title: Keyboard shortcuts
-description: Keyboard shortcuts in the Castwright app.
+description: Keyboard shortcuts in the Castwright app, and global hotkeys.
 sidebar:
   order: 9
 ---
@@ -39,6 +39,37 @@ Panel sizes and folded sections are remembered on each computer.
 | <kbd>Enter</kbd> in the chat box | Sends the message |
 | <kbd>Esc</kbd> | Closes the open dialog |
 | Arrow keys | Move between the options of a button row, like Events, Chat and Log on the Activity page |
+
+## Global hotkeys
+
+Global hotkeys work while another app, like a game, has focus. None are set at first. Set them in **[Settings → Hotkeys](/guide/settings/#hotkeys)**.
+
+| Can do | |
+| --- | --- |
+| Replay last alert | |
+| Skip alert | |
+| Pause or resume alerts | Toggles |
+| Mute or unmute alerts | Toggles |
+| Open the go-live check | Also brings the window to the front |
+| Run an action | Any automation action |
+
+Key names in `settings.json`, in this order: `Ctrl`, `Alt`, `Shift`, `Super`, then one key.
+
+| Keys | Names |
+| --- | --- |
+| Letters and digits | `A` to `Z`, `0` to `9` |
+| Function keys | `F1` to `F24` |
+| Number pad | `Num0` to `Num9`, `NumAdd`, `NumSubtract`, `NumMultiply`, `NumDivide`, `NumDecimal`, `NumEnter` |
+| Arrows | `Up`, `Down`, `Left`, `Right` |
+| Others | `Space`, `Enter`, `Tab`, `Backspace`, `Delete`, `Insert`, `Home`, `End`, `PageUp`, `PageDown`, `Escape`, `PrintScreen`, `Pause`, `ScrollLock` |
+| Symbols | `Minus`, `Equal`, `BracketLeft`, `BracketRight`, `Backslash`, `Semicolon`, `Quote`, `Comma`, `Period`, `Slash`, `Backquote` |
+| Media | `MediaPlayPause`, `MediaStop`, `MediaTrackNext`, `MediaTrackPrevious`, `VolumeUp`, `VolumeDown`, `VolumeMute` |
+
+Letters follow your keyboard layout on Windows and Linux. On macOS they follow the key's position on a US keyboard.
+
+Without <kbd>Ctrl</kbd>, <kbd>Alt</kbd> or <kbd>Super</kbd>, only function keys, media keys, `Pause` and `ScrollLock` are allowed.
+
+On Wayland, global hotkeys may not work. See the [Linux note](/guide/settings/#hotkeys).
 
 ## Overlay editor
 

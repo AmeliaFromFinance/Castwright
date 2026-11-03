@@ -562,6 +562,7 @@ impl Automation {
             let run = me
                 .execute_from(&action, start, &trigger, args, reply_to)
                 .await;
+            me.hub.sessions.on_action(&run.name);
             me.hub.emit_ui(ui::ACTION_RUN, &run);
         });
     }

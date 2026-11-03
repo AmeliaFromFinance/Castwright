@@ -3,6 +3,7 @@
 
 use crate::model::event::{Event, EventKind};
 use crate::model::runtime::{LogEntry, LogLevel, OverlayMsg};
+use crate::sessions::Sessions;
 use crate::store::db::Db;
 use crate::vars::{Changes, Vars};
 use serde::Serialize;
@@ -24,6 +25,8 @@ pub mod ui {
     pub const CHAT_DELETE: &str = "cw://chat-delete";
     pub const ACTION_RUN: &str = "cw://action-run";
     pub const ACTION_PROGRESS: &str = "cw://action-progress";
+    pub const GOLIVE_OPEN: &str = "cw://golive-open";
+    pub const SESSION: &str = "cw://session";
 }
 
 /// Where window events go. The real app uses the Tauri handle; tests use a recorder.
@@ -68,6 +71,7 @@ pub struct Hub {
     ui: Arc<dyn UiSink>,
     pub vars: Arc<Vars>,
     pub db: Arc<Db>,
+    pub sessions: Arc<Sessions>,
     events: broadcast::Sender<Event>,
     overlay: broadcast::Sender<OverlayOut>,
     signals: broadcast::Sender<Signal>,
@@ -90,6 +94,7 @@ impl Hub {
         Arc::new(Hub {
             ui,
             vars,
+            sessions: Arc::new(Sessions::load(db.clone())),
             db,
             events,
             overlay,
@@ -127,6 +132,8 @@ impl Hub {
             while chat.len() > CHAT_KEEP {
                 chat.pop_front();
             }
+            drop(chat);
+            self.sessions.on_chat(&event);
         } else {
             match self.db.insert_event(&event) {
                 Ok(false) => return false,

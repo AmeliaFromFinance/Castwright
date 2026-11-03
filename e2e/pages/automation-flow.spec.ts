@@ -222,7 +222,7 @@ test('automation flow: free canvas editing, undo, tidy, test', async ({ page }) 
   await expect.poll(() => pos(node(page, 'Another one'))).not.toEqual(beforeTidy);
 
   // Collapse and expand a list section.
-  const section = list.getByRole('button', { name: /Chat commands/ });
+  const section = list.getByRole('button', { name: /^Chat commands/ });
   await section.click();
   await expect(list.getByRole('button', { name: /^Count deaths/ })).toBeHidden();
   await list.getByRole('searchbox', { name: 'Search actions' }).fill('death');

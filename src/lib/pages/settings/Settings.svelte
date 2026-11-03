@@ -17,7 +17,9 @@
   import Row from './Row.svelte';
   import Appearance from './Appearance.svelte';
   import GoLiveSettings from './GoLiveSettings.svelte';
+  import SummarySettings from './SummarySettings.svelte';
   import Backups from './Backups.svelte';
+  import Hotkeys from './Hotkeys.svelte';
   import { Copy, Eye, EyeOff, FolderOpen, RefreshCw, ExternalLink, TriangleAlert } from '@lucide/svelte';
 
   const SITE = 'https://castwright.sinist3r.lol';
@@ -29,6 +31,8 @@
     { id: 'twitch', label: 'Twitch' },
     { id: 'server', label: 'Overlay server' },
     { id: 'golive', label: 'Go-live check' },
+    { id: 'hotkeys', label: 'Hotkeys' },
+    { id: 'summary', label: 'Stream summary' },
     { id: 'appearance', label: 'Appearance' },
     { id: 'backups', label: 'Backups and data' },
     { id: 'about', label: 'About' }
@@ -53,6 +57,22 @@
   let restarting = $state(false);
   const portValid = $derived(Number.isInteger(port) && port >= 1024 && port <= 65535);
   const serverDirty = $derived(port !== app.settings?.server.port || allowLan !== app.settings?.server.allow_lan);
+
+  // Portable mode
+  let portableOpen = $state(false);
+  let portableStep = $state<'confirm' | 'copying' | 'done'>('confirm');
+  let portableDir = $state('');
+
+  async function makePortable() {
+    portableStep = 'copying';
+    const dir = await attempt(() => api.makePortable());
+    if (dir) {
+      portableDir = dir;
+      portableStep = 'done';
+      portableOpen = true;
+      app.info = await api.appInfo();
+    } else portableStep = 'confirm';
+  }
 
   // Data
   let confirmClear = $state(false);
@@ -262,6 +282,18 @@
         <GoLiveSettings />
       </Section>
 
+      <Section
+        id="hotkeys"
+        title="Hotkeys"
+        description="Global hotkeys work even while a game or another app has focus. Click a box and press the keys you want."
+      >
+        <Hotkeys />
+      </Section>
+
+      <Section id="summary" title="Stream summary" description="Made each time a stream ends. Find past streams under Activity → Sessions.">
+        <SummarySettings />
+      </Section>
+
       <Section id="appearance" title="Appearance" description="Pick a theme or make your own. Every built-in theme meets WCAG AA contrast.">
         <Appearance />
       </Section>
@@ -292,15 +324,33 @@
               <b>Castwright</b>
               <div class="faint small">Version {app.info?.version} · {app.info?.os}</div>
             </div>
+            {#if app.info?.portable}<Badge tone="ok">Portable mode</Badge>{/if}
           </div>
           <dl>
-            <dt>Settings folder</dt>
-            <dd class="mono selectable">{app.info?.config_dir}</dd>
+            <dt>{app.info?.portable ? 'Data folder' : 'Settings folder'}</dt>
+            <dd class="row gap">
+              <span class="mono selectable">{app.info?.config_dir}</span>
+              <Button size="sm" variant="ghost" onclick={() => reveal(app.info?.config_dir ?? '')} aria-label="Show in file manager"><FolderOpen size={14} /></Button>
+            </dd>
           </dl>
-          {#if app.info?.secrets_in_file}
+          {#if app.info?.portable}
+            <p class="warn-note">
+              <TriangleAlert size={14} /> Passwords and sign-ins are saved in secrets.json in the data folder. It isn't encrypted, so keep the drive somewhere safe.
+            </p>
+          {:else if app.info?.secrets_in_file}
             <p class="warn-note">
               <TriangleAlert size={14} /> No system keychain was found, so passwords and sign-ins are saved in a private file in the settings folder.
             </p>
+          {/if}
+          {#if !app.info?.portable}
+            <Row
+              label="Portable mode"
+              hint={portableDir
+                ? 'Data copied. Restart Castwright to use it.'
+                : (app.info?.portable_blocked ?? 'Copies your settings, project, backups and sign-ins into a data folder next to Castwright, for running it from a USB drive.')}
+            >
+              <Button size="sm" disabled={!!app.info?.portable_blocked || !!portableDir} onclick={() => ((portableStep = 'confirm'), (portableOpen = true))}>Make portable…</Button>
+            </Row>
           {/if}
           <div class="row gap">
             <Button size="sm" busy={checking} onclick={checkUpdates}>Check for updates</Button>
@@ -319,6 +369,31 @@
   {#snippet footer()}
     <Button onclick={() => (confirmToken = false)}>Cancel</Button>
     <Button variant="danger" onclick={newToken}>Create new secret</Button>
+  {/snippet}
+</Dialog>
+
+<Dialog
+  bind:open={portableOpen}
+  title={portableStep === 'done' ? 'Restart to finish' : 'Make Castwright portable?'}
+  width={480}
+>
+  {#if portableStep === 'done'}
+    <p class="dialog-text">Your data was copied to <span class="mono selectable">{portableDir}</span>. Castwright uses it after a restart.</p>
+  {:else}
+    <ul class="dialog-text steps">
+      <li>Copies settings, the default project, backups and sign-ins to a <b>data</b> folder in <span class="mono selectable">{app.info?.app_folder}</span>.</li>
+      <li>Your current data stays where it is, so nothing is lost.</li>
+      <li>Sign-ins are saved there in a plain file. Keep the drive safe.</li>
+    </ul>
+  {/if}
+  {#snippet footer()}
+    {#if portableStep === 'done'}
+      <Button onclick={() => (portableOpen = false)}>Later</Button>
+      <Button variant="primary" onclick={() => attempt(() => api.restartApp())}>Restart now</Button>
+    {:else}
+      <Button disabled={portableStep === 'copying'} onclick={() => (portableOpen = false)}>Cancel</Button>
+      <Button variant="primary" busy={portableStep === 'copying'} onclick={makePortable}>Copy data</Button>
+    {/if}
   {/snippet}
 </Dialog>
 
@@ -463,6 +538,16 @@
   }
   dt {
     color: var(--text-muted);
+  }
+  .dialog-text {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .steps {
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
   .warn-note {
     display: flex;

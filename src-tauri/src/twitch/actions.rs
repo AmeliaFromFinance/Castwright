@@ -340,6 +340,7 @@ impl TwitchActions for TwitchService {
             }
             _ => e.into_app("add stream markers"),
         })?;
+        self.hub.sessions.on_marker(&description);
         Ok(())
     }
 

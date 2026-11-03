@@ -1,0 +1,164 @@
+{
+  "id": "gameplay",
+  "name": "Gameplay",
+  "description": "Webcam frame, goal, chat and an event ticker around your game",
+  "width": 1920,
+  "height": 1080,
+  "layers": [
+    {
+      "name": "Sub goal",
+      "kind": {
+        "type": "goal",
+        "title": "Sub goal",
+        "current_var": "session.subs",
+        "target": 20,
+        "bar_color": "#8b93f8",
+        "track_color": "rgba(255,255,255,0.14)",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 22,
+          "font_weight": 600,
+          "color": "#ffffff"
+        }
+      },
+      "x": 48,
+      "y": 48,
+      "w": 520,
+      "h": 104,
+      "box": "clean",
+      "enter": {
+        "preset": "slide_down",
+        "duration_ms": 500,
+        "delay_ms": 0,
+        "easing": "ease_out"
+      }
+    },
+    {
+      "name": "Webcam frame",
+      "kind": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "x": 48,
+      "y": 712,
+      "w": 480,
+      "h": 270,
+      "box_style": {
+        "fill": "none",
+        "border_color": "rgba(167,139,250,0.95)",
+        "border_width": 4,
+        "radius": 20,
+        "shadow_kind": "glow",
+        "shadow_blur": 28,
+        "shadow_color": "rgba(91,141,239,0.5)"
+      }
+    },
+    {
+      "name": "Name tag",
+      "kind": {
+        "type": "text",
+        "text": "@yourname",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 22,
+          "font_weight": 700,
+          "color": "#ffffff",
+          "align": "center",
+          "shadow": ""
+        }
+      },
+      "x": 80,
+      "y": 958,
+      "w": 232,
+      "h": 48,
+      "box_style": {
+        "shape": "pill",
+        "fill": "gradient",
+        "gradient": [
+          {
+            "color": "#5b8def",
+            "at": 0
+          },
+          {
+            "color": "#a78bfa",
+            "at": 100
+          }
+        ],
+        "gradient_angle": 90,
+        "padding": 8,
+        "padding_x": 20,
+        "shadow_kind": "soft",
+        "shadow_x": 0,
+        "shadow_y": 8,
+        "shadow_blur": 20,
+        "shadow_color": "rgba(91,141,239,0.4)"
+      },
+      "enter": {
+        "preset": "pop",
+        "duration_ms": 450,
+        "delay_ms": 0,
+        "easing": "ease_out"
+      }
+    },
+    {
+      "name": "Recent events",
+      "kind": {
+        "type": "event_list",
+        "kinds": [
+          "follow",
+          "sub",
+          "resub",
+          "gift_sub",
+          "community_gift",
+          "cheer",
+          "raid"
+        ],
+        "max_items": 8,
+        "direction": "ticker",
+        "item_format": "{{name}} · {{label}}",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 22,
+          "font_weight": 600,
+          "color": "#ffffff"
+        }
+      },
+      "x": 560,
+      "y": 976,
+      "w": 1312,
+      "h": 56,
+      "box": "clean",
+      "box_style": {
+        "padding": 12
+      }
+    },
+    {
+      "name": "Chat",
+      "kind": {
+        "type": "chat",
+        "max_messages": 8,
+        "style": {
+          "font_family": "Inter",
+          "font_size": 22,
+          "font_weight": 600,
+          "color": "#ffffff"
+        }
+      },
+      "x": 1504,
+      "y": 392,
+      "w": 368,
+      "h": 544,
+      "items": "clean"
+    },
+    {
+      "name": "Alerts",
+      "kind": {
+        "type": "alerts"
+      },
+      "x": 560,
+      "y": 72,
+      "w": 800,
+      "h": 420
+    }
+  ]
+}

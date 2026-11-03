@@ -17,6 +17,10 @@ import trace from '../../assets/screens/automation-trace.png';
 import golive from '../../assets/screens/golive-check.png';
 import alertControls from '../../assets/screens/alert-controls.png';
 import backups from '../../assets/screens/backups.png';
+import templates from '../../assets/screens/overlay-templates.png';
+import importActions from '../../assets/screens/import-actions.png';
+import summary from '../../assets/screens/session-summary.png';
+import hotkeys from '../../assets/screens/hotkeys.png';
 import chat from '../../assets/screens/chat.png';
 import activity from '../../assets/screens/activity.png';
 import palette from '../../assets/screens/palette.png';
@@ -31,6 +35,7 @@ Click any screenshot to enlarge it. Use the arrow keys to move between them.
 <Gallery
   items={[
     { src: overlays, title: 'Overlays', caption: 'Live previews of every overlay, one click to add to OBS' },
+    { src: templates, title: 'Overlay templates', caption: 'Start from a ready-made layout or your own' },
     { src: editor, title: 'Overlay editor', caption: 'Drag, resize and style layers on a live canvas' },
     { src: styles, title: 'Comic chat cards', caption: 'Style presets for boxes, chat cards and event rows' },
     { src: editorAlert, title: 'Testing an alert', caption: 'Play sample alerts right in the editor' },
@@ -39,12 +44,15 @@ Click any screenshot to enlarge it. Use the arrow keys to move between them.
     { src: alertStyles, title: 'Alert styles', caption: 'Give each alert its own card' },
     { src: automation, title: 'Automation flow', caption: 'Triggers and steps placed freely, joined by lines' },
     { src: trace, title: 'Live run trace', caption: 'Lines light up as a run passes through' },
+    { src: importActions, title: 'Sharing actions', caption: 'Import with a preview, clashes and re-linking' },
     { src: chat, title: 'Chat', caption: 'Twitch and 7TV badges, 7TV paints and third-party emotes' },
     { src: activity, title: 'Activity', caption: 'Event history with filters, details and replay' },
+    { src: summary, title: 'Stream summary', caption: 'Numbers, top chatters and a timeline after each stream' },
     { src: palette, title: 'Command palette', caption: 'Ctrl K to find anything' },
     { src: alertControls, title: 'Alert controls', caption: 'Pause, skip, replay and mute from the status bar' },
     { src: golive, title: 'Go-live check', caption: 'OBS, overlays, Twitch and alerts checked in seconds' },
     { src: settings, title: 'Settings', caption: 'OBS, Twitch, overlay server, themes and backups' },
+    { src: hotkeys, title: 'Global hotkeys', caption: 'Control alerts and actions from inside a game' },
     { src: backups, title: 'Backups', caption: 'Daily snapshots with one-click restore' },
     { src: themeEditor, title: 'Theme editor', caption: 'Build a theme with a live readability check' },
     { src: firstRun, title: 'First-time setup', caption: 'Sign in to Twitch with a short code' },

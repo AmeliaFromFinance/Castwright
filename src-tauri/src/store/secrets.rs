@@ -1,6 +1,7 @@
 //! Tokens and passwords. Kept in the system keychain (Windows Credential Manager,
 //! macOS Keychain, Secret Service on Linux). If no keychain is available, they go
 //! in a file only the current user can read, and the app shows a warning.
+//! Portable mode always uses the file, so sign-ins travel with the app.
 
 use crate::error::AppResult;
 use serde_json::{Map, Value};
@@ -8,9 +9,14 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 const SERVICE: &str = "com.castwright.studio";
+/// Written into the file so anyone opening it knows what it is.
+const NOTE_KEY: &str = "_note";
+const NOTE: &str = "Castwright sign-ins and passwords. Not encrypted: anyone with this file can use these accounts. Don't share it.";
 
 pub struct Secrets {
     fallback_file: PathBuf,
+    /// False in portable mode: never read or write the system keychain.
+    keychain: bool,
     /// Set once the keychain has failed, so we stop trying it.
     use_file: Mutex<bool>,
     /// In-memory only (tests).
@@ -21,7 +27,17 @@ impl Secrets {
     pub fn new(fallback_file: PathBuf) -> Self {
         Secrets {
             fallback_file,
+            keychain: true,
             use_file: Mutex::new(false),
+            memory: None,
+        }
+    }
+
+    pub fn file_only(file: PathBuf) -> Self {
+        Secrets {
+            fallback_file: file,
+            keychain: false,
+            use_file: Mutex::new(true),
             memory: None,
         }
     }
@@ -29,6 +45,7 @@ impl Secrets {
     pub fn in_memory() -> Self {
         Secrets {
             fallback_file: PathBuf::new(),
+            keychain: false,
             use_file: Mutex::new(true),
             memory: Some(Mutex::new(Map::new())),
         }
@@ -101,7 +118,9 @@ impl Secrets {
             m.lock().unwrap().remove(key);
             return Ok(());
         }
-        if let Ok(e) = keyring::Entry::new(SERVICE, key) {
+        if self.keychain
+            && let Ok(e) = keyring::Entry::new(SERVICE, key)
+        {
             let _ = e.delete_credential();
         }
         let mut f = self.read_file();
@@ -119,7 +138,9 @@ impl Secrets {
     }
 
     fn write_file(&self, m: &Map<String, Value>) -> AppResult<()> {
-        crate::util::write_atomic_private(&self.fallback_file, &serde_json::to_vec(m)?)?;
+        let mut m = m.clone();
+        m.insert(NOTE_KEY.into(), Value::String(NOTE.into()));
+        crate::util::write_atomic_private(&self.fallback_file, &serde_json::to_vec_pretty(&m)?)?;
         Ok(())
     }
 }
@@ -128,6 +149,7 @@ pub mod keys {
     pub const TWITCH_BROADCASTER: &str = "twitch.broadcaster";
     pub const TWITCH_BOT: &str = "twitch.bot";
     pub const OBS_PASSWORD: &str = "obs.password";
+    pub const ALL: [&str; 3] = [TWITCH_BROADCASTER, TWITCH_BOT, OBS_PASSWORD];
 }
 
 #[cfg(test)]
@@ -162,5 +184,22 @@ mod tests {
                 .mode();
             assert_eq!(mode & 0o777, 0o600);
         }
+    }
+
+    #[test]
+    fn file_only_is_marked() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("secrets.json");
+        let s = Secrets::file_only(f.clone());
+        assert!(s.using_file());
+        s.set(keys::OBS_PASSWORD, "hunter2").unwrap();
+        let raw = std::fs::read_to_string(&f).unwrap();
+        assert!(raw.contains("Not encrypted"));
+        assert_eq!(
+            Secrets::file_only(f).get(keys::OBS_PASSWORD).as_deref(),
+            Some("hunter2")
+        );
+        s.delete(keys::OBS_PASSWORD).unwrap();
+        assert!(s.get(keys::OBS_PASSWORD).is_none());
     }
 }

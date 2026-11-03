@@ -4,11 +4,14 @@ pub mod commands;
 pub mod core;
 pub mod error;
 pub mod golive;
+pub mod hotkeys;
 pub mod hub;
 pub mod model;
 pub mod obs;
+pub mod paths;
 pub mod server;
 pub mod services;
+pub mod sessions;
 pub mod store;
 pub mod template;
 pub mod twitch;
@@ -36,6 +39,13 @@ pub fn run() {
         )
         .try_init();
 
+    let layout = paths::Layout::detect();
+    let mut context = tauri::generate_context!();
+    layout.apply(context.config_mut());
+    if let Some(dir) = &layout.portable {
+        tracing::info!("portable mode, data in {}", dir.display());
+    }
+
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(w) = app.get_webview_window("main") {
@@ -47,20 +57,26 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .setup(|app| {
+        .setup(move |app| {
             let handle = app.handle().clone();
-            let data_dir = app.path().app_data_dir()?;
-            let paths = core::Paths {
-                config_dir: app.path().app_config_dir()?,
-                default_project_dir: data_dir.join("Projects").join("Default"),
-                backup_dir: data_dir.join("backups"),
-            };
+            let paths = paths::core_paths(&handle, &layout)?;
+            app.manage(layout);
             let core = tauri::async_runtime::block_on(core::Core::start(
                 paths,
                 Arc::new(TauriUi(handle.clone())),
             ))
             .map_err(|e| -> Box<dyn std::error::Error> { e.to_string().into() })?;
             app.manage(core.clone());
+
+            let hotkeys = Arc::new(hotkeys::Hotkeys::default());
+            app.manage(hotkeys.clone());
+            match handle.plugin(hotkeys::plugin()) {
+                Ok(()) => {
+                    let status = hotkeys.apply(&handle, &core.settings.get().hotkeys);
+                    hotkeys::log_errors(&core, &status);
+                }
+                Err(e) => tracing::warn!("global hotkeys unavailable: {e}"),
+            }
 
             if let Some(window) = app.get_webview_window("main") {
                 let a = core.settings.get().appearance;
@@ -79,6 +95,15 @@ pub fn run() {
             commands::rename_project,
             commands::export_overlay,
             commands::import_overlay,
+            commands::list_overlay_templates,
+            commands::save_overlay_template,
+            commands::delete_overlay_template,
+            commands::overlay_from_template,
+            commands::actions_package,
+            commands::export_actions,
+            commands::read_actions_file,
+            commands::parse_actions_package,
+            commands::import_actions,
             commands::list_assets,
             commands::import_assets,
             commands::delete_asset,
@@ -105,6 +130,11 @@ pub fn run() {
             commands::set_var,
             commands::delete_var,
             commands::reset_session,
+            commands::list_sessions,
+            commands::session_summary,
+            commands::delete_session,
+            commands::save_summary_settings,
+            commands::save_export,
             commands::recent_events,
             commands::recent_chat,
             commands::clear_history,
@@ -120,6 +150,10 @@ pub fn run() {
             commands::set_twitch_client_id,
             commands::app_info,
             commands::set_window_effect,
+            commands::make_portable,
+            commands::restart_app,
+            commands::save_hotkeys,
+            commands::hotkeys_recording,
             commands::save_golive,
             commands::golive_check,
             commands::golive_fix,
@@ -154,7 +188,7 @@ pub fn run() {
             commands::obs_screenshot,
             commands::obs_add_overlay,
         ])
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while building Castwright");
 
     app.run(|handle, event| {

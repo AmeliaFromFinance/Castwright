@@ -150,6 +150,69 @@ impl BackupSettings {
     }
 }
 
+/// What a global hotkey does.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[ts(export)]
+pub enum HotkeyAction {
+    ReplayLastAlert,
+    SkipAlert,
+    /// Pause the alert queue, or resume it when paused.
+    ToggleAlertPause,
+    ToggleAlertMute,
+    OpenGoLive,
+    RunAction {
+        action_id: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct HotkeyBinding {
+    pub action: HotkeyAction,
+    /// Like `Ctrl+Shift+F1`. Empty = not set.
+    #[serde(default)]
+    pub keys: String,
+}
+
+pub const DEFAULT_SOCIAL_TEMPLATE: &str = "Thanks for hanging out! {{duration}} of {{category | default:\"streaming\"}} with a peak of {{peak_viewers | number}} viewers.\n{{follows}} new follows, {{subs}} subs and {{bits | number}} bits. Top chatter: {{top_chatter | default:\"nobody yet\"}}.";
+
+/// Most characters the "Copy for socials" template may have.
+pub const MAX_SOCIAL_TEMPLATE: usize = 2000;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default)]
+#[ts(export)]
+pub struct HotkeySettings {
+    pub enabled: bool,
+    pub bindings: Vec<HotkeyBinding>,
+}
+
+impl Default for HotkeySettings {
+    fn default() -> Self {
+        HotkeySettings {
+            enabled: true,
+            bindings: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(default)]
+#[ts(export)]
+pub struct SummarySettings {
+    /// Text copied by "Copy for socials". Uses `{{placeholders}}`.
+    pub social_template: String,
+}
+
+impl Default for SummarySettings {
+    fn default() -> Self {
+        SummarySettings {
+            social_template: DEFAULT_SOCIAL_TEMPLATE.into(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS, Default)]
 #[serde(default)]
 #[ts(export)]
@@ -165,4 +228,7 @@ pub struct Settings {
     pub alerts_muted: bool,
     pub golive: GoLiveSettings,
     pub backups: BackupSettings,
+    /// Global hotkeys. Kept per computer, not in the project.
+    pub hotkeys: HotkeySettings,
+    pub summary: SummarySettings,
 }

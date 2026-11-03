@@ -13,9 +13,11 @@ import { applyTheme, watchSystemTheme } from '$lib/theme/apply';
 import { toasts } from './toast.svelte';
 import { loadPref, savePref } from './persist';
 import { updates } from './updates.svelte';
+import { sessions } from '$lib/sessions/store.svelte';
 import type { Theme } from '$lib/theme/themes';
 
 export type Page = 'overlays' | 'alerts' | 'automation' | 'activity' | 'settings';
+export type ActivityTab = 'events' | 'chat' | 'sessions' | 'log';
 
 const CHAT_KEEP = 300;
 const FEED_KEEP = 200;
@@ -60,6 +62,7 @@ class AppState {
   page = $state<Page>('overlays');
   /** Overlay open in the editor, if any. */
   editingOverlay = $state<string | null>(null);
+  activityTab = $state<ActivityTab>('events');
 
   project = $state<Project | null>(null);
   settings = $state<Settings | null>(null);
@@ -165,6 +168,10 @@ class AppState {
         if (d.all) this.chat = [];
         else if (d.message_id) this.chat = this.chat.filter((c) => c.id !== d.message_id);
         else if (d.user_id) this.chat = this.chat.filter((c) => c.user?.id !== d.user_id);
+      }),
+      on('cw://session', (c) => {
+        if (c.type === 'ended') sessions.ended(c.session.id);
+        else sessions.changed();
       }),
       on('cw://project', async () => {
         // Overlay visibility can change from automation; refresh quietly.

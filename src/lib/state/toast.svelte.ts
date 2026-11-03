@@ -7,6 +7,12 @@ export interface Toast {
   kind: ToastKind;
   message: string;
   key?: string;
+  action?: ToastAction;
+}
+
+export interface ToastAction {
+  label: string;
+  run: () => void;
 }
 
 class Toasts {
@@ -14,10 +20,10 @@ class Toasts {
   private next = 1;
 
   /** A toast with the same `key` replaces the previous one. */
-  show(message: string, kind: ToastKind = 'info', ms = 4000, key?: string) {
+  show(message: string, kind: ToastKind = 'info', ms = 4000, key?: string, action?: ToastAction) {
     const id = this.next++;
     if (key) this.items = this.items.filter((t) => t.key !== key);
-    this.items.push({ id, kind, message, key });
+    this.items.push({ id, kind, message, key, action });
     if (this.items.length > 4) this.items.shift();
     setTimeout(() => this.dismiss(id), kind === 'error' ? Math.max(ms, 7000) : ms);
   }

@@ -6,8 +6,10 @@ use crate::error::{AppError, AppResult};
 use crate::hub::{Hub, UiSink};
 use crate::model::project::Project;
 use crate::model::runtime::{LogLevel, OverlayMsg};
+use crate::model::session::SessionChange;
 use crate::obs::ObsService;
 use crate::server::OverlayServer;
+use crate::sessions::LiveSignal;
 use crate::store::backup::{BackupContent, BackupInfo, BackupReason, Backups};
 use crate::store::db::Db;
 use crate::store::project::{LoadOutcome, ProjectStore};
@@ -21,8 +23,11 @@ use std::time::Duration;
 
 pub struct Paths {
     pub config_dir: PathBuf,
+    pub data_dir: PathBuf,
     pub default_project_dir: PathBuf,
     pub backup_dir: PathBuf,
+    /// Keep secrets in a file next to the settings instead of the system keychain.
+    pub secrets_in_file: bool,
 }
 
 const DAY: Duration = Duration::from_secs(24 * 60 * 60);
@@ -46,7 +51,12 @@ impl Core {
     pub async fn start(paths: Paths, ui: Arc<dyn UiSink>) -> anyhow::Result<Arc<Core>> {
         std::fs::create_dir_all(&paths.config_dir)?;
         let settings = Arc::new(SettingsStore::open(paths.config_dir.join("settings.json")));
-        let secrets = Arc::new(Secrets::new(paths.config_dir.join("secrets.json")));
+        let secrets_file = paths.config_dir.join("secrets.json");
+        let secrets = Arc::new(if paths.secrets_in_file {
+            Secrets::file_only(secrets_file)
+        } else {
+            Secrets::new(secrets_file)
+        });
 
         let wanted = settings.get().project_dir;
         let project_dir = if wanted.trim().is_empty() {
@@ -103,7 +113,7 @@ impl Core {
             ),
             _ => {}
         }
-        if secrets.using_file() {
+        if secrets.using_file() && !paths.secrets_in_file {
             hub.log(
                 LogLevel::Warn,
                 "secrets",
@@ -139,7 +149,9 @@ impl Core {
                     hub_sync.set_var("twitch.login", login.into(), false);
                     hub_sync.set_var("twitch.display_name", name.into(), false);
                     hub_sync.set_var("twitch.user_id", id.into(), false);
-                    automation.set_ignored_users(st.bot.map(|b| vec![b.id]).unwrap_or_default());
+                    let bot: Vec<String> = st.bot.map(|b| vec![b.id]).unwrap_or_default();
+                    hub_sync.sessions.set_ignored_users(bot.clone());
+                    automation.set_ignored_users(bot);
                     automation.set_live(st.stream.live);
                 }
             });
@@ -148,6 +160,7 @@ impl Core {
         let obs = ObsService::new(hub.clone(), secrets.clone(), settings.clone());
         automation.set_obs(obs.clone());
         obs.start();
+        crate::util::spawn(session_loop(hub.clone(), twitch.clone(), obs.clone()));
 
         let s = settings.get();
         let server = OverlayServer::new(
@@ -288,6 +301,7 @@ impl Core {
     }
 
     fn shutdown_sync(&self) {
+        self.hub.sessions.flush();
         if let Err(e) = self.project.flush() {
             tracing::error!("couldn't save project on exit: {e}");
         }
@@ -296,8 +310,35 @@ impl Core {
         self.twitch.shutdown();
     }
 
+    /// Write pending project and variable changes now.
+    pub fn flush(&self) -> AppResult<()> {
+        self.project.flush()?;
+        save_vars(&self.hub, &self.project);
+        Ok(())
+    }
+
     pub fn project_dir(&self) -> &Path {
         self.project.dir()
+    }
+}
+
+/// Start and end stream sessions as Twitch (or OBS) goes live and offline.
+async fn session_loop(hub: Arc<Hub>, twitch: Arc<TwitchService>, obs: Arc<ObsService>) {
+    let mut tick = tokio::time::interval(Duration::from_secs(5));
+    loop {
+        tick.tick().await;
+        let sig = LiveSignal::from_status(&twitch.status(), twitch.stream_known(), &obs.snapshot());
+        let sessions = hub.sessions.clone();
+        let changes =
+            tokio::task::spawn_blocking(move || sessions.tick(&sig, crate::util::now_ms()))
+                .await
+                .unwrap_or_default();
+        for change in changes {
+            if matches!(change, SessionChange::Ended { .. }) {
+                hub.log(LogLevel::Info, "sessions", "Stream summary ready");
+            }
+            hub.emit_ui(crate::hub::ui::SESSION, &change);
+        }
     }
 }
 
@@ -324,6 +365,8 @@ mod tests {
             config_dir: dir.path().join("config"),
             default_project_dir: dir.path().join("project"),
             backup_dir: dir.path().join("backups"),
+            data_dir: dir.path().to_path_buf(),
+            secrets_in_file: false,
         };
         let core = Core::start(paths, Arc::new(crate::hub::NullUi))
             .await
@@ -350,6 +393,8 @@ mod tests {
             config_dir: dir.join("config"),
             default_project_dir: dir.join("project"),
             backup_dir: dir.join("backups"),
+            data_dir: dir.to_path_buf(),
+            secrets_in_file: false,
         }
     }
 
@@ -577,6 +622,8 @@ mod tests {
                 config_dir: config,
                 default_project_dir: dir.path().join("default"),
                 backup_dir: dir.path().join("backups"),
+                data_dir: dir.path().to_path_buf(),
+                secrets_in_file: false,
             },
             Arc::new(crate::hub::NullUi),
         )

@@ -124,6 +124,8 @@ struct State {
     /// Helix lags behind EventSub, so a poll right after is not trusted.
     stream_hint: Option<(bool, i64)>,
     stream_failing: bool,
+    /// Stream info has been read at least once since start-up.
+    stream_known: bool,
 }
 
 #[derive(Default)]
@@ -285,6 +287,11 @@ impl TwitchService {
             }
             None => false,
         }
+    }
+
+    /// Whether `status().stream` reflects Twitch yet, rather than the default.
+    pub fn stream_known(&self) -> bool {
+        self.state.lock().unwrap().stream_known
     }
 
     pub fn status(&self) -> TwitchStatus {

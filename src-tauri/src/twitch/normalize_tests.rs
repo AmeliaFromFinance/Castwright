@@ -100,6 +100,30 @@ fn raid() {
 }
 
 #[test]
+fn raid_out() {
+    let mut v = fixture("raid");
+    let e = &mut v["payload"]["event"];
+    e["from_broadcaster_user_id"] = "1337".into();
+    let n = normalize(
+        "channel.raid",
+        Meta {
+            message_id: "m",
+            ts: 0,
+            broadcaster_id: "1337",
+        },
+        e,
+    );
+    assert_eq!(
+        n,
+        Normalized::RaidOut {
+            login: "cooler_user".into(),
+            name: "Cooler_User".into(),
+            viewers: 9001
+        }
+    );
+}
+
+#[test]
 fn redemption() {
     let e = ev("redemption");
     assert_eq!(e.kind, EventKind::Redemption);

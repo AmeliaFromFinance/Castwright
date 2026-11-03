@@ -1,0 +1,356 @@
+{
+  "id": "ending",
+  "name": "Ending",
+  "description": "Thank you scene with this stream's numbers",
+  "width": 1920,
+  "height": 1080,
+  "layers": [
+    {
+      "name": "Background",
+      "kind": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 1920,
+      "h": 1080,
+      "box_style": {
+        "shape": "rect",
+        "radius": 0,
+        "fill": "gradient",
+        "gradient": [
+          {
+            "color": "#0b1023",
+            "at": 0
+          },
+          {
+            "color": "#171a3d",
+            "at": 55
+          },
+          {
+            "color": "#2a1856",
+            "at": 100
+          }
+        ],
+        "gradient_angle": 135,
+        "pattern": "grid",
+        "pattern_color": "#ffffff",
+        "pattern_opacity": 0.035,
+        "pattern_size": 48,
+        "shadow_kind": "none"
+      },
+      "locked": true
+    },
+    {
+      "name": "Glow left",
+      "kind": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "x": -200,
+      "y": 600,
+      "w": 700,
+      "h": 700,
+      "box_style": {
+        "shape": "pill",
+        "background": "rgba(91,141,239,0.32)",
+        "shadow_kind": "glow",
+        "shadow_blur": 220,
+        "shadow_color": "rgba(91,141,239,0.32)"
+      },
+      "opacity": 0.55,
+      "locked": true
+    },
+    {
+      "name": "Glow right",
+      "kind": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "x": 1400,
+      "y": -240,
+      "w": 700,
+      "h": 700,
+      "box_style": {
+        "shape": "pill",
+        "background": "rgba(167,139,250,0.32)",
+        "shadow_kind": "glow",
+        "shadow_blur": 220,
+        "shadow_color": "rgba(167,139,250,0.32)"
+      },
+      "opacity": 0.55,
+      "locked": true
+    },
+    {
+      "name": "Title",
+      "kind": {
+        "type": "text",
+        "text": "Thanks for watching",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 120,
+          "font_weight": 900,
+          "color": "#ffffff",
+          "align": "center",
+          "letter_spacing": -3,
+          "line_height": 1.1,
+          "shadow": "0 8px 40px rgba(0,0,0,0.35)"
+        }
+      },
+      "x": 160,
+      "y": 300,
+      "w": 1600,
+      "h": 150,
+      "enter": {
+        "preset": "slide_up",
+        "duration_ms": 700,
+        "delay_ms": 0,
+        "easing": "ease_out"
+      }
+    },
+    {
+      "name": "Subtitle",
+      "kind": {
+        "type": "text",
+        "text": "See you next stream",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 34,
+          "font_weight": 500,
+          "color": "rgba(255,255,255,0.72)",
+          "align": "center",
+          "shadow": ""
+        }
+      },
+      "x": 160,
+      "y": 456,
+      "w": 1600,
+      "h": 48
+    },
+    {
+      "name": "Followers card",
+      "kind": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "x": 488,
+      "y": 560,
+      "w": 288,
+      "h": 160,
+      "box": "glass",
+      "box_style": {
+        "radius": 24
+      }
+    },
+    {
+      "name": "Followers count",
+      "kind": {
+        "type": "counter",
+        "var": "session.follows",
+        "format": "{{value}}",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 64,
+          "font_weight": 800,
+          "color": "#ffffff",
+          "align": "center"
+        }
+      },
+      "x": 488,
+      "y": 580,
+      "w": 288,
+      "h": 80
+    },
+    {
+      "name": "Followers label",
+      "kind": {
+        "type": "text",
+        "text": "FOLLOWERS",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 18,
+          "font_weight": 700,
+          "color": "rgba(255,255,255,0.72)",
+          "align": "center",
+          "letter_spacing": 3,
+          "shadow": ""
+        }
+      },
+      "x": 488,
+      "y": 660,
+      "w": 288,
+      "h": 36
+    },
+    {
+      "name": "Subs card",
+      "kind": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "x": 816,
+      "y": 560,
+      "w": 288,
+      "h": 160,
+      "box": "glass",
+      "box_style": {
+        "radius": 24
+      }
+    },
+    {
+      "name": "Subs count",
+      "kind": {
+        "type": "counter",
+        "var": "session.subs",
+        "format": "{{value}}",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 64,
+          "font_weight": 800,
+          "color": "#ffffff",
+          "align": "center"
+        }
+      },
+      "x": 816,
+      "y": 580,
+      "w": 288,
+      "h": 80
+    },
+    {
+      "name": "Subs label",
+      "kind": {
+        "type": "text",
+        "text": "SUBS",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 18,
+          "font_weight": 700,
+          "color": "rgba(255,255,255,0.72)",
+          "align": "center",
+          "letter_spacing": 3,
+          "shadow": ""
+        }
+      },
+      "x": 816,
+      "y": 660,
+      "w": 288,
+      "h": 36
+    },
+    {
+      "name": "Raids card",
+      "kind": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "x": 1144,
+      "y": 560,
+      "w": 288,
+      "h": 160,
+      "box": "glass",
+      "box_style": {
+        "radius": 24
+      }
+    },
+    {
+      "name": "Raids count",
+      "kind": {
+        "type": "counter",
+        "var": "session.raids",
+        "format": "{{value}}",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 64,
+          "font_weight": 800,
+          "color": "#ffffff",
+          "align": "center"
+        }
+      },
+      "x": 1144,
+      "y": 580,
+      "w": 288,
+      "h": 80
+    },
+    {
+      "name": "Raids label",
+      "kind": {
+        "type": "text",
+        "text": "RAIDS",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 18,
+          "font_weight": 700,
+          "color": "rgba(255,255,255,0.72)",
+          "align": "center",
+          "letter_spacing": 3,
+          "shadow": ""
+        }
+      },
+      "x": 1144,
+      "y": 660,
+      "w": 288,
+      "h": 36
+    },
+    {
+      "name": "Recent events",
+      "kind": {
+        "type": "event_list",
+        "kinds": [
+          "follow",
+          "sub",
+          "resub",
+          "gift_sub",
+          "community_gift",
+          "cheer",
+          "raid"
+        ],
+        "max_items": 8,
+        "direction": "ticker",
+        "item_format": "{{name}} · {{label}}",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 22,
+          "font_weight": 600,
+          "color": "#ffffff"
+        }
+      },
+      "x": 460,
+      "y": 792,
+      "w": 1000,
+      "h": 56,
+      "box": "glass",
+      "box_style": {
+        "padding": 12,
+        "radius": 16
+      }
+    },
+    {
+      "name": "Socials",
+      "kind": {
+        "type": "text",
+        "text": "twitch.tv/yourname",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 24,
+          "font_weight": 600,
+          "color": "rgba(255,255,255,0.72)",
+          "align": "center",
+          "shadow": ""
+        }
+      },
+      "x": 160,
+      "y": 980,
+      "w": 1600,
+      "h": 40
+    },
+    {
+      "name": "Alerts",
+      "kind": {
+        "type": "alerts"
+      },
+      "x": 560,
+      "y": 40,
+      "w": 800,
+      "h": 240
+    }
+  ]
+}

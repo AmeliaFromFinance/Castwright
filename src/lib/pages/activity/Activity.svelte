@@ -15,12 +15,11 @@
   import ChatPanel from '$lib/widgets/ChatPanel.svelte';
   import StreamInfo from '$lib/widgets/StreamInfo.svelte';
   import ResizeHandle from '$lib/ui/ResizeHandle.svelte';
+  import SessionsPanel from '$lib/sessions/SessionsPanel.svelte';
   import { Search, Download, RotateCcw, X, Copy, History } from '@lucide/svelte';
 
-  type Tab = 'events' | 'chat' | 'log';
   let infoOpen = $state(false);
   let detailWidth = $state(340);
-  let tab = $state<Tab>('events');
 
   const groups: Array<{ id: string; label: string; kinds: EventKind[] }> = [
     { id: 'follows', label: 'Follows', kinds: ['follow'] },
@@ -146,22 +145,23 @@
     </button>
     <Segmented
       label="View"
-      bind:value={tab}
+      bind:value={app.activityTab}
       options={[
         { value: 'events', label: 'Events' },
         { value: 'chat', label: 'Chat' },
+        { value: 'sessions', label: 'Sessions' },
         { value: 'log', label: warnCount ? `Log (${warnCount})` : 'Log' }
       ]}
     />
     <div class="grow"></div>
-    {#if tab === 'events'}
+    {#if app.activityTab === 'events'}
       <label class="search">
         <Search size={14} />
         <input class="input" type="search" placeholder="Search by name" bind:value={search} aria-label="Search events by name" />
       </label>
       <Switch label="Show tests" showLabel bind:checked={includeTests} />
       <Button size="sm" onclick={exportCsv}><Download size={14} />Export CSV</Button>
-    {:else if tab === 'log'}
+    {:else if app.activityTab === 'log'}
       <label class="search">
         <Search size={14} />
         <input class="input" type="search" placeholder="Search log" bind:value={logSearch} aria-label="Search log" />
@@ -173,7 +173,7 @@
     {/if}
   </header>
 
-  {#if tab === 'events'}
+  {#if app.activityTab === 'events'}
     <div class="filters" role="group" aria-label="Event types">
       <button type="button" class="chip" aria-pressed={picked.length === 0} onclick={() => (picked = [])}>All</button>
       {#each groups as g (g.id)}
@@ -267,10 +267,12 @@
         </aside>
       {/if}
     </div>
-  {:else if tab === 'chat'}
+  {:else if app.activityTab === 'chat'}
     <div class="chat">
       <ChatPanel compact={false} />
     </div>
+  {:else if app.activityTab === 'sessions'}
+    <SessionsPanel />
   {:else}
     <div class="filters" role="group" aria-label="Log levels">
       {#each [['info', 'Info'], ['warn', 'Warnings'], ['error', 'Errors']] as [lv, label] (lv)}

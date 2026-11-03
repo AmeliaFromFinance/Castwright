@@ -115,6 +115,39 @@ Every step and option is described in the [automation steps reference](/referenc
 
 **Raid welcome**: trigger *Twitch event* `Raid` when `amount is at least 10`; steps *Switch scene* to "Raid", *Wait* 15 seconds, *Switch scene* back.
 
+## Share actions
+
+Actions export to a `.cwactions` file you can send to someone or keep as a copy.
+
+**Export**
+
+- One action: the export button in the action header, or right-click it in the list and pick **Export…**.
+- Several: <kbd>Ctrl</kbd> + click or <kbd>Shift</kbd> + click them in the list, then **Export…** in the bar below it.
+- A whole section: hover its name and pick **⋯ → Export group…**.
+
+**Import**
+
+Click **Import actions…** at the top, or drop a `.cwactions` file on the Automation page. Nothing changes until you confirm. You see:
+
+- Each action with its triggers, step count and a preview of its flow.
+- **Name taken**: keep both (the new one gets "(2)"), replace yours, or skip it.
+- **Links**: layers, actions and files the steps use that aren't in the file. Castwright picks one with the same name when it can. Pick another, or leave it unlinked. Unlinked steps won't work until you set them.
+- **New variables** the actions use, with their starting value.
+
+![Import actions](../../../assets/screens/import-actions.png)
+
+Imported actions start turned **off**, so nothing runs by surprise. Check them, then switch them on.
+
+**What's in the file**
+
+- The actions and their flows.
+- Names and starting values of the variables they use. Counters start at 0.
+- Names of the layers, other actions and files the steps point at. The files themselves aren't included; share those separately.
+
+Variables whose name has `secret`, `token`, `password`, `key`, `auth` or `webhook` as a word (like `api_key` or `discord.webhook`) never have their value included. Text in steps, like messages and web addresses, is included as it is, so check for private links before you share.
+
+See [`.cwactions` files](/reference/files/#cwactions-files) for the format.
+
 ## Run log and variables
 
 The right side shows each run with its result and any errors, plus every [variable](/reference/variables/). Edit a value inline, delete it, or add one. The pin keeps a variable after Castwright restarts.

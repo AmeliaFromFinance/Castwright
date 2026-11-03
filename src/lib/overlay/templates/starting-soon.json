@@ -1,0 +1,222 @@
+{
+  "id": "starting-soon",
+  "name": "Starting soon",
+  "description": "Full screen scene with a countdown and chat",
+  "width": 1920,
+  "height": 1080,
+  "layers": [
+    {
+      "name": "Background",
+      "kind": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 1920,
+      "h": 1080,
+      "box_style": {
+        "shape": "rect",
+        "radius": 0,
+        "fill": "gradient",
+        "gradient": [
+          {
+            "color": "#0b1023",
+            "at": 0
+          },
+          {
+            "color": "#171a3d",
+            "at": 55
+          },
+          {
+            "color": "#2a1856",
+            "at": 100
+          }
+        ],
+        "gradient_angle": 135,
+        "pattern": "grid",
+        "pattern_color": "#ffffff",
+        "pattern_opacity": 0.035,
+        "pattern_size": 48,
+        "shadow_kind": "none"
+      },
+      "locked": true
+    },
+    {
+      "name": "Glow left",
+      "kind": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "x": -180,
+      "y": -220,
+      "w": 720,
+      "h": 720,
+      "box_style": {
+        "shape": "pill",
+        "background": "rgba(91,141,239,0.35)",
+        "shadow_kind": "glow",
+        "shadow_blur": 220,
+        "shadow_color": "rgba(91,141,239,0.35)"
+      },
+      "opacity": 0.55,
+      "locked": true
+    },
+    {
+      "name": "Glow right",
+      "kind": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "x": 1380,
+      "y": 620,
+      "w": 640,
+      "h": 640,
+      "box_style": {
+        "shape": "pill",
+        "background": "rgba(167,139,250,0.35)",
+        "shadow_kind": "glow",
+        "shadow_blur": 220,
+        "shadow_color": "rgba(167,139,250,0.35)"
+      },
+      "opacity": 0.55,
+      "locked": true
+    },
+    {
+      "name": "Eyebrow",
+      "kind": {
+        "type": "text",
+        "text": "STREAM",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 26,
+          "font_weight": 700,
+          "color": "#b4bcff",
+          "align": "center",
+          "letter_spacing": 8,
+          "shadow": ""
+        }
+      },
+      "x": 160,
+      "y": 300,
+      "w": 1600,
+      "h": 40
+    },
+    {
+      "name": "Title",
+      "kind": {
+        "type": "text",
+        "text": "Starting soon",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 132,
+          "font_weight": 900,
+          "color": "#ffffff",
+          "align": "center",
+          "letter_spacing": -3,
+          "line_height": 1.1,
+          "shadow": "0 8px 40px rgba(0,0,0,0.35)"
+        }
+      },
+      "x": 160,
+      "y": 344,
+      "w": 1600,
+      "h": 160,
+      "enter": {
+        "preset": "slide_up",
+        "duration_ms": 700,
+        "delay_ms": 0,
+        "easing": "ease_out"
+      }
+    },
+    {
+      "name": "Subtitle",
+      "kind": {
+        "type": "text",
+        "text": "Grab a drink, we go live in",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 34,
+          "font_weight": 500,
+          "color": "rgba(255,255,255,0.72)",
+          "align": "center",
+          "shadow": ""
+        }
+      },
+      "x": 160,
+      "y": 516,
+      "w": 1600,
+      "h": 48
+    },
+    {
+      "name": "Countdown",
+      "kind": {
+        "type": "timer",
+        "mode": "countdown",
+        "duration_s": 300,
+        "style": {
+          "font_family": "Inter",
+          "font_size": 80,
+          "font_weight": 800,
+          "color": "#ffffff",
+          "align": "center",
+          "letter_spacing": 2
+        }
+      },
+      "x": 780,
+      "y": 592,
+      "w": 360,
+      "h": 128,
+      "box": "glass",
+      "box_style": {
+        "radius": 28
+      }
+    },
+    {
+      "name": "Socials",
+      "kind": {
+        "type": "text",
+        "text": "twitch.tv/yourname",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 24,
+          "font_weight": 600,
+          "color": "rgba(255,255,255,0.72)",
+          "shadow": ""
+        }
+      },
+      "x": 64,
+      "y": 996,
+      "w": 700,
+      "h": 40
+    },
+    {
+      "name": "Chat",
+      "kind": {
+        "type": "chat",
+        "max_messages": 7,
+        "style": {
+          "font_family": "Inter",
+          "font_size": 22,
+          "font_weight": 600,
+          "color": "#ffffff"
+        }
+      },
+      "x": 1480,
+      "y": 560,
+      "w": 376,
+      "h": 456,
+      "items": "glass"
+    },
+    {
+      "name": "Alerts",
+      "kind": {
+        "type": "alerts"
+      },
+      "x": 560,
+      "y": 40,
+      "w": 800,
+      "h": 240
+    }
+  ]
+}

@@ -2,8 +2,10 @@
 import type { AppearanceSettings } from "./AppearanceSettings";
 import type { BackupSettings } from "./BackupSettings";
 import type { GoLiveSettings } from "./GoLiveSettings";
+import type { HotkeySettings } from "./HotkeySettings";
 import type { ObsSettings } from "./ObsSettings";
 import type { ServerSettings } from "./ServerSettings";
+import type { SummarySettings } from "./SummarySettings";
 import type { TwitchSettings } from "./TwitchSettings";
 
 export type Settings = { first_run_done: boolean, 
@@ -14,4 +16,8 @@ project_dir: string, obs: ObsSettings, twitch: TwitchSettings, server: ServerSet
 /**
  * Kept between runs. Pausing is not, so alerts always play after a restart.
  */
-alerts_muted: boolean, golive: GoLiveSettings, backups: BackupSettings, };
+alerts_muted: boolean, golive: GoLiveSettings, backups: BackupSettings, 
+/**
+ * Global hotkeys. Kept per computer, not in the project.
+ */
+hotkeys: HotkeySettings, summary: SummarySettings, };

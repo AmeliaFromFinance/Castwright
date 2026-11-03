@@ -10,6 +10,17 @@
           size={16}
         />{/if}
       <span class="grow selectable">{t.message}</span>
+      {#if t.action}
+        {@const action = t.action}
+        <button
+          type="button"
+          class="act"
+          onclick={() => {
+            toasts.dismiss(t.id);
+            action.run();
+          }}>{action.label}</button
+        >
+      {/if}
       <button type="button" aria-label="Dismiss" onclick={() => toasts.dismiss(t.id)}><X size={14} /></button>
     </div>
   {/each}
@@ -62,6 +73,18 @@
   }
   button:hover {
     color: var(--text);
+  }
+  .act {
+    margin: -2px 0;
+    padding: 2px 10px;
+    border-radius: var(--radius);
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+  .act:hover {
+    color: var(--accent-text);
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
   }
   @keyframes in {
     from {

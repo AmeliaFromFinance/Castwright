@@ -1,0 +1,164 @@
+{
+  "id": "vertical",
+  "name": "Vertical",
+  "description": "For shorts or TikTok. Clear of the app buttons",
+  "width": 1080,
+  "height": 1920,
+  "layers": [
+    {
+      "name": "Webcam frame",
+      "kind": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "x": 48,
+      "y": 96,
+      "w": 984,
+      "h": 554,
+      "box_style": {
+        "fill": "none",
+        "border_color": "rgba(167,139,250,0.95)",
+        "border_width": 4,
+        "radius": 20,
+        "shadow_kind": "glow",
+        "shadow_blur": 28,
+        "shadow_color": "rgba(91,141,239,0.5)"
+      }
+    },
+    {
+      "name": "Name tag",
+      "kind": {
+        "type": "text",
+        "text": "@yourname",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 24,
+          "font_weight": 700,
+          "color": "#ffffff",
+          "align": "center",
+          "shadow": ""
+        }
+      },
+      "x": 80,
+      "y": 626,
+      "w": 260,
+      "h": 52,
+      "box_style": {
+        "shape": "pill",
+        "fill": "gradient",
+        "gradient": [
+          {
+            "color": "#5b8def",
+            "at": 0
+          },
+          {
+            "color": "#a78bfa",
+            "at": 100
+          }
+        ],
+        "gradient_angle": 90,
+        "padding": 8,
+        "padding_x": 20,
+        "shadow_kind": "soft",
+        "shadow_x": 0,
+        "shadow_y": 8,
+        "shadow_blur": 20,
+        "shadow_color": "rgba(91,141,239,0.4)"
+      },
+      "enter": {
+        "preset": "pop",
+        "duration_ms": 450,
+        "delay_ms": 0,
+        "easing": "ease_out"
+      }
+    },
+    {
+      "name": "Sub goal",
+      "kind": {
+        "type": "goal",
+        "title": "Sub goal",
+        "current_var": "session.subs",
+        "target": 20,
+        "bar_color": "#8b93f8",
+        "track_color": "rgba(255,255,255,0.14)",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 22,
+          "font_weight": 600,
+          "color": "#ffffff"
+        }
+      },
+      "x": 48,
+      "y": 712,
+      "w": 760,
+      "h": 112,
+      "box": "clean",
+      "enter": {
+        "preset": "slide_down",
+        "duration_ms": 500,
+        "delay_ms": 0,
+        "easing": "ease_out"
+      }
+    },
+    {
+      "name": "Alerts",
+      "kind": {
+        "type": "alerts"
+      },
+      "x": 90,
+      "y": 880,
+      "w": 900,
+      "h": 380
+    },
+    {
+      "name": "Chat",
+      "kind": {
+        "type": "chat",
+        "max_messages": 7,
+        "style": {
+          "font_family": "Inter",
+          "font_size": 26,
+          "font_weight": 600,
+          "color": "#ffffff"
+        }
+      },
+      "x": 48,
+      "y": 1180,
+      "w": 780,
+      "h": 440,
+      "items": "clean"
+    },
+    {
+      "name": "Recent events",
+      "kind": {
+        "type": "event_list",
+        "kinds": [
+          "follow",
+          "sub",
+          "resub",
+          "gift_sub",
+          "community_gift",
+          "cheer",
+          "raid"
+        ],
+        "max_items": 8,
+        "direction": "ticker",
+        "item_format": "{{name}} · {{label}}",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 22,
+          "font_weight": 600,
+          "color": "#ffffff"
+        }
+      },
+      "x": 48,
+      "y": 1640,
+      "w": 780,
+      "h": 60,
+      "box": "clean",
+      "box_style": {
+        "padding": 12
+      }
+    }
+  ]
+}

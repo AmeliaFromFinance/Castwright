@@ -792,6 +792,10 @@ async fn eventsub_subscribes_publishes_and_follows_reconnect() {
         "1337"
     );
     assert_eq!(
+        find("channel.raid")[1]["condition"]["from_broadcaster_user_id"],
+        "1337"
+    );
+    assert_eq!(
         find("channel.chat.message")[0]["condition"]["user_id"],
         "1337"
     );

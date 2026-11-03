@@ -7,7 +7,7 @@
   import IconButton from '$lib/ui/IconButton.svelte';
   import { appAssetUrl } from '$lib/widgets/assets.svelte';
   import Popover from '$lib/editor/ui/Popover.svelte';
-  import { Copy, Download, Ellipsis, Link, MonitorUp, Pencil, Trash2 } from '@lucide/svelte';
+  import { Copy, Download, Ellipsis, LayoutTemplate, Link, MonitorUp, Pencil, Trash2 } from '@lucide/svelte';
 
   interface Props {
     overlay: Overlay;
@@ -17,10 +17,11 @@
     onobs: () => void;
     onduplicate: () => void;
     onexport: () => void;
+    ontemplate: () => void;
     ondelete: () => void;
   }
 
-  let { overlay, now, onedit, oncopy, onobs, onduplicate, onexport, ondelete }: Props = $props();
+  let { overlay, now, onedit, oncopy, onobs, onduplicate, onexport, ontemplate, ondelete }: Props = $props();
 
   let bw = $state(0);
   let bh = $state(0);
@@ -61,12 +62,13 @@
     <div class="grow"></div>
     <IconButton label="Copy OBS link" onclick={oncopy}><Link /></IconButton>
     <IconButton label="Add to OBS" onclick={onobs}><MonitorUp /></IconButton>
-    <Popover label="More for {overlay.name}" align="end" width={180}>
+    <Popover label="More for {overlay.name}" align="end" width={200}>
       {#snippet trigger(p)}
         <IconButton label="More actions" {...p}><Ellipsis /></IconButton>
       {/snippet}
       {#snippet children(close)}
         <button type="button" role="menuitem" class="mi" onclick={() => { close(); onduplicate(); }}><Copy />Duplicate</button>
+        <button type="button" role="menuitem" class="mi" onclick={() => { close(); ontemplate(); }}><LayoutTemplate />Save as template…</button>
         <button type="button" role="menuitem" class="mi" onclick={() => { close(); onexport(); }}><Download />Export…</button>
         <div class="menu-sep"></div>
         <button type="button" role="menuitem" class="mi danger" onclick={() => { close(); ondelete(); }}><Trash2 />Delete…</button>

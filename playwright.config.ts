@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const port = Number(process.env.PW_PORT ?? 4317);
+
 export default defineConfig({
   testDir: 'e2e',
   testMatch: '**/*.spec.ts',
@@ -12,12 +14,12 @@ export default defineConfig({
   timeout: 60_000,
   use: {
     trace: 'retain-on-failure',
-    baseURL: 'http://localhost:4317'
+    baseURL: `http://localhost:${port}`
   },
   // App pages run against the in-browser demo backend, from a production build.
   webServer: {
-    command: 'npm run build && npx vite preview --port 4317 --strictPort',
-    url: 'http://localhost:4317',
+    command: `npm run build && npx vite preview --port ${port} --strictPort`,
+    url: `http://localhost:${port}`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000
   },

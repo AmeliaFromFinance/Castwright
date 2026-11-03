@@ -2,16 +2,17 @@
   import type { Action } from '$lib/bindings/Action';
   import IconButton from '$lib/ui/IconButton.svelte';
   import Switch from '$lib/ui/Switch.svelte';
-  import { Copy, Trash2, TriangleAlert } from '@lucide/svelte';
+  import { Copy, Download, Trash2, TriangleAlert } from '@lucide/svelte';
   import { actionsEditor as ed } from './store.svelte';
 
   interface Props {
     action: Action;
     onduplicate: () => void;
+    onexport: () => void;
     ondelete: () => void;
   }
 
-  let { action, onduplicate, ondelete }: Props = $props();
+  let { action, onduplicate, onexport, ondelete }: Props = $props();
 
   const nameIssue = $derived((ed.issues[action.id] ?? []).find((i) => i.key === 'name'));
   const warnings = $derived((ed.issues[action.id] ?? []).filter((i) => i.warn));
@@ -71,6 +72,7 @@
     <Switch label="Enabled" showLabel checked={action.enabled} onchange={(v) => patch({ enabled: v })} />
     <span class="sep" aria-hidden="true"></span>
     <IconButton label="Duplicate action" onclick={onduplicate}><Copy /></IconButton>
+    <IconButton label="Export action" onclick={onexport}><Download /></IconButton>
     <IconButton label="Delete action" tone="danger" onclick={ondelete}><Trash2 /></IconButton>
   </div>
 </div>

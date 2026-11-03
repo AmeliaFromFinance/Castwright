@@ -1,0 +1,215 @@
+{
+  "id": "brb",
+  "name": "BRB",
+  "description": "Big title, a timer and a chat panel",
+  "width": 1920,
+  "height": 1080,
+  "layers": [
+    {
+      "name": "Background",
+      "kind": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 1920,
+      "h": 1080,
+      "box_style": {
+        "shape": "rect",
+        "radius": 0,
+        "fill": "gradient",
+        "gradient": [
+          {
+            "color": "#0b1023",
+            "at": 0
+          },
+          {
+            "color": "#171a3d",
+            "at": 55
+          },
+          {
+            "color": "#2a1856",
+            "at": 100
+          }
+        ],
+        "gradient_angle": 135,
+        "pattern": "grid",
+        "pattern_color": "#ffffff",
+        "pattern_opacity": 0.035,
+        "pattern_size": 48,
+        "shadow_kind": "none"
+      },
+      "locked": true
+    },
+    {
+      "name": "Glow",
+      "kind": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "x": -260,
+      "y": 520,
+      "w": 820,
+      "h": 820,
+      "box_style": {
+        "shape": "pill",
+        "background": "rgba(91,141,239,0.32)",
+        "shadow_kind": "glow",
+        "shadow_blur": 220,
+        "shadow_color": "rgba(91,141,239,0.32)"
+      },
+      "opacity": 0.55,
+      "locked": true
+    },
+    {
+      "name": "Eyebrow",
+      "kind": {
+        "type": "text",
+        "text": "HOLD TIGHT",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 26,
+          "font_weight": 700,
+          "color": "#b4bcff",
+          "letter_spacing": 8,
+          "shadow": ""
+        }
+      },
+      "x": 120,
+      "y": 330,
+      "w": 1000,
+      "h": 40
+    },
+    {
+      "name": "Title",
+      "kind": {
+        "type": "text",
+        "text": "Be right back",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 132,
+          "font_weight": 900,
+          "color": "#ffffff",
+          "letter_spacing": -3,
+          "line_height": 1.1,
+          "shadow": "0 8px 40px rgba(0,0,0,0.35)"
+        }
+      },
+      "x": 120,
+      "y": 374,
+      "w": 1040,
+      "h": 160,
+      "enter": {
+        "preset": "slide_up",
+        "duration_ms": 700,
+        "delay_ms": 0,
+        "easing": "ease_out"
+      }
+    },
+    {
+      "name": "Subtitle",
+      "kind": {
+        "type": "text",
+        "text": "Stretching my legs. Chat away, I'll be back soon.",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 32,
+          "font_weight": 500,
+          "color": "rgba(255,255,255,0.72)",
+          "shadow": ""
+        }
+      },
+      "x": 120,
+      "y": 546,
+      "w": 1040,
+      "h": 48
+    },
+    {
+      "name": "Timer",
+      "kind": {
+        "type": "timer",
+        "mode": "countdown",
+        "duration_s": 300,
+        "prefix": "Back in ",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 40,
+          "font_weight": 700,
+          "color": "#ffffff",
+          "align": "center"
+        }
+      },
+      "x": 120,
+      "y": 630,
+      "w": 380,
+      "h": 88,
+      "box": "glass",
+      "box_style": {
+        "shape": "pill"
+      }
+    },
+    {
+      "name": "Chat panel",
+      "kind": {
+        "type": "shape",
+        "shape": "rect"
+      },
+      "x": 1280,
+      "y": 64,
+      "w": 576,
+      "h": 952,
+      "box": "glass",
+      "box_style": {
+        "radius": 28
+      }
+    },
+    {
+      "name": "Chat heading",
+      "kind": {
+        "type": "text",
+        "text": "Chat",
+        "style": {
+          "font_family": "Inter",
+          "font_size": 26,
+          "font_weight": 800,
+          "color": "#ffffff",
+          "letter_spacing": 0.5,
+          "shadow": ""
+        }
+      },
+      "x": 1320,
+      "y": 96,
+      "w": 496,
+      "h": 40
+    },
+    {
+      "name": "Chat",
+      "kind": {
+        "type": "chat",
+        "max_messages": 12,
+        "style": {
+          "font_family": "Inter",
+          "font_size": 22,
+          "font_weight": 600,
+          "color": "#ffffff"
+        }
+      },
+      "x": 1312,
+      "y": 152,
+      "w": 512,
+      "h": 840,
+      "items": "clean"
+    },
+    {
+      "name": "Alerts",
+      "kind": {
+        "type": "alerts"
+      },
+      "x": 120,
+      "y": 40,
+      "w": 800,
+      "h": 260
+    }
+  ]
+}

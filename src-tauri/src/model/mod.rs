@@ -6,4 +6,5 @@ pub mod graph;
 pub mod overlay;
 pub mod project;
 pub mod runtime;
+pub mod session;
 pub mod settings;

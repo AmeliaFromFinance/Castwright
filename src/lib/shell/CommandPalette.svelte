@@ -7,6 +7,7 @@
   import { copyText } from '$lib/util/os';
   import { stepZoom } from '$lib/state/zoom';
   import { golive } from '$lib/state/golive.svelte';
+  import { sessions } from '$lib/sessions/store.svelte';
   import { updateAppearance } from '$lib/pages/settings/theme-settings.svelte';
   import { fuzzyFilter } from './fuzzy';
   import { Search, CornerDownLeft } from '@lucide/svelte';
@@ -74,6 +75,8 @@
       ['server', 'Overlay server'],
       ['appearance', 'Appearance and themes'],
       ['golive', 'Go-live check'],
+      ['hotkeys', 'Global hotkeys'],
+      ['summary', 'Stream summary text'],
       ['backups', 'Backups']
     ] as const) {
       out.push({ group: 'Settings', label, run: () => settingsSection(id) });
@@ -130,6 +133,15 @@
       },
       { group: 'Help', label: 'Keyboard shortcuts', hint: 'Ctrl /', run: onshortcuts },
       { group: 'Stream', label: 'Go-live check', run: () => golive.show() },
+      { group: 'Stream', label: 'Last stream summary', run: () => sessions.showLatest() },
+      {
+        group: 'Stream',
+        label: 'Past streams',
+        run: () => {
+          go('activity');
+          app.activityTab = 'sessions';
+        }
+      },
       { group: 'Stream', label: 'Reset session counters', run: () => attemptOk(() => api.resetSession(), 'Counters reset') },
       {
         group: 'Stream',

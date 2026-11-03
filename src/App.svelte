@@ -2,6 +2,7 @@
   import { onMount, untrack } from 'svelte';
   import { app, type Page } from '$lib/state/app.svelte';
   import { isTauri } from '$lib/api/backend';
+  import { on } from '$lib/api';
   import { flushAll } from '$lib/state/flush';
   import { stepZoom } from '$lib/state/zoom';
   import { toasts } from '$lib/state/toast.svelte';
@@ -19,6 +20,7 @@
   import CommandPalette from '$lib/shell/CommandPalette.svelte';
   import ShortcutsDialog from '$lib/shell/ShortcutsDialog.svelte';
   import GoLiveDialog from '$lib/shell/GoLiveDialog.svelte';
+  import SummaryDialog from '$lib/sessions/SummaryDialog.svelte';
   import { golive } from '$lib/state/golive.svelte';
   import { loadPref, savePref } from '$lib/state/persist';
 
@@ -43,6 +45,18 @@
     if (!app.ready) return;
     const live = app.obs.stream.active || !!app.twitch?.stream.live;
     untrack(() => golive.watchLive(live));
+  });
+
+  // A global hotkey can open the go-live check while another app has focus.
+  $effect(() => {
+    if (!app.ready) return;
+    let unlisten: (() => void) | undefined;
+    let gone = false;
+    void on('cw://golive-open', () => golive.show()).then((u) => (gone ? u() : (unlisten = u)));
+    return () => {
+      gone = true;
+      unlisten?.();
+    };
   });
 
   onMount(() => {
@@ -190,6 +204,7 @@
   <CommandPalette bind:open={paletteOpen} onshortcuts={() => (shortcutsOpen = true)} />
   <ShortcutsDialog bind:open={shortcutsOpen} />
   <GoLiveDialog />
+  <SummaryDialog />
 {/if}
 
 <style>

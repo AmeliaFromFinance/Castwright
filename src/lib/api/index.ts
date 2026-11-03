@@ -2,6 +2,9 @@ import type { Backend, Unlisten } from './backend';
 import { isTauri } from './backend';
 import type { AccountRole } from '$lib/bindings/AccountRole';
 import type { Action } from '$lib/bindings/Action';
+import type { ActionPackage } from '$lib/bindings/ActionPackage';
+import type { ImportChoices } from '$lib/bindings/ImportChoices';
+import type { ImportReport } from '$lib/bindings/ImportReport';
 import type { ActionRun } from '$lib/bindings/ActionRun';
 import type { RunProgress } from '$lib/bindings/RunProgress';
 import type { AlertConfig } from '$lib/bindings/AlertConfig';
@@ -18,12 +21,19 @@ import type { DeviceLogin } from '$lib/bindings/DeviceLogin';
 import type { Event } from '$lib/bindings/Event';
 import type { EventKind } from '$lib/bindings/EventKind';
 import type { GoLiveSettings } from '$lib/bindings/GoLiveSettings';
+import type { HotkeyReport } from '$lib/bindings/HotkeyReport';
+import type { HotkeySettings } from '$lib/bindings/HotkeySettings';
+import type { HotkeyStatus } from '$lib/bindings/HotkeyStatus';
 import type { LogEntry } from '$lib/bindings/LogEntry';
 import type { ObsSnapshot } from '$lib/bindings/ObsSnapshot';
 import type { Overlay } from '$lib/bindings/Overlay';
 import type { Project } from '$lib/bindings/Project';
 import type { QueueState } from '$lib/bindings/QueueState';
 import type { ServerInfo } from '$lib/bindings/ServerInfo';
+import type { SessionChange } from '$lib/bindings/SessionChange';
+import type { SessionListItem } from '$lib/bindings/SessionListItem';
+import type { SessionSummary } from '$lib/bindings/SessionSummary';
+import type { SummarySettings } from '$lib/bindings/SummarySettings';
 import type { Settings } from '$lib/bindings/Settings';
 import type { TwitchStatus } from '$lib/bindings/TwitchStatus';
 import type { WindowEffect } from '$lib/bindings/WindowEffect';
@@ -69,7 +79,9 @@ export const events = {
   server: 'cw://server',
   chatDelete: 'cw://chat-delete',
   actionRun: 'cw://action-run',
-  actionProgress: 'cw://action-progress'
+  actionProgress: 'cw://action-progress',
+  goLiveOpen: 'cw://golive-open',
+  session: 'cw://session'
 } as const;
 
 export interface PushPayloads {
@@ -85,6 +97,8 @@ export interface PushPayloads {
   'cw://chat-delete': { message_id?: string; user_id?: string; all?: boolean };
   'cw://action-run': ActionRun;
   'cw://action-progress': RunProgress;
+  'cw://golive-open': Record<string, never>;
+  'cw://session': SessionChange;
 }
 
 export function on<K extends keyof PushPayloads>(name: K, cb: (p: PushPayloads[K]) => void): Promise<Unlisten> {
@@ -105,6 +119,11 @@ export const api = {
   renameProject: (name: string) => call<void>('rename_project', { name }),
   exportOverlay: (id: string, path: string) => call<void>('export_overlay', { id, path }),
   importOverlay: (path: string) => call<Overlay>('import_overlay', { path }),
+  listOverlayTemplates: () => call<Overlay[]>('list_overlay_templates'),
+  /** Saves a copy of the overlay `id` as a template called `name`. */
+  saveOverlayTemplate: (id: string, name: string) => call<Overlay>('save_overlay_template', { id, name }),
+  deleteOverlayTemplate: (id: string) => call<void>('delete_overlay_template', { id }),
+  overlayFromTemplate: (id: string, name: string) => call<Overlay>('overlay_from_template', { id, name }),
   listAssets: () => call<AssetInfo[]>('list_assets'),
   importAssets: (paths: string[]) => call<AssetInfo[]>('import_assets', { paths }),
   deleteAsset: (name: string) => call<void>('delete_asset', { name }),
@@ -135,6 +154,11 @@ export const api = {
 
   // automation
   runAction: (id: string) => call<void>('run_action', { id }),
+  actionsPackage: (ids: string[]) => call<ActionPackage>('actions_package', { ids }),
+  exportActions: (ids: string[], path: string) => call<void>('export_actions', { ids, path }),
+  readActionsFile: (path: string) => call<ActionPackage>('read_actions_file', { path }),
+  parseActionsPackage: (text: string) => call<ActionPackage>('parse_actions_package', { text }),
+  importActions: (pkg: ActionPackage, choices: ImportChoices) => call<ImportReport>('import_actions', { package: pkg, choices }),
 
   // variables
   getVars: () => call<Vars>('get_vars'),
@@ -150,6 +174,14 @@ export const api = {
   exportHistoryCsv: (path: string) => call<number>('export_history_csv', { path }),
   getLogs: () => call<LogEntry[]>('get_logs'),
 
+  // stream sessions
+  listSessions: (limit = 200) => call<SessionListItem[]>('list_sessions', { limit }),
+  sessionSummary: (id: number) => call<SessionSummary>('session_summary', { id }),
+  deleteSession: (id: number) => call<void>('delete_session', { id }),
+  saveSummarySettings: (summary: SummarySettings) => call<SummarySettings>('save_summary_settings', { summary }),
+  /** `base64` is set for images. */
+  saveExport: (path: string, data: string, base64 = false) => call<void>('save_export', { path, data, base64 }),
+
   // overlay server
   serverInfo: () => call<ServerInfo>('server_info'),
   overlayUrl: (id: string) => call<string>('overlay_url', { id }),
@@ -164,6 +196,14 @@ export const api = {
   appInfo: () => call<AppInfo>('app_info'),
   setWindowEffect: (effect: WindowEffect, dark: boolean) => call<WindowEffect>('set_window_effect', { effect, dark }),
   saveGoLive: (golive: GoLiveSettings) => call<GoLiveSettings>('save_golive', { golive }),
+  /** Returns the data folder that was made. */
+  makePortable: () => call<string>('make_portable'),
+  restartApp: () => call<void>('restart_app'),
+
+  // global hotkeys
+  saveHotkeys: (hotkeys: HotkeySettings) => call<HotkeyReport>('save_hotkeys', { hotkeys }),
+  /** Lets go of every hotkey while one is being recorded. */
+  hotkeysRecording: (recording: boolean) => call<HotkeyStatus>('hotkeys_recording', { recording }),
 
   // go-live check
   goLiveCheck: () => call<Check[]>('golive_check'),

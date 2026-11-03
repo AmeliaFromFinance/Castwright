@@ -2,6 +2,7 @@
 
 use crate::core::Core;
 use crate::error::{AppError, AppResult, user_err};
+use crate::hotkeys::{HotkeyReport, HotkeyStatus, Hotkeys};
 use crate::hub::ui;
 use crate::model::alert::AlertConfig;
 use crate::model::automation::Action;
@@ -9,15 +10,20 @@ use crate::model::event::{Event, EventKind};
 use crate::model::overlay::Overlay;
 use crate::model::project::Project;
 use crate::model::runtime::{LogEntry, OverlayMsg, QueueState, ServerInfo};
+use crate::model::session::{SessionListItem, SessionSummary};
 use crate::model::settings::{
-    AppearanceSettings, BackupSettings, GoLiveSettings, Settings, WindowEffect,
+    AppearanceSettings, BackupSettings, DEFAULT_SOCIAL_TEMPLATE, GoLiveSettings, HotkeySettings,
+    MAX_SOCIAL_TEMPLATE, Settings, SummarySettings, WindowEffect,
 };
+use crate::paths::Layout;
+use crate::store::action_package::{self, ActionPackage, ImportChoices, ImportReport};
 use crate::store::backup::{BackupInfo, BackupReason};
 use crate::store::project::AssetInfo;
+use crate::store::templates;
 use serde_json::{Map, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 type Ctx<'a> = State<'a, Arc<Core>>;
 
@@ -139,6 +145,90 @@ pub async fn import_overlay(core: Ctx<'_>, path: String) -> AppResult<Overlay> {
     core.project.update(|p| p.overlays.push(overlay.clone()));
     project_changed(&core);
     Ok(overlay)
+}
+
+// ---------- overlay templates ----------
+
+#[tauri::command]
+pub async fn list_overlay_templates(core: Ctx<'_>) -> AppResult<Vec<Overlay>> {
+    blocking(&core, |c| Ok(templates::list(&c.project))).await
+}
+
+#[tauri::command]
+pub async fn save_overlay_template(core: Ctx<'_>, id: String, name: String) -> AppResult<Overlay> {
+    let Some(overlay) = core
+        .project
+        .read(|p| p.overlays.iter().find(|o| o.id == id).cloned())
+    else {
+        return Err(AppError::NotFound("overlay".into()));
+    };
+    blocking(&core, move |c| templates::save(&c.project, &overlay, &name)).await
+}
+
+#[tauri::command]
+pub async fn delete_overlay_template(core: Ctx<'_>, id: String) -> AppResult<()> {
+    blocking(&core, move |c| templates::delete(&c.project, &id)).await
+}
+
+#[tauri::command]
+pub async fn overlay_from_template(core: Ctx<'_>, id: String, name: String) -> AppResult<Overlay> {
+    let mut overlay = blocking(&core, move |c| {
+        templates::instantiate(&c.project, &id, &name)
+    })
+    .await?;
+    overlay.updated_at = crate::util::now_ms();
+    core.project.update(|p| p.overlays.push(overlay.clone()));
+    project_changed(&core);
+    Ok(overlay)
+}
+
+// ---------- sharing actions ----------
+
+#[tauri::command]
+pub fn actions_package(core: Ctx, ids: Vec<String>) -> AppResult<ActionPackage> {
+    let vars = core.hub.vars.snapshot();
+    let saved = core.hub.vars.saved();
+    core.project
+        .read(|p| action_package::build(p, &ids, &vars, &saved))
+}
+
+#[tauri::command]
+pub async fn export_actions(core: Ctx<'_>, ids: Vec<String>, path: String) -> AppResult<()> {
+    let pkg = actions_package(core.clone(), ids)?;
+    blocking(&core, move |_| {
+        action_package::write(&pkg, &PathBuf::from(path))
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn read_actions_file(core: Ctx<'_>, path: String) -> AppResult<ActionPackage> {
+    blocking(&core, move |_| action_package::read(&PathBuf::from(path))).await
+}
+
+#[tauri::command]
+pub fn parse_actions_package(text: String) -> AppResult<ActionPackage> {
+    action_package::parse(text.as_bytes())
+}
+
+#[tauri::command]
+pub fn import_actions(
+    core: Ctx,
+    package: ActionPackage,
+    choices: ImportChoices,
+) -> AppResult<ImportReport> {
+    let assets: Vec<String> = core.project.assets().into_iter().map(|a| a.name).collect();
+    let (mut report, vars) = core
+        .project
+        .update(|p| action_package::apply(p, &package, &choices, &assets));
+    for (key, value) in vars {
+        if core.hub.vars.get(&key).is_none() {
+            core.hub.set_var(&key, value, true);
+            report.variables += 1;
+        }
+    }
+    project_changed(&core);
+    Ok(report)
 }
 
 #[tauri::command]
@@ -328,6 +418,68 @@ pub fn delete_var(core: Ctx, key: String) {
 pub fn reset_session(core: Ctx) {
     let ch = core.hub.vars.reset_session();
     core.hub.broadcast_vars(ch);
+}
+
+// ---------- stream sessions ----------
+
+#[tauri::command]
+pub async fn list_sessions(core: Ctx<'_>, limit: u32) -> AppResult<Vec<SessionListItem>> {
+    blocking(&core, move |c| c.hub.sessions.list(limit)).await
+}
+
+#[tauri::command]
+pub async fn session_summary(core: Ctx<'_>, id: i64) -> AppResult<SessionSummary> {
+    blocking(&core, move |c| c.hub.sessions.summary(id))
+        .await?
+        .ok_or_else(|| AppError::NotFound("stream session".into()))
+}
+
+#[tauri::command]
+pub async fn delete_session(core: Ctx<'_>, id: i64) -> AppResult<()> {
+    blocking(&core, move |c| c.hub.sessions.delete(id).map(|_| ())).await
+}
+
+#[tauri::command]
+pub fn save_summary_settings(core: Ctx, summary: SummarySettings) -> AppResult<SummarySettings> {
+    let summary = clean_summary(summary)?;
+    core.settings.update(|s| s.summary = summary.clone())?;
+    Ok(summary)
+}
+
+pub fn clean_summary(mut s: SummarySettings) -> AppResult<SummarySettings> {
+    if s.social_template.chars().count() > MAX_SOCIAL_TEMPLATE {
+        return user_err(format!(
+            "The template can be at most {MAX_SOCIAL_TEMPLATE} characters."
+        ));
+    }
+    if s.social_template.trim().is_empty() {
+        s.social_template = DEFAULT_SOCIAL_TEMPLATE.into();
+    }
+    Ok(s)
+}
+
+/// Save an exported summary. `base64` is set for images.
+#[tauri::command]
+pub fn save_export(path: String, data: String, base64: bool) -> AppResult<()> {
+    let path = PathBuf::from(path);
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if !["png", "csv", "json", "txt"].contains(&ext.as_str()) {
+        return user_err("Exports can only be saved as PNG, CSV, JSON or text files.");
+    }
+    let bytes = if base64 {
+        use base64::Engine;
+        base64::engine::general_purpose::STANDARD
+            .decode(data.trim())
+            .map_err(|_| AppError::User("The image couldn't be read.".into()))?
+    } else {
+        data.into_bytes()
+    };
+    crate::util::write_atomic(&path, &bytes)?;
+    Ok(())
 }
 
 // ---------- history and logs ----------
@@ -825,11 +977,23 @@ pub struct AppInfo {
     pub backup_dir: String,
     pub secrets_in_file: bool,
     pub built_in_client_id: bool,
+    /// Running from a `data` folder next to the app.
+    pub portable: bool,
+    /// The folder "Make portable" would put `data` in.
+    pub app_folder: Option<String>,
+    /// Why "Make portable" can't be used here, if it can't.
+    pub portable_blocked: Option<String>,
 }
 
 #[tauri::command]
-pub fn app_info(core: Ctx) -> AppInfo {
+pub fn app_info(core: Ctx, layout: State<Layout>) -> AppInfo {
     AppInfo {
+        portable: layout.portable.is_some(),
+        app_folder: layout
+            .app_folder
+            .as_ref()
+            .map(|p| p.to_string_lossy().into_owned()),
+        portable_blocked: layout.portable_blocked(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         os: std::env::consts::OS.to_string(),
         project_dir: core.project_dir().to_string_lossy().into_owned(),
@@ -839,6 +1003,67 @@ pub fn app_info(core: Ctx) -> AppInfo {
         built_in_client_id: option_env!("CASTWRIGHT_TWITCH_CLIENT_ID")
             .is_some_and(|s| !s.is_empty()),
     }
+}
+
+/// Copy this computer's data into `data` next to the app. Takes effect after a restart.
+#[tauri::command]
+pub async fn make_portable(core: Ctx<'_>, layout: State<'_, Layout>) -> AppResult<String> {
+    if let Some(why) = layout.portable_blocked() {
+        return user_err(why);
+    }
+    let Some(target) = layout
+        .app_folder
+        .as_ref()
+        .map(|f| f.join(crate::paths::DATA))
+    else {
+        return user_err("Couldn't find the folder Castwright runs from.");
+    };
+    let core = core.inner().clone();
+    core.flush()?;
+    let secrets: Vec<(&str, String)> = crate::store::secrets::keys::ALL
+        .iter()
+        .filter_map(|k| core.secrets.get(k).map(|v| (*k, v)))
+        .collect();
+    let out = target.clone();
+    tokio::task::spawn_blocking(move || {
+        let src = crate::store::portable::Sources {
+            config_dir: &core.paths.config_dir,
+            data_dir: &core.paths.data_dir,
+            default_project_dir: &core.paths.default_project_dir,
+        };
+        crate::store::portable::copy_data(&src, &out, &secrets)
+    })
+    .await
+    .map_err(|e| AppError::Other(e.into()))??;
+    Ok(target.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub async fn restart_app(app: AppHandle) {
+    app.restart();
+}
+
+// ---------- hotkeys ----------
+
+type Keys<'a> = State<'a, Arc<Hotkeys>>;
+
+#[tauri::command]
+pub fn save_hotkeys(
+    app: AppHandle,
+    core: Ctx,
+    keys: Keys,
+    hotkeys: HotkeySettings,
+) -> AppResult<HotkeyReport> {
+    let hotkeys = crate::hotkeys::keys::clean(hotkeys).map_err(AppError::User)?;
+    core.settings.update(|s| s.hotkeys = hotkeys.clone())?;
+    let status = keys.apply(&app, &hotkeys);
+    Ok(HotkeyReport { hotkeys, status })
+}
+
+/// Let go of every hotkey while one is being recorded, and take them back after.
+#[tauri::command]
+pub fn hotkeys_recording(app: AppHandle, core: Ctx, keys: Keys, recording: bool) -> HotkeyStatus {
+    keys.set_recording(&app, recording, &core.settings.get().hotkeys)
 }
 
 /// Apply a window effect. Returns the effect actually in use (Solid when unsupported).
@@ -864,6 +1089,34 @@ mod tests {
         assert_eq!(format_rfc3339(0), "1970-01-01T00:00:00Z");
         assert_eq!(format_rfc3339(1_793_522_947_000), "2026-11-01T08:49:07Z");
         assert_eq!(format_rfc3339(951_782_400_000), "2000-02-29T00:00:00Z");
+    }
+
+    #[test]
+    fn summary_template_is_checked() {
+        let t = |s: &str| SummarySettings {
+            social_template: s.into(),
+        };
+        assert_eq!(
+            clean_summary(t("  ")).unwrap().social_template,
+            DEFAULT_SOCIAL_TEMPLATE
+        );
+        assert_eq!(clean_summary(t("{{follows}}")).unwrap(), t("{{follows}}"));
+        assert!(clean_summary(t(&"x".repeat(MAX_SOCIAL_TEMPLATE + 1))).is_err());
+    }
+
+    #[test]
+    fn exports_only_known_file_types() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = |n: &str| dir.path().join(n).to_string_lossy().into_owned();
+        save_export(p("s.csv"), "a,b".into(), false).unwrap();
+        assert_eq!(std::fs::read(dir.path().join("s.csv")).unwrap(), b"a,b");
+        save_export(p("s.png"), "iVBORw0=".into(), true).unwrap();
+        assert_eq!(
+            std::fs::read(dir.path().join("s.png")).unwrap()[..4],
+            [0x89, b'P', b'N', b'G']
+        );
+        assert!(save_export(p("s.exe"), "x".into(), false).is_err());
+        assert!(save_export(p("t.png"), "not base64!".into(), true).is_err());
     }
 
     #[test]

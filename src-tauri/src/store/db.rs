@@ -32,30 +32,87 @@ CREATE TABLE IF NOT EXISTS widget_state (
 );
 "#;
 
+/// Changes after the first release, applied in order. `PRAGMA user_version`
+/// holds how many have run. Never edit one that has shipped; add a new one.
+const MIGRATIONS: &[&str] = &[
+    // 1: stream sessions, plus what the summary needs that isn't in `events`.
+    r#"
+    CREATE TABLE sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        started_at INTEGER NOT NULL,
+        ended_at INTEGER,
+        last_seen INTEGER NOT NULL,
+        source TEXT NOT NULL,
+        twitch_started_at INTEGER NOT NULL DEFAULT 0,
+        title TEXT NOT NULL DEFAULT '',
+        categories TEXT NOT NULL DEFAULT '[]',
+        peak_viewers INTEGER NOT NULL DEFAULT 0,
+        viewer_sum INTEGER NOT NULL DEFAULT 0,
+        viewer_samples INTEGER NOT NULL DEFAULT 0,
+        summary TEXT
+    );
+    CREATE INDEX sessions_started ON sessions(started_at DESC);
+    CREATE INDEX sessions_open ON sessions(ended_at) WHERE ended_at IS NULL;
+    CREATE TABLE session_activity (
+        ts INTEGER NOT NULL,
+        kind TEXT NOT NULL,
+        user_key TEXT NOT NULL DEFAULT '',
+        name TEXT NOT NULL DEFAULT '',
+        amount REAL,
+        text TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX activity_kind_ts ON session_activity(kind, ts);
+    CREATE TABLE chatters (
+        user_key TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        first_seen INTEGER NOT NULL
+    );
+    CREATE INDEX chatters_first_seen ON chatters(first_seen);
+    CREATE INDEX events_kind_ts ON events(kind, ts);
+    "#,
+];
+
 /// Most history rows kept; the oldest are trimmed beyond this.
 const MAX_EVENTS: i64 = 50_000;
+
+fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(SCHEMA)?;
+    let done: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
+    for (i, sql) in MIGRATIONS.iter().enumerate().skip(done.max(0) as usize) {
+        let tx = conn.transaction()?;
+        tx.execute_batch(sql)?;
+        tx.pragma_update(None, "user_version", (i + 1) as i64)?;
+        tx.commit()?;
+    }
+    Ok(())
+}
 
 impl Db {
     pub fn open(path: &Path) -> AppResult<Db> {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        let conn = Connection::open(path)?;
+        let mut conn = Connection::open(path)?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "synchronous", "NORMAL")?;
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
-        conn.execute_batch(SCHEMA)?;
+        migrate(&mut conn)?;
         Ok(Db {
             conn: Mutex::new(conn),
         })
     }
 
     pub fn open_in_memory() -> Db {
-        let conn = Connection::open_in_memory().expect("in-memory db");
-        conn.execute_batch(SCHEMA).expect("schema");
+        let mut conn = Connection::open_in_memory().expect("in-memory db");
+        migrate(&mut conn).expect("schema");
         Db {
             conn: Mutex::new(conn),
         }
+    }
+
+    /// Run `f` with the connection locked.
+    pub fn with_conn<R>(&self, f: impl FnOnce(&Connection) -> rusqlite::Result<R>) -> AppResult<R> {
+        Ok(f(&self.conn.lock().unwrap())?)
     }
 
     /// Store an event. Returns false when an event with the same id was already
@@ -282,6 +339,49 @@ mod tests {
         let s = db.widget_state().unwrap();
         assert!(!s.contains_key("l1"));
         assert!(s.contains_key("l2"));
+    }
+
+    #[test]
+    fn migrates_an_old_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("events.sqlite");
+        {
+            // A file from before migrations existed.
+            let conn = Connection::open(&p).unwrap();
+            conn.execute_batch(SCHEMA).unwrap();
+            let e = Event::new(EventKind::Follow).with_user("a", "A");
+            conn.execute(
+                "INSERT INTO events (id, kind, ts, user_name, json) VALUES (?1, 'follow', 1, 'A', ?2)",
+                params![e.id, serde_json::to_string(&e).unwrap()],
+            )
+            .unwrap();
+        }
+        let version = |db: &Db| {
+            db.with_conn(|c| c.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0)))
+                .unwrap()
+        };
+        let db = Db::open(&p).unwrap();
+        assert_eq!(version(&db), MIGRATIONS.len() as i64);
+        assert_eq!(db.recent_events(10, &[], "", true).unwrap().len(), 1);
+        let indexes: Vec<String> = db
+            .with_conn(|c| {
+                let mut s =
+                    c.prepare("SELECT name FROM sqlite_master WHERE type = 'index' ORDER BY name")?;
+                s.query_map([], |r| r.get(0))?.collect()
+            })
+            .unwrap();
+        for name in [
+            "activity_kind_ts",
+            "chatters_first_seen",
+            "events_kind_ts",
+            "sessions_started",
+        ] {
+            assert!(indexes.iter().any(|i| i == name), "missing {name}");
+        }
+        drop(db);
+        // Opening again runs nothing twice.
+        let db = Db::open(&p).unwrap();
+        assert_eq!(version(&db), MIGRATIONS.len() as i64);
     }
 
     #[test]

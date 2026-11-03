@@ -59,6 +59,21 @@ sudo dnf install ./Castwright-*.x86_64.rpm
 
 Castwright needs WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`), which current distros already have. Saved sign-ins go into your keyring (GNOME Keyring or KWallet). Without a keyring they're stored in a private file instead.
 
+## Portable
+
+You can run Castwright from a USB drive or any folder, with all its data kept next to it.
+
+1. Put the app in a folder you can write to:
+   - Windows: copy `Castwright.exe` from your install folder (for example `%LOCALAPPDATA%\Castwright\`).
+   - macOS: copy `Castwright.app`.
+   - Linux: use the `.AppImage`.
+2. Make an empty file called `portable`, or a folder called `data`, next to it.
+3. Start Castwright. **Settings → About** now shows **Portable mode**.
+
+To bring your current setup along, use **Settings → About → Make portable…** instead of step 2.
+
+Sign-ins are stored unencrypted in `data/secrets.json` in portable mode, so keep the drive safe. More in [Files and data](/reference/files/#portable-mode).
+
 ## Updating
 
 Download the new version and install it over the old one. Your overlays, alerts and settings are kept.

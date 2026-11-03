@@ -1,7 +1,7 @@
 // In-browser stand-in for the Rust backend. Used when the UI runs outside the
 // desktop app: development in a browser, end-to-end tests and documentation
 // screenshots. Add `?demo=static` to the URL to turn off the simulated activity,
-// and `&setup` to start at first-time setup.
+// `&setup` to start at first-time setup, and `&ended` to have the stream just end.
 
 import type { Backend, Unlisten } from './backend';
 import starter from './fixtures/starter-project.json';
@@ -19,6 +19,8 @@ import type { BackupSettings } from '$lib/bindings/BackupSettings';
 import type { Event } from '$lib/bindings/Event';
 import type { EventKind } from '$lib/bindings/EventKind';
 import type { GoLiveSettings } from '$lib/bindings/GoLiveSettings';
+import type { HotkeySettings } from '$lib/bindings/HotkeySettings';
+import type { HotkeyStatus } from '$lib/bindings/HotkeyStatus';
 import type { LogEntry } from '$lib/bindings/LogEntry';
 import type { ObsSnapshot } from '$lib/bindings/ObsSnapshot';
 import type { Overlay } from '$lib/bindings/Overlay';
@@ -28,7 +30,13 @@ import type { Settings } from '$lib/bindings/Settings';
 import type { TwitchStatus } from '$lib/bindings/TwitchStatus';
 import { evaluateGroup } from '$lib/logic/condition';
 import { planRun } from '$lib/pages/automation/graph';
+import { applyImport, buildPackage, parsePackage } from '$lib/pages/automation/sharing';
+import type { ActionPackage } from '$lib/bindings/ActionPackage';
+import type { ImportChoices } from '$lib/bindings/ImportChoices';
 import { render } from '$lib/logic/template';
+import { ACTION_LABELS, findConflict } from '$lib/pages/settings/hotkeys';
+import { DEFAULT_SOCIAL_TEMPLATE } from '$lib/sessions/summary';
+import { listItem, liveActivity, pastSessions, summarize, type DemoSession, type MakeEvent } from './mock-sessions';
 
 type Listener = (payload: unknown) => void;
 
@@ -129,8 +137,43 @@ function defaultSettings(): Settings {
         { id: 'water', label: 'Water bottle filled' }
       ]
     },
-    backups: { keep_daily: 14, keep_other: 5 }
+    backups: { keep_daily: 14, keep_other: 5 },
+    hotkeys: {
+      enabled: true,
+      bindings: [
+        { action: { type: 'replay_last_alert' }, keys: 'Ctrl+Alt+R' },
+        { action: { type: 'skip_alert' }, keys: 'Ctrl+Alt+S' },
+        { action: { type: 'toggle_alert_pause' }, keys: 'Ctrl+Alt+P' }
+      ]
+    },
+    summary: { social_template: DEFAULT_SOCIAL_TEMPLATE }
   };
+}
+
+/** Registering does nothing in the browser; the settings are still saved. */
+const DEMO_HOTKEYS: HotkeyStatus = {
+  available: false,
+  note: 'Global hotkeys only work in the desktop app. Changes here are still saved.',
+  active: 0,
+  errors: []
+};
+
+function cleanHotkeys(h: HotkeySettings): HotkeySettings {
+  const seen = new Set<string>();
+  const bindings = h.bindings.filter((b) =>
+    b.action.type === 'run_action' ? !!b.action.action_id.trim() : !seen.has(b.action.type) && !!seen.add(b.action.type)
+  );
+  bindings.forEach((b, i) => {
+    const other = findConflict(bindings, b.keys, i);
+    if (other >= 0 && other < i) {
+      const label = (x: typeof b) => (x.action.type === 'run_action' ? 'Run an action' : ACTION_LABELS[x.action.type]);
+      throw {
+        code: 'user',
+        message: `${b.keys} is set for both "${label(bindings[other]!)}" and "${label(b)}". Pick a different combination for one of them.`
+      };
+    }
+  });
+  return { enabled: h.enabled, bindings };
 }
 
 /** Same scopes the desktop app asks Twitch for. */
@@ -260,11 +303,15 @@ export function createDemoBackend(): Backend {
     typeof location !== 'undefined' && new URLSearchParams(location.search).get('demo') === 'static';
 
   let project = clone(starter as unknown as Project);
+  let templates: Overlay[] = [];
   let settings = defaultSettings();
+  const deaths = project.actions.find((a) => a.name === 'Count deaths');
+  if (deaths) settings.hotkeys.bindings.push({ action: { type: 'run_action', action_id: deaths.id }, keys: 'Ctrl+Alt+D' });
   const obs = demoObs();
   const twitch = demoTwitch();
   const signedIn = { broadcaster: twitch.broadcaster, bot: twitch.bot };
-  if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('setup')) {
+  const query = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
+  if (query.has('setup')) {
     settings.first_run_done = false;
     twitch.broadcaster = null;
     twitch.bot = null;
@@ -272,7 +319,7 @@ export function createDemoBackend(): Backend {
   const queue: QueueState = { paused: false, muted: settings.alerts_muted, playing: null, waiting: [], last: null };
   const logs: LogEntry[] = [
     { ts: now() - 5_100_000, level: 'info', source: 'obs', message: 'Connected to OBS 32.1.0' },
-    { ts: now() - 5_095_000, level: 'info', source: 'twitch', message: 'Listening for 26 kinds of Twitch events' },
+    { ts: now() - 5_095_000, level: 'info', source: 'twitch', message: 'Listening for 27 kinds of Twitch events' },
     { ts: now() - 5_025_000, level: 'info', source: 'twitch', message: 'Stream went live' }
   ];
   const history: Event[] = [];
@@ -290,6 +337,50 @@ export function createDemoBackend(): Backend {
   ];
   kinds.forEach(([k, i], n) => history.unshift(demoEvent(k, i, (kinds.length - n) * 95_000)));
   for (let i = 0; i < 18; i++) chat.push(chatEvent(i, (18 - i) * 21_000));
+
+  const makeEvent: MakeEvent = (kind, i, ts) => ({ ...demoEvent(kind, i, 0), ts });
+  const sessions: DemoSession[] = pastSessions(
+    now(),
+    VIEWERS.map(([name]) => name),
+    makeEvent
+  );
+  const liveSession: DemoSession = {
+    session: {
+      id: sessions.length + 1,
+      started_at: twitch.stream.started_at,
+      ended_at: null,
+      source: 'twitch',
+      title: twitch.stream.title,
+      categories: [twitch.stream.category],
+      peak_viewers: 1342,
+      avg_viewers: 1187
+    },
+    events: history,
+    chat: [],
+    firstChatters: ['quietfox', 'LumenLark'],
+    alerts: 9,
+    actions: 4,
+    markers: [{ ts: now() - 1_800_000, description: 'Clutch round' }],
+    raidsOut: []
+  };
+  sessions.push(liveSession);
+  const earlier = liveActivity(twitch.stream.started_at, now(), VIEWERS.map(([name]) => name), makeEvent);
+  const sessionSummary = (d: DemoSession) => {
+    if (d === liveSession) {
+      const recent = chat.filter((c) => !c.roles.broadcaster && c.user).map((c) => ({ ts: c.ts, name: c.user!.display_name }));
+      return summarize({ ...d, events: [...earlier.events, ...history], chat: [...earlier.chat, ...recent] }, now());
+    }
+    return summarize(d, now());
+  };
+  // Sent once the app listens, like the desktop app does a few seconds after the stream ends.
+  let endedPending = false;
+  if (query.has('ended')) {
+    twitch.stream.live = false;
+    twitch.stream.viewers = 0;
+    obs.stream.active = false;
+    liveSession.session.ended_at = now();
+    endedPending = true;
+  }
   const vars: Record<string, unknown> = {
     'session.follows': 38,
     'session.subs': 16,
@@ -559,6 +650,30 @@ export function createDemoBackend(): Backend {
       project.name = String(name);
     },
     export_overlay: () => undefined,
+    list_overlay_templates: () => templates,
+    save_overlay_template: ({ id, name }) => {
+      const src = project.overlays.find((o) => o.id === id);
+      if (!src) throw { code: 'not_found', message: 'Not found: overlay' };
+      if (!String(name).trim()) throw { code: 'user', message: 'Give the template a name.' };
+      const t = { ...clone(src), id: uid(), name: String(name).trim().slice(0, 80) };
+      templates.push(t);
+      return t;
+    },
+    delete_overlay_template: ({ id }) => {
+      templates = templates.filter((t) => t.id !== id);
+    },
+    overlay_from_template: ({ id, name }) => {
+      const t = templates.find((x) => x.id === id);
+      if (!t) throw { code: 'not_found', message: 'Not found: template' };
+      const o = clone(t);
+      o.id = uid();
+      o.name = String(name).trim() || t.name;
+      o.layers.forEach((l) => (l.id = uid()));
+      o.updated_at = now();
+      project.overlays.push(o);
+      emit('cw://project', {});
+      return o;
+    },
     import_overlay: () => {
       throw { code: 'user', message: 'Importing files needs the desktop app.' };
     },
@@ -670,6 +785,28 @@ export function createDemoBackend(): Backend {
         log('info', 'automation', `Ran "${a.name}"`);
       }, at + 60);
     },
+    actions_package: ({ ids }) => buildPackage(project.actions, ids as string[], project.overlays, vars),
+    export_actions: () => undefined,
+    read_actions_file: () => {
+      throw { code: 'user', message: 'Reading files by path needs the desktop app.' };
+    },
+    parse_actions_package: ({ text }) => parsePackage(String(text)),
+    import_actions: ({ package: pkg, choices }) => {
+      const { report, vars: created } = applyImport(
+        project.actions,
+        project.overlays,
+        assets.map((a) => a.name),
+        pkg as ActionPackage,
+        choices as ImportChoices
+      );
+      for (const [k, v] of created) {
+        if (k in vars) continue;
+        setVars({ [k]: v });
+        report.variables++;
+      }
+      emit('cw://project', {});
+      return report;
+    },
     get_vars: () => vars,
     set_var: ({ key, value }) => setVars({ [String(key)]: value }),
     delete_var: ({ key }) => {
@@ -692,6 +829,29 @@ export function createDemoBackend(): Backend {
         .filter((e) => !search || (e.user?.display_name ?? '').toLowerCase().includes(String(search).toLowerCase()))
         .slice(0, Number(limit) || 100),
     recent_chat: () => chat,
+    list_sessions: ({ limit }) =>
+      [...sessions]
+        .sort((a, b) => b.session.started_at - a.session.started_at)
+        .slice(0, Number(limit) || 100)
+        .map((d) => listItem(sessionSummary(d))),
+    session_summary: ({ id }) => {
+      const d = sessions.find((x) => x.session.id === id);
+      if (!d) throw { code: 'not_found', message: 'Not found: stream session' };
+      return sessionSummary(d);
+    },
+    delete_session: ({ id }) => {
+      const i = sessions.findIndex((x) => x.session.id === id);
+      if (i < 0) return;
+      if (sessions[i]!.session.ended_at === null) throw { code: 'user', message: 'This stream is still live. Delete it after it ends.' };
+      sessions.splice(i, 1);
+    },
+    save_summary_settings: ({ summary }) => {
+      const t = String((summary as Settings['summary']).social_template ?? '');
+      if (t.length > 2000) throw { code: 'user', message: 'The template can be at most 2000 characters.' };
+      settings.summary = { social_template: t.trim() ? t : DEFAULT_SOCIAL_TEMPLATE };
+      return settings.summary;
+    },
+    save_export: () => undefined,
     clear_history: () => {
       history.length = 0;
     },
@@ -726,14 +886,26 @@ export function createDemoBackend(): Backend {
       settings.twitch.client_id = String(clientId);
     },
     app_info: () => ({
-      version: '0.4.0',
+      version: '0.5.0',
       os: 'demo',
       project_dir: '~/Castwright/Projects/Default',
       config_dir: '~/.config/castwright',
       backup_dir: '~/.local/share/castwright/backups',
       secrets_in_file: false,
-      built_in_client_id: true
+      built_in_client_id: true,
+      portable: false,
+      app_folder: null,
+      portable_blocked: 'Only available in the desktop app.'
     }),
+    make_portable: () => {
+      throw { code: 'user', message: 'Only available in the desktop app.' };
+    },
+    restart_app: () => undefined,
+    save_hotkeys: ({ hotkeys }) => {
+      settings.hotkeys = cleanHotkeys(clone(hotkeys as HotkeySettings));
+      return { hotkeys: settings.hotkeys, status: DEMO_HOTKEYS };
+    },
+    hotkeys_recording: () => DEMO_HOTKEYS,
     set_window_effect: () => 'solid',
     save_golive: ({ golive }) => {
       const g = clone(golive as GoLiveSettings);
@@ -907,6 +1079,10 @@ export function createDemoBackend(): Backend {
       const set = listeners.get(event) ?? new Set<Listener>();
       set.add(cb as Listener);
       listeners.set(event, set);
+      if (event === 'cw://session' && endedPending) {
+        endedPending = false;
+        setTimeout(() => emit('cw://session', { type: 'ended', session: liveSession.session }), 800);
+      }
       return () => set.delete(cb as Listener);
     }
   };

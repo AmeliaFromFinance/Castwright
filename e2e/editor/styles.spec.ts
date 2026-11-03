@@ -6,7 +6,6 @@ import { stubProviders } from '../providers';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const screens = join(here, '__screens__');
-const base = 'http://localhost:4317';
 
 let errors: string[] = [];
 
@@ -23,7 +22,7 @@ test.beforeEach(async ({ page }) => {
   await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (r) => r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
   await page.setViewportSize({ width: 1920, height: 1080 });
   await stubProviders(page);
-  await page.goto(`${base}/?demo=static`, { timeout: 90_000 });
+  await page.goto('/?demo=static', { timeout: 90_000 });
 });
 
 test.afterEach(() => {

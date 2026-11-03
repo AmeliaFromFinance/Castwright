@@ -10,6 +10,12 @@ pub enum Normalized {
     DeleteChat(String),
     ClearUser(String),
     ClearChat,
+    /// The broadcaster raided another channel.
+    RaidOut {
+        login: String,
+        name: String,
+        viewers: u32,
+    },
     Ignore,
 }
 
@@ -40,6 +46,14 @@ pub fn normalize(sub_type: &str, meta: Meta, ev: &Value) -> Normalized {
         }
         "channel.chat.clear" => return Normalized::ClearChat,
         "channel.cheer" => cheer(meta, ev),
+        "channel.raid" if str_of(ev, "from_broadcaster_user_id") == meta.broadcaster_id => {
+            let to = user(ev, "to_broadcaster_user").unwrap_or_default();
+            return Normalized::RaidOut {
+                login: to.login,
+                name: to.display_name,
+                viewers: num_of(ev, "viewers").max(0.0) as u32,
+            };
+        }
         "channel.raid" => raid(meta, ev),
         "channel.channel_points_custom_reward_redemption.add" => redemption(meta, ev),
         "channel.bits.use" => bits_use(meta, ev),

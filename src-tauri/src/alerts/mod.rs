@@ -255,6 +255,9 @@ impl AlertEngine {
             };
             self.hub
                 .to_overlays(None, OverlayMsg::AlertPlay { play: play.clone() });
+            if !play.event.test {
+                self.hub.sessions.on_alert(&play.title);
+            }
             let _ = self.played.send(Played {
                 play: play.clone(),
                 run_action,

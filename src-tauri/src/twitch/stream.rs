@@ -179,6 +179,7 @@ impl TwitchService {
     }
 
     fn set_stream(&self, info: StreamInfo) {
+        self.state.lock().unwrap().stream_known = true;
         let copy = info.clone();
         self.update_status(|s| s.stream = copy);
         self.publish_stream_vars(&info);

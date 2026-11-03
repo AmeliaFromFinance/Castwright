@@ -114,6 +114,42 @@ Not every step option takes a template. [Automation steps](/reference/automation
 
 Overlay text updates as soon as a variable changes.
 
+### Stream summary
+
+Used by **Copy for socials** on a [stream summary](/guide/activity/#sessions-and-summary). Set the text in [Settings → Stream summary](/guide/settings/#stream-summary).
+
+| Key | Value |
+| --- | --- |
+| `channel` | Your channel name |
+| `title` | Stream title |
+| `category` | Last category |
+| `categories` | Every category, comma separated |
+| `date` | Day the stream started |
+| `duration` | Length, like `2h 15m` |
+| `duration_minutes` | Length in minutes |
+| `peak_viewers` | Most viewers at once |
+| `avg_viewers` | Average viewers |
+| `follows` | New follows |
+| `subs` | New subs, resubs and gifted subs |
+| `new_subs` | New subs |
+| `resubs` | Resubs |
+| `gifted_subs` | Gifted subs |
+| `top_gifter` | Who gifted the most |
+| `bits` | Bits cheered |
+| `top_cheerer` | Who cheered the most |
+| `raids` | Raids in |
+| `raiders` | Who raided you, comma separated |
+| `raided` | Who you raided at the end |
+| `donations` | Charity donations |
+| `donation_total` | Donation total, like `25 USD` |
+| `chat_messages` | Chat messages |
+| `chatters` | People who chatted |
+| `first_chatters` | First-time chatters |
+| `top_chatter` | Who chatted the most |
+| `alerts` | Alerts played |
+| `actions` | Actions run |
+| `markers` | Stream markers |
+
 ## Examples
 
 ```text
@@ -121,5 +157,6 @@ Overlay text updates as soon as a variable changes.
 Thanks {{name | default:"friend"}}
 Sub goal: {{session.subs | default:"0"}} / 50
 Live for {{stream.uptime_text | default:"0m"}}
+{{duration}} live, {{follows}} follows. Thanks {{raided | default:"everyone"}}!
 {{arg1}} has been hugged {{counter.hugs}} times
 ```
