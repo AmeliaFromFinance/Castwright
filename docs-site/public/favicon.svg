@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#7c6cf6"/>
-      <stop offset="1" stop-color="#4b3bd1"/>
+      <stop offset="0" stop-color="#d63ae6"/>
+      <stop offset="1" stop-color="#a21caf"/>
     </linearGradient>
     <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
@@ -11,7 +11,8 @@
   </defs>
   <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
   <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#shine)"/>
-  <rect x="232" y="262" width="560" height="380" rx="84" fill="none" stroke="#ffffff" stroke-width="56"/>
-  <path d="M400 770h224" stroke="#ffffff" stroke-width="56" stroke-linecap="round"/>
-  <circle cx="512" cy="452" r="78" fill="#ffffff"/>
+  <g transform="translate(216 216) scale(5.92)" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M80.64 24.29A40 40 0 1 0 80.64 75.71"/>
+    <path d="M30 40L40 64L50 44L60 64L70 40"/>
+  </g>
 </svg>

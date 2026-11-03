@@ -157,10 +157,9 @@
 {:else if !app.ready}
   <div class="center" aria-busy="true">
     <div class="splash">
-      <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true">
-        <rect x="6" y="10" width="52" height="36" rx="9" fill="none" stroke="currentColor" stroke-width="4" />
-        <path d="M22 56h20" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
-        <circle cx="32" cy="28" r="7" fill="currentColor" />
+      <svg width="40" height="40" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M80.64 24.29A40 40 0 1 0 80.64 75.71" />
+        <path d="M31 38L41 66L50 46L59 66L69 38" />
       </svg>
       <span class="sr-only">Loading</span>
     </div>
@@ -175,10 +174,9 @@
     {#if isMac}<div class="drag" data-tauri-drag-region></div>{/if}
     <nav class="rail" aria-label="Main sections">
       <div class="logo" aria-hidden="true">
-        <svg width="22" height="22" viewBox="0 0 64 64">
-          <rect x="6" y="10" width="52" height="36" rx="9" fill="none" stroke="currentColor" stroke-width="5" />
-          <path d="M22 56h20" stroke="currentColor" stroke-width="5" stroke-linecap="round" />
-          <circle cx="32" cy="28" r="7" fill="currentColor" />
+        <svg width="22" height="22" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M80.64 24.29A40 40 0 1 0 80.64 75.71" />
+          <path d="M31 38L41 66L50 46L59 66L69 38" />
         </svg>
       </div>
       <button type="button" class="nav search" title="Search and commands ({isMac ? '⌘K' : 'Ctrl+K'})" onclick={() => (paletteOpen = true)}>

@@ -361,10 +361,9 @@
       <Section id="about" title="About">
         <div class="about">
           <div class="brand">
-            <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true">
-              <rect x="6" y="10" width="52" height="36" rx="9" fill="none" stroke="currentColor" stroke-width="5" />
-              <path d="M22 56h20" stroke="currentColor" stroke-width="5" stroke-linecap="round" />
-              <circle cx="32" cy="28" r="7" fill="currentColor" />
+            <svg width="34" height="34" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M80.64 24.29A40 40 0 1 0 80.64 75.71" />
+              <path d="M31 38L41 66L50 46L59 66L69 38" />
             </svg>
             <div>
               <b>Castwright</b>
