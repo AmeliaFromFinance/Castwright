@@ -1,3 +1,4 @@
+use super::music::MusicSettings;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -161,6 +162,9 @@ pub enum HotkeyAction {
     ToggleAlertPause,
     ToggleAlertMute,
     OpenGoLive,
+    /// Add a stream marker with an automatic description.
+    AddMarker,
+    CreateClip,
     RunAction {
         action_id: String,
     },
@@ -300,6 +304,23 @@ pub struct DiscordSettings {
     pub webhooks: Vec<DiscordWebhook>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum UpdateChannel {
+    #[default]
+    Stable,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS, Default)]
+#[serde(default)]
+#[ts(export)]
+pub struct UpdateSettings {
+    /// Download updates in the background and install them when Castwright closes.
+    pub auto_install: bool,
+    pub channel: UpdateChannel,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS, Default)]
 #[serde(default)]
 #[ts(export)]
@@ -320,4 +341,6 @@ pub struct Settings {
     pub summary: SummarySettings,
     pub ads: AdSettings,
     pub discord: DiscordSettings,
+    pub updates: UpdateSettings,
+    pub music: MusicSettings,
 }

@@ -157,6 +157,8 @@ class FlowState {
   /** Selected line, when no nodes are. */
   edge = $state<string | null>(null);
   inspecting = $state(false);
+  /** A node to select and center once its action is on screen. */
+  focus = $state<{ actionId: string; nodeId: string } | null>(null);
   clipboard = $state<Clip | null>(null);
   /** A test run that hasn't reported back yet. */
   testing = $state<{ actionId: string; after: number } | null>(null);

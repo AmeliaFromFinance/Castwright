@@ -3,8 +3,9 @@
   import type { Ranked } from '$lib/bindings/Ranked';
   import { count } from '$lib/format';
   import Badge from '$lib/ui/Badge.svelte';
+  import { openExternal } from '$lib/util/os';
   import Timeline from './Timeline.svelte';
-  import { donationText, durationText, totalSubs } from './summary';
+  import { clock, donationText, durationText, markerLabel, markerTime, totalSubs } from './summary';
 
   interface Props {
     summary: SessionSummary;
@@ -93,9 +94,38 @@
         <dd>{count(s.alerts)}</dd>
         <dt>Actions run</dt>
         <dd>{count(s.actions)}</dd>
-        <dt>Markers</dt>
-        <dd>{s.markers.length ? s.markers.map((m) => `${time(m.ts)} ${m.description}`).join(', ') : 'None'}</dd>
       </dl>
+    </section>
+  </div>
+
+  <div class="moments">
+    <section class="block" aria-label="Markers">
+      <h3>Markers</h3>
+      {#if s.markers.length}
+        <ol>
+          {#each s.markers as m, i (m.id || i)}
+            <li><span class="when">{markerTime(s, m)}</span><span class="name truncate" title={m.note ? m.description : undefined}>{markerLabel(m)}</span></li>
+          {/each}
+        </ol>
+      {:else}
+        <p class="none">No markers</p>
+      {/if}
+    </section>
+    <section class="block" aria-label="Clips">
+      <h3>Clips</h3>
+      {#if s.clips.length}
+        <ol>
+          {#each s.clips as c (c.id)}
+            <li>
+              <span class="when">{clock((c.ts - s.session.started_at) / 1000)}</span>
+              <button type="button" class="clip truncate" title={c.url} onclick={() => openExternal(c.url)}>{c.title || 'Untitled clip'}</button>
+              <span class="val truncate url">{c.url.replace(/^https:\/\//, '')}</span>
+            </li>
+          {/each}
+        </ol>
+      {:else}
+        <p class="none">No clips made in Castwright</p>
+      {/if}
     </section>
   </div>
 
@@ -165,6 +195,37 @@
   }
   .block {
     min-width: 0;
+  }
+  .moments {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+  }
+  .when {
+    flex: none;
+    width: 58px;
+    color: var(--text-faint);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .clip {
+    flex: 0 1 auto;
+    min-width: 0;
+    border: 0;
+    padding: 0;
+    background: none;
+    font: inherit;
+    color: var(--accent-text);
+    text-align: left;
+    cursor: pointer;
+  }
+  .clip:hover {
+    text-decoration: underline;
+  }
+  .url {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 12px;
   }
   h3 {
     font-size: 11px;

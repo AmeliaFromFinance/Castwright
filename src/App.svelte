@@ -23,6 +23,7 @@
   import GoLiveDialog from '$lib/shell/GoLiveDialog.svelte';
   import SummaryDialog from '$lib/sessions/SummaryDialog.svelte';
   import WhatsNewDialog from '$lib/whatsnew/WhatsNewDialog.svelte';
+  import UpdateDialog from '$lib/shell/UpdateDialog.svelte';
   import HealthDialog from '$lib/health/HealthDialog.svelte';
   import BugReportDialog from '$lib/health/BugReportDialog.svelte';
   import { health } from '$lib/health/store.svelte';
@@ -219,6 +220,7 @@
   <GoLiveDialog />
   <SummaryDialog />
   <WhatsNewDialog />
+  <UpdateDialog />
   <HealthDialog />
   <BugReportDialog />
 {/if}

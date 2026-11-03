@@ -35,6 +35,7 @@ import type { LogEntry } from '$lib/bindings/LogEntry';
 import type { ObsSnapshot } from '$lib/bindings/ObsSnapshot';
 import type { Overlay } from '$lib/bindings/Overlay';
 import type { Project } from '$lib/bindings/Project';
+import type { VarRenamed } from '$lib/bindings/VarRenamed';
 import type { QueueState } from '$lib/bindings/QueueState';
 import type { ServerInfo } from '$lib/bindings/ServerInfo';
 import type { SessionChange } from '$lib/bindings/SessionChange';
@@ -55,6 +56,15 @@ import type { Reward } from '$lib/bindings/Reward';
 import type { AdSchedule } from '$lib/bindings/AdSchedule';
 import type { AdSettings } from '$lib/bindings/AdSettings';
 import type { DiscordWebhook } from '$lib/bindings/DiscordWebhook';
+import type { MarkerEntry } from '$lib/bindings/MarkerEntry';
+import type { MomentEvent } from '$lib/bindings/MomentEvent';
+import type { RestartOutcome } from '$lib/bindings/RestartOutcome';
+import type { UpdatePlan } from '$lib/bindings/UpdatePlan';
+import type { UpdateProgress } from '$lib/bindings/UpdateProgress';
+import type { UpdateSettings } from '$lib/bindings/UpdateSettings';
+import type { ChatRules } from '$lib/bindings/ChatRules';
+import type { MusicSettings } from '$lib/bindings/MusicSettings';
+import type { MusicStatus } from '$lib/bindings/MusicStatus';
 
 let backend: Backend | null = null;
 
@@ -103,7 +113,11 @@ export const events = {
   session: 'cw://session',
   redemption: 'cw://redemption',
   ads: 'cw://ads',
-  adWarning: 'cw://ad-warning'
+  adWarning: 'cw://ad-warning',
+  moment: 'cw://moment',
+  updateProgress: 'cw://update-progress',
+  updateAsk: 'cw://update-ask',
+  music: 'cw://music'
 } as const;
 
 export interface PushPayloads {
@@ -125,6 +139,10 @@ export interface PushPayloads {
   'cw://redemption': RedemptionUpdate;
   'cw://ads': AdSchedule;
   'cw://ad-warning': AdSchedule;
+  'cw://moment': MomentEvent;
+  'cw://update-progress': UpdateProgress;
+  'cw://update-ask': Record<string, never>;
+  'cw://music': MusicStatus;
 }
 
 export function on<K extends keyof PushPayloads>(name: K, cb: (p: PushPayloads[K]) => void): Promise<Unlisten> {
@@ -190,6 +208,9 @@ export const api = {
   getVars: () => call<Vars>('get_vars'),
   setVar: (key: string, value: unknown, persist: boolean) => call<void>('set_var', { key, value, persist }),
   deleteVar: (key: string) => call<void>('delete_var', { key }),
+  savedVarKeys: () => call<string[]>('saved_var_keys'),
+  /** Saves `project`, which already has the new name, and moves the value. Backs up first. */
+  renameVar: (from: string, to: string, project: Project) => call<VarRenamed>('rename_var', { from, to, project }),
   resetSession: () => call<void>('reset_session'),
 
   // history
@@ -289,11 +310,41 @@ export const api = {
   runAd: (lengthS: number) => call<void>('twitch_run_ad', { lengthS }),
   saveAdSettings: (ads: AdSettings) => call<AdSettings>('save_ad_settings', { ads }),
 
+  // markers and clips
+  addMarker: () => call<MarkerEntry>('stream_add_marker'),
+  markerNote: (id: string, note: string) => call<void>('stream_marker_note', { id, note }),
+  /** Returns the clip id; the link follows as a `cw://moment` event. */
+  createClip: () => call<string>('stream_create_clip'),
+
+  // updates
+  updatePrepare: () => call<UpdatePlan>('update_prepare'),
+  /** Progress arrives as `cw://update-progress`. */
+  updateDownload: () => call<void>('update_download'),
+  /** `confirmed`: restart even while live. */
+  updateRestart: (confirmed = false) => call<RestartOutcome>('update_restart', { confirmed }),
+  updateCancelRestart: () => call<void>('update_cancel_restart'),
+  saveUpdateSettings: (settings: UpdateSettings) => call<UpdateSettings>('save_update_settings', { settings }),
+  /** tauri-plugin-process */
+  relaunch: () => call<void>('plugin:process|restart'),
+
   // discord
   /** `url`: null keeps the saved link, '' removes it. */
   saveDiscordWebhook: (webhook: DiscordWebhook, url: string | null) => call<DiscordWebhook>('save_discord_webhook', { webhook, url }),
   deleteDiscordWebhook: (id: string) => call<void>('delete_discord_webhook', { id }),
   discordSendTest: (id: string) => call<void>('discord_send_test', { id }),
+
+  // music
+  musicStatus: () => call<MusicStatus>('music_status'),
+  saveMusicSettings: (music: MusicSettings) => call<MusicSettings>('save_music_settings', { music }),
+  /** The app shows the song. Repeat within 90 seconds to keep it fresh. */
+  musicWatch: (on: boolean) => call<void>('music_watch', { on }),
+  /** Returns the Spotify page to open in the browser. */
+  spotifyLogin: () => call<string>('spotify_login'),
+  spotifyCancelLogin: () => call<void>('spotify_cancel_login'),
+  spotifyLogout: () => call<void>('spotify_logout'),
+
+  // chat rules
+  saveChatRules: (rules: ChatRules) => call<ChatRules>('save_chat_rules', { rules }),
 
   // obs
   obsSnapshot: () => call<ObsSnapshot>('obs_snapshot'),

@@ -51,6 +51,16 @@ Official builds come with a client ID, so you can skip this. If yours doesn't, o
 
 Changing the client ID signs both accounts out.
 
+## Chat filters
+
+What the chat panel and chat layers hide and highlight: bots, `!commands`, users and words to hide, and first-time chatters, mentions, keywords, users, mods, VIPs and "Highlight my message" redemptions to highlight, each with a colour.
+
+Write one entry per line. Words match whole words in any case. `/pattern/i` is a regular expression; patterns that could freeze chat, like `(a+)+`, are refused. See [Activity → Filters and highlights](/guide/activity/#filters-and-highlights).
+
+## Music
+
+Where the playing song comes from: **Spotify**, **This computer** or a **Text file**. See [Music and now playing](/guide/music/).
+
 ## Overlay server
 
 OBS loads overlays from a small web server inside Castwright, at `http://127.0.0.1:7470` by default.
@@ -94,6 +104,8 @@ Global hotkeys work even while a game or another app has focus.
 | **Pause or resume alerts** | Holds the queue, or lets it play again |
 | **Mute or unmute alerts** | Silences alert sounds, videos and speech |
 | **Open the go-live check** | Brings Castwright to the front and runs the [go-live check](/guide/go-live-check/) |
+| **Add stream marker** | Adds a Twitch stream marker, like "Marker 3 · 1:23:45". A message lets you add a note for 10 seconds. |
+| **Create clip** | Makes a Twitch clip of what just happened. A message shows the link when it's ready. |
 | **Add action hotkey** | Runs an [automation action](/guide/automation/) you pick |
 
 To set one:
@@ -162,6 +174,7 @@ Castwright backs up your project:
 - once a day while it runs
 - before a restore or import
 - before an update converts your project to a new format
+- before renaming a variable
 
 A backup holds your overlays, alerts, actions and saved variables. Uploaded files, event history, passwords and sign-ins aren't included. If nothing changed since the last backup, no new one is made.
 
@@ -179,7 +192,7 @@ The list shows each backup's date, reason, project name and size.
 How many are kept:
 
 - **Daily backups**: days to keep, one backup per day. Default 14.
-- **Other backups**: ones made with **Back up now** or before a restore, import or upgrade. Default 5.
+- **Other backups**: ones made with **Back up now** or before a restore, import, upgrade or variable rename. Default 5.
 
 Backups made by older versions of Castwright still restore. They're converted the same way as an old project. If a restore fails, your project stays as it was and the error says why.
 
@@ -192,7 +205,28 @@ See [Files and data](/reference/files/#backups) for where they're stored.
 
 ## About
 
-Version, where settings are stored and links to this guide. **Health** and **Save bug report…** are here too, see [Health and bug reports](/guide/health/). **Check for updates** asks GitHub for a newer release. Castwright also checks once a day and shows a link in the status bar when one is out. Click **What's new** next to it to read that release's notes.
+Version, where settings are stored and links to this guide. **Health** and **Save bug report…** are here too, see [Health and bug reports](/guide/health/).
+
+### Updates
+
+Castwright checks for a new version once a day. When one is out, the status bar says so. Click it to see what's new and install it.
+
+| Setting | Does |
+| --- | --- |
+| **Check for updates** | Checks now and opens the update window if there's a new version. |
+| **Install updates automatically** | Downloads new versions in the background. They install the next time Castwright closes or restarts. Off at first. |
+| **Update channel** | **Stable**: full releases only. |
+
+In the update window:
+
+- **Download and install** shows the download size and progress.
+- **Restart to update** installs it and opens the new version.
+- **Restart after stream** shows instead while you're live. Castwright asks again when the stream ends.
+- If the download doesn't pass the signature check, it's thrown away and you'll see why. Use **Download from GitHub** then.
+
+More in [Install → Updating](/guide/install/#updating).
+
+![Update downloading](../../../assets/screens/update-download.png)
 
 ### What's new
 

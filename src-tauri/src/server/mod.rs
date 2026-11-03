@@ -4,6 +4,7 @@
 use crate::automation::Automation;
 use crate::hub::{Hub, OverlayOut};
 use crate::model::runtime::{OverlayClientMsg, OverlayMsg, ServerInfo};
+use crate::music::MusicService;
 use crate::store::project::ProjectStore;
 use crate::util::secure_eq;
 use axum::Router;
@@ -39,6 +40,7 @@ struct Ctx {
     automation: Arc<Automation>,
     token: Arc<RwLock<String>>,
     clients: Arc<Mutex<Connections>>,
+    music: Arc<std::sync::OnceLock<Arc<MusicService>>>,
 }
 
 /// One open overlay page.
@@ -227,10 +229,16 @@ impl OverlayServer {
                 automation,
                 token: Arc::new(RwLock::new(token)),
                 clients: Arc::new(Mutex::new(Connections::default())),
+                music: Arc::new(std::sync::OnceLock::new()),
             },
             info: RwLock::new(ServerInfo::default()),
             stop: std::sync::Mutex::new(None),
         })
+    }
+
+    /// Lets the server answer Spotify sign-ins and serve song covers.
+    pub fn set_music(&self, music: Arc<MusicService>) {
+        let _ = self.ctx.music.set(music);
     }
 
     pub fn info(&self) -> ServerInfo {
@@ -370,6 +378,8 @@ fn router(ctx: Ctx) -> Router {
         .route("/api/credits", get(credits_json))
         .route("/api/alerts", get(alerts_status))
         .route("/api/alerts/{command}", post(alerts_command))
+        .route("/spotify/callback", get(spotify_callback))
+        .route("/music/art/{version}", get(music_art))
         .route("/_app/{*path}", get(static_file))
         .with_state(ctx)
 }
@@ -497,6 +507,106 @@ async fn asset(
         Ok(resp) => resp.map(Body::new).into_response(),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
+}
+
+#[derive(Deserialize)]
+struct CallbackQuery {
+    code: Option<String>,
+    state: Option<String>,
+    error: Option<String>,
+}
+
+fn escape_html(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
+/// The page shown in the browser after Spotify sign-in.
+fn callback_page(ok: bool, text: &str) -> Response {
+    let title = if ok { "Connected" } else { "Not connected" };
+    let html = format!(
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Castwright · Spotify</title>\
+         <style>body{{font:16px/1.5 system-ui,sans-serif;background:#0f1218;color:#e8ebf2;display:grid;place-items:center;height:100vh;margin:0}}\
+         main{{max-width:440px;padding:24px}}h1{{font-size:20px;margin:0 0 8px}}p{{margin:0;color:#aab2c3}}</style></head>\
+         <body><main><h1>{title}</h1><p>{}</p><p>You can close this tab and go back to Castwright.</p></main></body></html>",
+        escape_html(text)
+    );
+    let mut resp = Response::new(Body::from(html));
+    *resp.status_mut() = if ok {
+        StatusCode::OK
+    } else {
+        StatusCode::BAD_REQUEST
+    };
+    resp.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("text/html; charset=utf-8"),
+    );
+    resp.headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    resp
+}
+
+/// Spotify sends the browser here after sign-in. The `state` value, which only
+/// Castwright knows, ties it to the sign-in started in the app.
+async fn spotify_callback(State(ctx): State<Ctx>, Query(q): Query<CallbackQuery>) -> Response {
+    let Some(music) = ctx.music.get() else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let result = match (q.code, q.error) {
+        (_, Some(e)) => Err(e),
+        (Some(c), None) => Ok(c),
+        (None, None) => Err("no code".into()),
+    };
+    match music
+        .finish_login(q.state.as_deref().unwrap_or_default(), result)
+        .await
+    {
+        Ok(msg) => callback_page(true, &msg),
+        Err(msg) => callback_page(false, &msg),
+    }
+}
+
+/// The current song's cover, for players that don't give a web link.
+async fn music_art(
+    State(ctx): State<Ctx>,
+    Path(version): Path<String>,
+    Query(q): Query<TokenQuery>,
+    headers: HeaderMap,
+) -> Response {
+    let key_ok = q.key.as_deref().is_some_and(|k| {
+        let token = ctx.token.read().unwrap();
+        !token.is_empty() && secure_eq(k, &asset_key(&token))
+    });
+    if !key_ok && !authorized(&ctx, q.token.as_deref(), &headers) {
+        return forbidden();
+    }
+    let art = version
+        .parse::<u64>()
+        .ok()
+        .and_then(|v| ctx.music.get()?.art(v));
+    let Some(art) = art else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let mut resp = Response::new(Body::from(art.bytes.as_ref().clone()));
+    if let Ok(v) = HeaderValue::from_str(&art.mime) {
+        resp.headers_mut().insert(header::CONTENT_TYPE, v);
+    }
+    resp.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, max-age=3600"),
+    );
+    // Covers come from other programs; never let one run as a page here.
+    resp.headers_mut().insert(
+        header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static("default-src 'none'; sandbox"),
+    );
+    resp.headers_mut().insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
+    resp
 }
 
 async fn overlay_json(
@@ -676,6 +786,7 @@ fn hello(ctx: &Ctx, overlay_id: &str) -> Option<OverlayMsg> {
         recent: ctx.hub.recent_events(),
         chat: ctx.hub.recent_chat(),
         widget_state,
+        chat_rules: ctx.project.read(|p| p.chat_rules.clone()),
     })
 }
 

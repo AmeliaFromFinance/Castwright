@@ -67,12 +67,33 @@ pub struct RaidEntry {
     pub viewers: u32,
 }
 
+/// A stream marker. Twitch can't edit markers, so the note is only kept here.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS, Default)]
+#[serde(default)]
 #[ts(export)]
 pub struct MarkerEntry {
     #[ts(type = "number")]
     pub ts: i64,
+    /// Sent to Twitch, like "Marker 3 · 1:23:45".
     pub description: String,
+    /// Twitch marker id. Empty for markers saved before ids were kept.
+    pub id: String,
+    /// Seconds into the stream, from Twitch. 0 when unknown.
+    pub position_s: u32,
+    pub note: String,
+}
+
+/// A clip made from Castwright.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS, Default)]
+#[serde(default)]
+#[ts(export)]
+pub struct ClipEntry {
+    #[ts(type = "number")]
+    pub ts: i64,
+    pub id: String,
+    /// Empty until Twitch has finished the clip.
+    pub title: String,
+    pub url: String,
 }
 
 /// A non-chat event on the timeline.
@@ -124,6 +145,7 @@ pub struct SessionSummary {
     pub alerts: u32,
     pub actions: u32,
     pub markers: Vec<MarkerEntry>,
+    pub clips: Vec<ClipEntry>,
     pub timeline: Vec<TimelineMark>,
     pub chat_minutes: Vec<ChatMinute>,
 }

@@ -21,6 +21,10 @@
   import SummarySettings from './SummarySettings.svelte';
   import AdSettings from './AdSettings.svelte';
   import DiscordSettings from './DiscordSettings.svelte';
+  import MusicSettings from './MusicSettings.svelte';
+  import ChatRulesForm from '$lib/widgets/chat/ChatRulesForm.svelte';
+  import { defaultChatRules } from '$lib/overlay/chat-filters';
+  import type { ChatRules } from '$lib/bindings/ChatRules';
   import Backups from './Backups.svelte';
   import Hotkeys from './Hotkeys.svelte';
   import { health } from '$lib/health/store.svelte';
@@ -33,6 +37,8 @@
     { id: 'general', label: 'General' },
     { id: 'obs', label: 'OBS' },
     { id: 'twitch', label: 'Twitch' },
+    { id: 'chat', label: 'Chat filters' },
+    { id: 'music', label: 'Music' },
     { id: 'server', label: 'Overlay server' },
     { id: 'golive', label: 'Go-live check' },
     { id: 'ads', label: 'Ads' },
@@ -132,6 +138,11 @@
     }
   }
 
+  async function saveRules(next: ChatRules) {
+    const saved = await attempt(() => api.saveChatRules(next));
+    if (saved && app.project) app.project.chat_rules = saved;
+  }
+
   async function saveClientId() {
     clientIdError = null;
     const id = clientId.trim();
@@ -168,15 +179,20 @@
 
   let checking = $state(false);
   async function checkUpdates() {
-    if (!isTauri()) {
-      toasts.show('Available in the desktop app');
-      return;
-    }
     checking = true;
     await updates.check(app.info?.version ?? '', true);
     checking = false;
-    if (updates.available) toasts.show(`Version ${updates.available.version} is out. Use the link in the status bar to get it.`);
+    if (updates.available) updates.open = true;
     else toasts.success(`You have the latest version (${app.info?.version}).`);
+  }
+
+  async function setAutoInstall(on: boolean) {
+    const saved = await attempt(() => api.saveUpdateSettings({ ...updates.settings, auto_install: on }));
+    if (!saved) return;
+    updates.settings = saved;
+    if (app.settings) app.settings.updates = saved;
+    const p = updates.phase;
+    if (on && p.kind === 'available' && p.canInstall) void updates.download();
   }
 
   const maskedToken = $derived(app.server ? app.server.token.slice(0, 4) + '•'.repeat(12) : '');
@@ -250,6 +266,18 @@
           {#if clientIdError}<p class="err" role="alert">{clientIdError}</p>{/if}
           <p class="faint small">Changing it signs you out of both accounts.</p>
         </details>
+      </Section>
+
+      <Section
+        id="chat"
+        title="Chat filters"
+        description="Hide bots, commands and unwanted words, and highlight messages you shouldn't miss. The chat panel and chat layers use these unless you turn them off there."
+      >
+        <ChatRulesForm rules={app.project?.chat_rules ?? defaultChatRules()} uid="settings-chat" onchange={saveRules} />
+      </Section>
+
+      <Section id="music" title="Music" description="Show the song you're playing in overlays and react when it changes.">
+        <MusicSettings />
       </Section>
 
       <Section id="server" title="Overlay server" description="OBS loads your overlays from a small web server inside Castwright. It only runs while the app is open.">
@@ -370,6 +398,12 @@
               <Button size="sm" disabled={!!app.info?.portable_blocked || !!portableDir} onclick={() => ((portableStep = 'confirm'), (portableOpen = true))}>Make portable…</Button>
             </Row>
           {/if}
+          <Row label="Install updates automatically" hint="Downloads new versions in the background. They install the next time Castwright closes or restarts.">
+            <Switch label="Install updates automatically" checked={updates.settings.auto_install} onchange={setAutoInstall} />
+          </Row>
+          <Row label="Update channel" hint="Only stable releases for now.">
+            <Badge>Stable</Badge>
+          </Row>
           <div class="row gap">
             <Button size="sm" busy={checking} onclick={checkUpdates}>Check for updates</Button>
             <Button size="sm" onclick={() => whatsNew.show(app.info?.version ?? '')}>What's new</Button>

@@ -171,7 +171,9 @@ export const ACTION_LABELS: Record<Exclude<HotkeyAction['type'], 'run_action'>, 
   skip_alert: 'Skip alert',
   toggle_alert_pause: 'Pause or resume alerts',
   toggle_alert_mute: 'Mute or unmute alerts',
-  open_go_live: 'Open the go-live check'
+  open_go_live: 'Open the go-live check',
+  add_marker: 'Add stream marker',
+  create_clip: 'Create clip'
 };
 
 export const FIXED_ACTIONS = Object.keys(ACTION_LABELS) as (keyof typeof ACTION_LABELS)[];

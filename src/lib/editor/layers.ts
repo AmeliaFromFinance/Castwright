@@ -10,6 +10,7 @@ import { DEFAULT_BOX, DEFAULT_ITEM_CARD } from '$lib/overlay/styles';
 import { defaultSceneRule } from '$lib/overlay/scenes';
 import { defaultCreditSections } from '$lib/overlay/credits';
 import { findPreset, presetBox } from '$lib/overlay/presets';
+import { defaultChatRules } from '$lib/overlay/chat-filters';
 
 /** Same as the backend defaults in model/overlay.rs. */
 export const DEFAULT_AD_SOON_TEXT = 'Ads in {{time}}, back soon';
@@ -32,6 +33,7 @@ export const LAYER_TYPES: ReadonlyArray<{ type: LayerType; label: string; hint: 
   { type: 'poll', label: 'Poll / prediction', hint: 'Live results with bars and a countdown' },
   { type: 'credits', label: 'Credits', hint: 'End-of-stream roll of followers, subs and chatters' },
   { type: 'ad_break', label: 'Ad break', hint: 'A heads-up before and during ads' },
+  { type: 'now_playing', label: 'Now playing', hint: 'The song playing now, with cover and progress' },
   { type: 'custom', label: 'Custom widget', hint: 'Your own HTML, CSS and JavaScript' }
 ];
 
@@ -114,7 +116,10 @@ export function kindDefaults<T extends LayerType>(type: T): KindOf<T> {
       ffz_emotes: true,
       seventv_paints: true,
       seventv_badges: true,
-      item_card: defaultItemCard()
+      item_card: defaultItemCard(),
+      filters: 'app',
+      own_rules: defaultChatRules(),
+      hide_bots: true
     },
     goal: {
       type: 'goal',
@@ -176,6 +181,22 @@ export function kindDefaults<T extends LayerType>(type: T): KindOf<T> {
       soon_s: 30,
       soon_text: DEFAULT_AD_SOON_TEXT,
       running_text: DEFAULT_AD_RUNNING_TEXT,
+      style: defaultTextStyle(),
+      item_box: defaultBoxStyle(),
+      item_card: defaultItemCard()
+    },
+    now_playing: {
+      type: 'now_playing',
+      layout: 'card',
+      only_playing: true,
+      hide_after_s: 5,
+      show_art: true,
+      show_album: false,
+      show_progress: true,
+      show_times: true,
+      animate: true,
+      bar_color: '',
+      track_color: '',
       style: defaultTextStyle(),
       item_box: defaultBoxStyle(),
       item_card: defaultItemCard()
@@ -365,6 +386,20 @@ function preset(type: LayerType): Preset {
           style: { ...defaultTextStyle(), font_size: 40, font_weight: 700, align: 'center' },
           item_box: clean ? presetBox(clean, 'events') : panelBox(),
           item_card: { ...defaultItemCard(), width: 'fit' }
+        }
+      };
+    }
+    case 'now_playing': {
+      const glass = findPreset('glass') ?? findPreset('clean');
+      return {
+        name: 'Now playing',
+        w: 560,
+        h: 150,
+        kind: {
+          ...kindDefaults('now_playing'),
+          style: { ...defaultTextStyle(), font_size: 26, font_weight: 700 },
+          bar_color: '#1db954',
+          item_box: glass ? presetBox(glass, 'events') : panelBox()
         }
       };
     }

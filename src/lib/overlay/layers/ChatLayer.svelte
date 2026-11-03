@@ -4,6 +4,7 @@
   import type { Event } from '$lib/bindings/Event';
   import type { LayerKind } from '$lib/bindings/LayerKind';
   import { messageParts, twitchBadges, visibleChat } from '../chat';
+  import { highlightColor, layerRules, makeJudge } from '../chat-filters';
   import { defaultNameColor, isLightBackground, readableColor } from '../color';
   import { clock, useClock } from '../clock.svelte';
   import { getStageCtx } from '../context';
@@ -27,13 +28,22 @@
     if ((kind.fade_after_s ?? 0) > 0) return useClock();
   });
 
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  const rules = $derived(layerRules(kind, ctx.chatRules));
+  const judge = $derived(
+    makeJudge(rules, {
+      broadcaster: [str(ctx.vars['twitch.login']), str(ctx.vars['twitch.display_name'])],
+      botLogin: str(ctx.vars['twitch.bot_login'])
+    })
+  );
   const lines = $derived(
     visibleChat(ctx.chat, {
       maxMessages: kind.max_messages || 12,
-      hideCommands: kind.hide_commands,
-      hideUsers: kind.hide_users ?? [],
+      hideCommands: false,
+      hideUsers: [],
       fadeAfterS: kind.fade_after_s ?? 0,
-      now: (kind.fade_after_s ?? 0) > 0 ? clock.now : 0
+      now: (kind.fade_after_s ?? 0) > 0 ? clock.now : 0,
+      hidden: (e) => judge(e).hidden !== null
     })
   );
   const ordered = $derived(kind.newest_on_top ? lines.slice().reverse() : lines);
@@ -74,9 +84,18 @@
 <div class="cw-chat" class:cw-top={kind.newest_on_top} style={textCss}>
   {#each ordered as m (m.id)}
     {@const extra = paints || badges7tv ? chatExtras.cosmetics(m.user?.id) : undefined}
+    {@const v = judge(m)}
+    {@const hl = highlightColor(rules, v)}
     <div
       class="cw-chat-line"
-      style={itemVars(kind.item_card, kind.bubble, nameColor(m), flipOf(m.id)) || undefined}
+      class:cw-hl={v.highlights.length > 0}
+      class:cw-hl-first={v.highlights.includes('first')}
+      class:cw-hl-mention={v.highlights.includes('mention')}
+      class:cw-hl-keyword={v.highlights.includes('keyword')}
+      class:cw-hl-user={v.highlights.includes('user')}
+      class:cw-hl-redeemed={v.highlights.includes('redeemed')}
+      style={[itemVars(kind.item_card, kind.bubble, nameColor(m), flipOf(m.id)), hl && `--cw-hl:${hl}`].filter(Boolean).join(';') || undefined}
+      data-highlight={v.highlights.join(' ') || undefined}
       data-msg-id={m.id}
       data-user-id={m.user?.id ?? ''}
       animate:flip={{ duration: live ? 260 : 0 }}
@@ -116,6 +135,20 @@
   }
   .cw-chat-name {
     font-weight: 700;
+  }
+  .cw-hl {
+    background-image: linear-gradient(
+      90deg,
+      var(--cw-hl) 0 4px,
+      color-mix(in srgb, var(--cw-hl) 26%, transparent) 4px,
+      color-mix(in srgb, var(--cw-hl) 8%, transparent) 85%
+    );
+  }
+  /* Low priority, so card padding and corners win. */
+  :where(.cw-hl) {
+    padding-left: 12px;
+    padding-right: 6px;
+    border-radius: 6px;
   }
   .cw-chat-sep {
     opacity: 0.75;

@@ -1,6 +1,7 @@
 //! Live state the backend pushes to the app window and to overlays.
 
 use super::alert::AlertLayout;
+use super::chat::ChatRules;
 use super::event::{Event, EventKind};
 use super::overlay::{Animation, BoxStyle, Overlay, TextStyle};
 use super::session::Credits;
@@ -240,6 +241,8 @@ pub enum OverlayMsg {
         chat: Vec<Event>,
         #[ts(type = "Record<string, Record<string, unknown>>")]
         widget_state: serde_json::Map<String, serde_json::Value>,
+        #[serde(default)]
+        chat_rules: ChatRules,
     },
     Overlay {
         overlay: Overlay,
@@ -276,6 +279,10 @@ pub enum OverlayMsg {
     CreditsRoll {
         layer_id: String,
         credits: Credits,
+    },
+    /// The app's chat rules changed.
+    ChatRules {
+        rules: ChatRules,
     },
     Reload,
 }

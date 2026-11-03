@@ -54,3 +54,16 @@ Rust types used by the interface are generated into `src/lib/bindings` by `npm r
 Bump the version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`, then either push a tag like `v0.2.0` or run the **Release** workflow from the Actions tab with that version. It builds installers for all three systems and publishes the release.
 
 Set a repository variable named `CASTWRIGHT_TWITCH_CLIENT_ID` to build a Twitch client ID into the installers.
+
+### Auto-update signing
+
+Installed copies update from `latest.json` on the newest release. Each update file is signed, and the app only installs files that match the public key in `src-tauri/tauri.conf.json`.
+
+1. Make a key pair once: `npx tauri signer generate -w ~/.tauri/castwright.key`. Put the public key in `plugins.updater.pubkey`.
+2. Add the private key (the file's contents) as a repository secret named `TAURI_SIGNING_PRIVATE_KEY`. If you set a password, add it as `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+3. Release as usual. The workflow signs the installers and uploads `latest.json`. The publish step checks that it lists every platform.
+
+Without the secret, releases still build, just without update files or `latest.json`. The run shows a notice, and installed copies won't update themselves to that release.
+
+Keep the private key safe. If it's lost, existing installs can't verify new updates and everyone has to install the next version by hand.
+

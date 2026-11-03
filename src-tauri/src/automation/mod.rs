@@ -14,6 +14,7 @@ use crate::model::automation::{
 use crate::model::condition::stringify;
 use crate::model::event::{Event, EventKind, UserRoles};
 use crate::model::interact::{PollDraft, PredictionAction, PredictionDraft};
+use crate::model::music::NowPlaying;
 use crate::model::overlay::LayerKind;
 use crate::model::runtime::{LogLevel, OverlayMsg};
 use crate::services::{DiscordActions, ObsActions, TwitchActions};
@@ -183,6 +184,15 @@ fn ad_args(length_s: u32, seconds_left: u32) -> Map<String, Value> {
     m.insert("ad.length".into(), clock(length_s).into());
     m.insert("ad.seconds_left".into(), seconds_left.into());
     m.insert("ad.time".into(), clock(seconds_left).into());
+    m
+}
+
+fn song_args(song: &NowPlaying) -> Map<String, Value> {
+    let mut m = Map::new();
+    m.insert("title".into(), song.title.clone().into());
+    m.insert("artist".into(), song.artist.clone().into());
+    m.insert("album".into(), song.album.clone().into());
+    m.insert("art_url".into(), song.art_url.clone().into());
     m
 }
 
@@ -425,6 +435,10 @@ impl Automation {
                 self.run_ad_triggers(false, *length_s);
                 return;
             }
+            Signal::SongChanged(song) => {
+                self.run_song_triggers(song);
+                return;
+            }
             _ => return,
         };
         for action in self.actions() {
@@ -463,6 +477,31 @@ impl Automation {
                 );
             }
         }
+    }
+
+    fn run_song_triggers(self: &Arc<Self>, song: &NowPlaying) {
+        for action in self.actions() {
+            let hit = action
+                .triggers
+                .iter()
+                .position(|t| matches!(t, Trigger::SongChanged));
+            if let Some(index) = hit {
+                self.spawn_run(
+                    &action.id,
+                    Some(index),
+                    "song change",
+                    song_args(song),
+                    None,
+                );
+            }
+        }
+    }
+
+    /// Whether an enabled action waits for song changes.
+    pub fn wants_songs(&self) -> bool {
+        self.actions()
+            .iter()
+            .any(|a| a.triggers.iter().any(|t| matches!(t, Trigger::SongChanged)))
     }
 
     /// Runs "ad soon" triggers once per ad, each at its own number of minutes before.
@@ -1380,7 +1419,7 @@ pub fn step_label(step: &Step) -> &'static str {
         Step::ChatAnnounce { .. } => "Announcement",
         Step::Shoutout { .. } => "Shoutout",
         Step::CreateClip => "Create clip",
-        Step::CreateMarker { .. } => "Stream marker",
+        Step::CreateMarker { .. } => "Add stream marker",
         Step::RunAd { .. } => "Run ad",
         Step::SetStreamInfo { .. } => "Set stream info",
         Step::TimeoutUser { .. } => "Time out user",

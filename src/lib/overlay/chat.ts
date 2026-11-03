@@ -8,6 +8,8 @@ export interface ChatFilter {
   /** Seconds before a message disappears (0 = never). */
   fadeAfterS: number;
   now: number;
+  /** Other rules (bots, words and so on). */
+  hidden?: (e: Event) => boolean;
 }
 
 export function normLogin(s: string): string {
@@ -32,6 +34,7 @@ export function visibleChat(chat: readonly Event[], f: ChatFilter): Event[] {
     const login = normLogin(e.user?.login ?? '');
     const display = normLogin(e.user?.display_name ?? '');
     if (hidden.size && (hidden.has(login) || hidden.has(display))) continue;
+    if (f.hidden?.(e)) continue;
     out.push(e);
   }
   return out.reverse();

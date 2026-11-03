@@ -95,6 +95,13 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `.cw-top` | The list when newest is on top |
 | `.cw-chat-line` | Each message card |
 | `.cw-chat-line[data-user-id]` | Messages from one chatter (by Twitch user id) |
+| `.cw-hl` | A highlighted message (any reason) |
+| `.cw-hl-first` | Highlighted: first message from this chatter |
+| `.cw-hl-mention` | Highlighted: mentions your name |
+| `.cw-hl-keyword` | Highlighted: has a keyword |
+| `.cw-hl-user` | Highlighted: from a listed user, a mod or a VIP |
+| `.cw-hl-redeemed` | Highlighted with channel points ("Highlight my message") |
+| `.cw-chat-line[data-highlight~="mention"]` | Same as the classes above; data-highlight lists every reason |
 | `.cw-chat-badge` | Any badge |
 | `.cw-badge-twitch` | A Twitch badge (moderator, subscriber…) |
 | `.cw-badge-7tv` | A 7TV badge |
@@ -119,6 +126,7 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `--cw-name` | Name colour on each card (set when tint or a name stripe is on) |
 | `--cw-tint` | Tint colour on each card |
 | `--cw-lean` | 1 or -1 when cards lean in turn |
+| `--cw-hl` | Highlight colour on a highlighted .cw-chat-line |
 
 ## Goal
 
@@ -277,6 +285,42 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `.cw-ad[data-phase="running"]` | Same as .cw-ad-running (soon before the ad) |
 | `.cw-ad-card` | The card around the message |
 | `.cw-ad-text` | The message |
+
+| Variable | What it is |
+| --- | --- |
+| `--cw-stroke-w` | Outline width, on .cw-stroked |
+| `--cw-stroke-c` | Outline colour, on .cw-stroked |
+
+## Now playing
+
+| Selector | What it is |
+| --- | --- |
+| `:scope` | This layer’s box |
+| `.cw-text` | A piece of styled text |
+| `.cw-stroked` | Text with an outline |
+| `.cw-np` | The whole layer |
+| `.cw-np-compact` | Layout class on .cw-np (also .cw-np-card, .cw-np-vinyl) |
+| `.cw-np-card` | Added to .cw-np in the card layout |
+| `.cw-np-vinyl` | Added to .cw-np in the vinyl layout |
+| `.cw-np-playing` | Added to .cw-np while the song plays |
+| `.cw-np-paused` | Added to .cw-np while it is paused |
+| `.cw-np-still` | Added to .cw-np when motion is reduced (the record stops spinning) |
+| `.cw-np-item` | The card around the song |
+| `.cw-np-body` | Cover and text row. Animates in when the song changes |
+| `.cw-np-art` | The cover (the record in vinyl) |
+| `.cw-np-text` | Title, artist, album and progress |
+| `.cw-np-line` | One line of text, cut off with … when too long |
+| `.cw-np-title` | The title (title · artist in compact) |
+| `.cw-np-artist` | The artist |
+| `.cw-np-album` | The album |
+| `.cw-np-progress` | Bar and times |
+| `.cw-np-bar` | The bar background |
+| `.cw-np-fill` | The played part of the bar |
+| `.cw-np-smooth` | Added to .cw-np-fill while it moves smoothly |
+| `.cw-np-times` | Elapsed and length row |
+| `.cw-np-elapsed` | Time played |
+| `.cw-np-duration` | Length of the song |
+| `.cw-np[data-state="paused"]` | Same as .cw-np-paused (playing while it plays) |
 
 | Variable | What it is |
 | --- | --- |

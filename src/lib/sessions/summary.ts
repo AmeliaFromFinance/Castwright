@@ -1,3 +1,4 @@
+import type { MarkerEntry } from '$lib/bindings/MarkerEntry';
 import type { SessionSummary } from '$lib/bindings/SessionSummary';
 import { render } from '$lib/logic/template';
 
@@ -36,7 +37,8 @@ export const PLACEHOLDERS: Array<[string, string]> = [
   ['top_chatter', 'Who chatted the most'],
   ['alerts', 'Alerts played'],
   ['actions', 'Actions run'],
-  ['markers', 'Stream markers']
+  ['markers', 'Stream markers'],
+  ['clips', 'Clips made in Castwright']
 ];
 
 /** 8_100_000 -> "2h 15m", 2_700_000 -> "45m" */
@@ -91,12 +93,29 @@ export function templateContext(s: SessionSummary, channel = ''): Record<string,
     top_chatter: s.top_chatters[0]?.name ?? '',
     alerts: s.alerts,
     actions: s.actions,
-    markers: s.markers.length
+    markers: s.markers.length,
+    clips: s.clips.length
   };
 }
 
 export function socialText(template: string, s: SessionSummary, channel = ''): string {
   return render(template, templateContext(s, channel)).trim();
+}
+
+/** 5025 -> "1:23:45" */
+export function clock(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/** How far into the stream a marker is. Twitch's count when known. */
+export function markerTime(s: SessionSummary, m: MarkerEntry): string {
+  return clock(m.position_s || (m.ts - s.session.started_at) / 1000);
+}
+
+/** The note when there is one, else the text Twitch has. */
+export function markerLabel(m: MarkerEntry): string {
+  return m.note.trim() || m.description;
 }
 
 function cell(v: string | number): string {
@@ -144,7 +163,8 @@ export function toCsv(s: SessionSummary): string {
   }
   for (const r of s.raids_in) rows.push(['raid_in', r.name, r.viewers, iso(r.ts)]);
   for (const r of s.raids_out) rows.push(['raid_out', r.name, r.viewers, iso(r.ts)]);
-  for (const m of s.markers) rows.push(['marker', m.description, '', iso(m.ts)]);
+  for (const m of s.markers) rows.push(['marker', markerLabel(m), markerTime(s, m), iso(m.ts)]);
+  for (const c of s.clips) rows.push(['clip', c.title || c.id, c.url, iso(c.ts)]);
   for (const name of s.first_chatters) rows.push(['first_time_chatter', name, '', '']);
   const lines = ['section,name,value,time', ...rows.map((r) => r.map(cell).join(','))];
   return lines.join('\r\n') + '\r\n';

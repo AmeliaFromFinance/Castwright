@@ -139,6 +139,8 @@
       { group: 'Help', label: 'Health', run: () => health.show() },
       { group: 'Help', label: 'Save bug report…', run: () => health.showReport() },
       { group: 'Stream', label: 'Go-live check', run: () => golive.show() },
+      { group: 'Stream', label: 'Add stream marker', run: () => attempt(() => api.addMarker()) },
+      { group: 'Stream', label: 'Create clip', run: () => attempt(() => api.createClip()) },
       { group: 'Stream', label: 'Last stream summary', run: () => sessions.showLatest() },
       {
         group: 'Stream',

@@ -36,7 +36,11 @@ function summary(over: Partial<SessionSummary> = {}): SessionSummary {
     first_chatters: ['quietfox', '=cmd'],
     alerts: 61,
     actions: 14,
-    markers: [{ ts: T0 + 60 * MIN, description: 'Boss down, "finally"' }],
+    markers: [
+      { ts: T0 + 60 * MIN, description: 'Marker 1 · 1:00:00', id: 'm1', position_s: 3600, note: 'Boss down, "finally"' },
+      { ts: T0 + 90 * MIN, description: 'Marker 2 · 1:30:00', id: 'm2', position_s: 0, note: '' }
+    ],
+    clips: [{ ts: T0 + 61 * MIN, id: 'c1', title: 'That jump', url: 'https://clips.twitch.tv/ThatJump' }],
     timeline: [],
     chat_minutes: [],
     ...over
@@ -76,7 +80,9 @@ describe('session summary', () => {
     expect(lines).toContain('"stats","follows","38",""');
     expect(lines).toContain('"top_chatters","nova_kat","211",""');
     expect(lines).toContain('"raid_in","m0ss","42","2026-11-03T18:20:00Z"');
-    expect(lines).toContain('"marker","Boss down, ""finally""","","2026-11-03T19:00:00Z"');
+    expect(lines).toContain('"marker","Boss down, ""finally""","1:00:00","2026-11-03T19:00:00Z"');
+    expect(lines).toContain('"marker","Marker 2 · 1:30:00","1:30:00","2026-11-03T19:30:00Z"');
+    expect(lines).toContain('"clip","That jump","https://clips.twitch.tv/ThatJump","2026-11-03T19:01:00Z"');
     expect(lines).toContain(`"first_time_chatter","'=cmd","",""`);
     expect(lines).toContain('"donation_total","USD","25.50",""');
     expect(csv.endsWith('\r\n')).toBe(true);

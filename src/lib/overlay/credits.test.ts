@@ -156,6 +156,7 @@ describe('demo credits', () => {
       alerts: 0,
       actions: 0,
       markers: [],
+      clips: [],
       raidsOut: []
     };
     const c = demoCredits(d, 5000, (name) => ({ user_id: '', login: name.toLowerCase(), role: name === 'Zed' ? 'mod' : '' }));

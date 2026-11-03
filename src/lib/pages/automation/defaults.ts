@@ -31,6 +31,7 @@ export function newTrigger(type: TriggerType): Trigger {
       return { type, minutes_before: 1 };
     case 'ad_begin':
     case 'ad_end':
+    case 'song_changed':
     case 'stream_online':
     case 'stream_offline':
     case 'manual':
@@ -149,7 +150,8 @@ export const TRIGGER_LABELS: Record<TriggerType, string> = {
   prediction_end: 'Prediction ends',
   ad_soon: 'Ad starting soon',
   ad_begin: 'Ad break begins',
-  ad_end: 'Ad break ends'
+  ad_end: 'Ad break ends',
+  song_changed: 'Song changes'
 };
 
 export const TRIGGER_MENU: MenuGroup<TriggerType>[] = [
@@ -169,6 +171,7 @@ export const TRIGGER_MENU: MenuGroup<TriggerType>[] = [
       { value: 'stream_online', label: 'Stream goes live' },
       { value: 'stream_offline', label: 'Stream ends' },
       { value: 'scene_changed', label: 'Scene changes', hint: 'In OBS' },
+      { value: 'song_changed', label: 'Song changes', hint: 'From Settings → Music' },
       { value: 'manual', label: 'Button or Stream Deck', hint: 'Run from the app or a web request' }
     ]
   }
@@ -180,7 +183,7 @@ export const STEP_LABELS: Record<StepType, string> = {
   chat_announce: 'Announcement',
   shoutout: 'Shoutout',
   create_clip: 'Create clip',
-  create_marker: 'Stream marker',
+  create_marker: 'Add stream marker',
   run_ad: 'Run ad',
   set_stream_info: 'Set stream info',
   timeout_user: 'Time out user',

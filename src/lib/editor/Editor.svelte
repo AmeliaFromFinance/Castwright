@@ -9,6 +9,7 @@
   import type { Phase } from '$lib/overlay/anim';
   import type OverlayStage from '$lib/overlay/OverlayStage.svelte';
   import { app } from '$lib/state/app.svelte';
+  import { watchMusic } from '$lib/state/music-watch';
   import { attempt, toasts } from '$lib/state/toast.svelte';
   import Button from '$lib/ui/Button.svelte';
   import ResizeHandle from '$lib/ui/ResizeHandle.svelte';
@@ -52,6 +53,15 @@
 
   const store = new EditorStore(untrack(() => overlay), (o) => api.saveOverlay(o));
   const stopFlush = onFlush(() => store.flush());
+  // Opened to show one layer, e.g. from the variable details.
+  $effect(() => {
+    const id = app.focusLayer;
+    if (!id) return;
+    untrack(() => {
+      store.select(id);
+      app.focusLayer = null;
+    });
+  });
   let stage = $state<OverlayStage>();
   let canvas = $state<Canvas>();
   let wide = $state(false);
@@ -65,6 +75,11 @@
   let alertTimer: ReturnType<typeof setTimeout> | null = null;
 
   const vars = $derived({ ...app.vars, ...store.varOverrides });
+  // Keep the song fresh while a Now playing layer is on the canvas.
+  const hasMusic = $derived(store.doc.layers.some((l) => l.kind.type === 'now_playing'));
+  $effect(() => {
+    if (hasMusic) return watchMusic();
+  });
   const recent = $derived([...app.feed].reverse().slice(-40).concat(store.testEvents));
   const chat = $derived(app.chat.slice(-60).concat(store.testChat));
   const assetUrl = (p: string) => appAssetUrl(p, app.server?.base_url, app.server?.asset_key);

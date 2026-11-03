@@ -31,7 +31,7 @@ The "Set variable" step stores anything that reads as a number as a number. See 
 
 Steps that set variables have a **Save** option. Changes are written to disk within a second.
 
-Names starting with `stream.`, `obs.`, `twitch.` or `ads.` describe live state and are never saved, even with Save on.
+Names starting with `stream.`, `obs.`, `twitch.`, `ads.` or `music.` describe live state and are never saved, even with Save on.
 
 ## Built-in variables
 
@@ -120,6 +120,21 @@ Session-only. Checked every 5 seconds.
 | `twitch.login` | Your channel login, empty when signed out |
 | `twitch.display_name` | Your channel display name |
 | `twitch.user_id` | Your channel id, empty when signed out |
+| `twitch.bot_login` | Your bot account login, empty without one |
+
+### Music
+
+Session-only. Set from [Settings → Music](/guide/music/).
+
+| Variable | Value |
+| --- | --- |
+| `music.title` | Song title, empty when no song is known |
+| `music.artist` | Artist, or several joined with commas |
+| `music.album` | Album |
+| `music.art_url` | Cover image link |
+| `music.playing` | `true` while playing |
+| `music.progress_ms` | Position in milliseconds |
+| `music.duration_ms` | Length in milliseconds, `0` when unknown |
 
 ### Ads
 
@@ -160,6 +175,31 @@ To start a timer from an action, save the current time with a script step:
 ```js
 save("timer.break", now_ms());
 ```
+
+## Where a variable is used
+
+Click a variable on the Automation page to see what sets it and what reads it. See the [variable inspector](/guide/automation/#variable-inspector).
+
+What counts as using a variable:
+
+| Sets it | Reads it |
+| --- | --- |
+| "Set variable" and "Add to variable" steps | `{{templates}}` in step fields, alert titles and messages |
+| "Web request" step, **Save response to** | Conditions in triggers, If steps, alert variations and layer "visible when" |
+| "Create clip" step (`last.clip.url`) | Text, goal and credits layer texts |
+| `set("name", ...)` and `save("name", ...)` in scripts | Counter, goal and timer layer variables |
+| Castwright itself, for built-in variables | `get("name")` in scripts |
+| | Ad break layers (`ads.*`) and timers in uptime mode (`stream.started_at`) |
+
+Scripts only count when the name is written as plain text, like `get("counter.deaths")`. Custom widgets and the [local API](/reference/http-api/) aren't checked.
+
+Templates in Discord posts and the "Copy for socials" text can't use variables, so they never count.
+
+## Renaming
+
+Rename a variable from its details. Every place that uses it changes too, and its value moves to the new name. A backup is made first, so you can undo it.
+
+Built-in variables can't be renamed.
 
 ## Resetting and removing
 

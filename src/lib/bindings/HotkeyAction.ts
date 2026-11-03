@@ -3,4 +3,4 @@
 /**
  * What a global hotkey does.
  */
-export type HotkeyAction = { "type": "replay_last_alert" } | { "type": "skip_alert" } | { "type": "toggle_alert_pause" } | { "type": "toggle_alert_mute" } | { "type": "open_go_live" } | { "type": "run_action", action_id: string, };
+export type HotkeyAction = { "type": "replay_last_alert" } | { "type": "skip_alert" } | { "type": "toggle_alert_pause" } | { "type": "toggle_alert_mute" } | { "type": "open_go_live" } | { "type": "add_marker" } | { "type": "create_clip" } | { "type": "run_action", action_id: string, };

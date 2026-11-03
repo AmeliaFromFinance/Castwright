@@ -76,7 +76,33 @@ Sign-ins are stored unencrypted in `data/secrets.json` in portable mode, so keep
 
 ## Updating
 
-Download the new version and install it over the old one. Your overlays, alerts and settings are kept.
+Castwright updates itself. When a new version is out, the status bar shows **Version x.y.z is out**.
+
+1. Click it to read what's new.
+2. Click **Download and install**. A bar shows the download.
+3. Click **Restart to update**.
+
+- **While you're live** the button says **Restart after stream**. Castwright waits, then asks again when the stream ends. It never restarts mid-stream unless you click **Restart now…** and confirm.
+- **Every download is checked** against Castwright's signature first. If the check fails, nothing is installed and you get a **Download from GitHub** button instead.
+- **Install updates automatically** in [Settings → About](/guide/settings/#about) downloads in the background and installs when Castwright closes.
+
+Your overlays, alerts and settings are kept.
+
+:::caution[Coming from v0.7 or older]
+v0.7 and older can't update themselves. Install the first newer version by hand: download it and install it over the old one. After that, updates work from inside the app.
+:::
+
+### Which copies update themselves
+
+| Installed from | Updates itself |
+| --- | --- |
+| Windows `-setup.exe` | Yes. A portable copy updates in its own folder. |
+| Windows `.msi` | Yes. Portable copies made from it: download by hand. |
+| macOS `.dmg` | Yes. The app is replaced where it is. |
+| Linux `.AppImage` | Yes. The AppImage file is replaced, portable or not. |
+| Linux `.deb` / `.rpm` | When the release has a signed package for it. Asks for your password. |
+
+When a copy can't update itself, the update window shows **Download from GitHub** instead.
 
 ## Next
 

@@ -2,6 +2,21 @@
 
 What changed in each version of Castwright. The newest version is at the top.
 
+## 0.8.0 (2026-11-03)
+
+### New
+
+- **One-click updates.** Download and install from the update notice, then restart. While you're live it waits until the stream ends. Turn on **Install updates automatically** in Settings → About.
+- **Stream markers and clips on a hotkey.** A toast lets you add a note to a marker or copy a clip link. Both are listed in the stream summary.
+- **Now playing layer.** The current song from Spotify, a local player (Windows and Linux) or a text file, with cover art and a progress bar. Adds `music.*` variables and a **Song changes** trigger.
+- **Chat filters and highlights.** Hide bots, commands, users or words. Highlight first-time chatters, mentions, keywords and chosen users, in the app and in overlay chat.
+- **Variable inspector.** See where each variable is written and read, jump to it, catch typos and rename it across the project.
+
+### Improved
+
+- The Discord end post lists clips.
+- The update window shows the release notes.
+
 ## 0.7.0 (2026-11-03)
 
 ### New

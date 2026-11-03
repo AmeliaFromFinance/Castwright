@@ -288,6 +288,10 @@
     <p class="hint">
       Runs when {t.type === 'ad_begin' ? 'an ad break starts, scheduled or run by hand' : 'an ad break is over'}. Gives <code>{'{{ad.length}}'}</code>.
     </p>
+  {:else if t.type === 'song_changed'}
+    <p class="hint">
+      Runs when a new song starts. Gives <code>{'{{title}}'}</code>, <code>{'{{artist}}'}</code> and <code>{'{{album}}'}</code>. Pick the music source in Settings → Music.
+    </p>
   {:else if t.type === 'stream_online'}
     <p class="hint">Runs when the stream goes live on Twitch.</p>
   {:else if t.type === 'stream_offline'}

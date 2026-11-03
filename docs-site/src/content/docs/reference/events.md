@@ -110,7 +110,7 @@ Read these as `data.<key>`. Keys marked "if sent" only appear when Twitch includ
 | `charity` | `charity_name`, `campaign_id` |
 | `stream_online` | `started_at`, `type` |
 | `channel_update` | `title`, `category_name`, `category_id`, `language` |
-| `chat` | `color`, `badges`, `message_type`, `reply_parent_message_id` (replies only), `cheer_bits` (cheers only), `reward_id` (messages sent with a channel point reward), `sent_by_castwright` (messages Castwright sent), `first_chat` (true on the first message Castwright ever saw from this person) |
+| `chat` | `color`, `badges`, `message_type` (`channel_points_highlighted` for "Highlight my message"), `reply_parent_message_id` (replies only), `cheer_bits` (cheers only), `reward_id` (messages sent with a channel point reward), `sent_by_castwright` (messages Castwright sent), `first_chat` (true on the first message Castwright ever saw from this person) |
 
 All times in `data` are Unix timestamps in milliseconds.
 

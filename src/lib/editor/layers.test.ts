@@ -83,7 +83,10 @@ const KIND_KEYS: Record<LayerType, string[]> = {
     'ffz_emotes',
     'seventv_paints',
     'seventv_badges',
-    'item_card'
+    'item_card',
+    'filters',
+    'own_rules',
+    'hide_bots'
   ],
   goal: ['title', 'current_var', 'target', 'bar_color', 'track_color', 'style', 'show_numbers'],
   counter: ['var', 'format', 'style'],
@@ -110,6 +113,21 @@ const KIND_KEYS: Record<LayerType, string[]> = {
     'section_box'
   ],
   ad_break: ['soon_s', 'soon_text', 'running_text', 'style', 'item_box', 'item_card'],
+  now_playing: [
+    'layout',
+    'only_playing',
+    'hide_after_s',
+    'show_art',
+    'show_album',
+    'show_progress',
+    'show_times',
+    'animate',
+    'bar_color',
+    'track_color',
+    'style',
+    'item_box',
+    'item_card'
+  ],
   custom: ['html', 'css', 'js', 'fields', 'values']
 };
 

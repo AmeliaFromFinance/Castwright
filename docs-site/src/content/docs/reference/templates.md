@@ -149,6 +149,7 @@ Used by **Copy for socials** on a [stream summary](/guide/activity/#sessions-and
 | `alerts` | Alerts played |
 | `actions` | Actions run |
 | `markers` | Stream markers |
+| `clips` | Clips made in Castwright |
 
 ## Examples
 

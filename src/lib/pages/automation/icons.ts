@@ -31,6 +31,7 @@ import {
   MessageSquareX,
   MicOff,
   MonitorPlay,
+  Music,
   OctagonX,
   Radio,
   RadioTower,
@@ -112,7 +113,8 @@ export const TRIGGER_ICONS: Record<TriggerType, Icon> = {
   prediction_end: Flag,
   ad_soon: Timer,
   ad_begin: TvMinimalPlay,
-  ad_end: CircleStop
+  ad_end: CircleStop,
+  song_changed: Music
 };
 
 /** Colour family of a step, from its menu group. */

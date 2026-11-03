@@ -3,6 +3,7 @@
 
 use crate::model::ads::AdSchedule;
 use crate::model::event::{Event, EventKind};
+use crate::model::music::NowPlaying;
 use crate::model::runtime::{LogEntry, LogLevel, OverlayMsg};
 use crate::sessions::Sessions;
 use crate::store::db::Db;
@@ -32,6 +33,10 @@ pub mod ui {
     pub const REDEMPTION: &str = "cw://redemption";
     pub const ADS: &str = "cw://ads";
     pub const AD_WARNING: &str = "cw://ad-warning";
+    pub const MOMENT: &str = "cw://moment";
+    pub const UPDATE_PROGRESS: &str = "cw://update-progress";
+    pub const UPDATE_ASK: &str = "cw://update-ask";
+    pub const MUSIC: &str = "cw://music";
 }
 
 /// Where window events go. The real app uses the Tauri handle; tests use a recorder.
@@ -62,6 +67,7 @@ pub enum Signal {
     AdSchedule(AdSchedule),
     AdBegin { length_s: u32 },
     AdEnd { length_s: u32 },
+    SongChanged(NowPlaying),
 }
 
 /// A message for overlays. `target` = one overlay id, or None for all.

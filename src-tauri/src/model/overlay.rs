@@ -1,3 +1,4 @@
+use super::chat::{ChatFilterSource, ChatRules};
 use super::condition::ConditionGroup;
 use super::event::EventKind;
 use serde::{Deserialize, Serialize};
@@ -409,6 +410,18 @@ pub enum PollSource {
     Prediction,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum NowPlayingLayout {
+    /// One line with a small cover.
+    Compact,
+    #[default]
+    Card,
+    /// A spinning record.
+    Vinyl,
+}
+
 /// A group of names in the credits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
@@ -566,6 +579,14 @@ pub enum LayerKind {
         seventv_badges: bool,
         #[serde(default)]
         item_card: ItemCard,
+        /// Which hide and highlight rules apply.
+        #[serde(default)]
+        filters: ChatFilterSource,
+        /// Used when `filters` is own.
+        #[serde(default)]
+        own_rules: ChatRules,
+        #[serde(default = "yes")]
+        hide_bots: bool,
     },
     Goal {
         #[serde(default)]
@@ -721,6 +742,40 @@ pub enum LayerKind {
         #[serde(default)]
         item_card: ItemCard,
     },
+    /// The song playing now, from Settings → Music.
+    NowPlaying {
+        #[serde(default)]
+        layout: NowPlayingLayout,
+        /// Hide while nothing plays.
+        #[serde(default = "yes")]
+        only_playing: bool,
+        /// Seconds to wait after a pause before hiding.
+        #[serde(default = "default_np_hide_s")]
+        hide_after_s: u32,
+        #[serde(default = "yes")]
+        show_art: bool,
+        #[serde(default)]
+        show_album: bool,
+        #[serde(default = "yes")]
+        show_progress: bool,
+        #[serde(default = "yes")]
+        show_times: bool,
+        /// Animate the change to a new song.
+        #[serde(default = "yes")]
+        animate: bool,
+        #[serde(default)]
+        bar_color: String,
+        #[serde(default)]
+        track_color: String,
+        /// The title. Artist, album and times are drawn smaller.
+        #[serde(default)]
+        style: TextStyle,
+        /// The card around the song.
+        #[serde(default)]
+        item_box: BoxStyle,
+        #[serde(default)]
+        item_card: ItemCard,
+    },
     /// HTML/CSS/JS widget with a StreamElements-compatible API.
     Custom {
         #[serde(default)]
@@ -767,6 +822,9 @@ fn default_credit_chatters() -> u32 {
 fn default_credit_page_s() -> u32 {
     6
 }
+fn default_np_hide_s() -> u32 {
+    5
+}
 fn default_ad_soon_s() -> u32 {
     30
 }
@@ -795,6 +853,7 @@ impl LayerKind {
             LayerKind::Poll { .. } => "poll",
             LayerKind::Credits { .. } => "credits",
             LayerKind::AdBreak { .. } => "ad_break",
+            LayerKind::NowPlaying { .. } => "now_playing",
             LayerKind::Custom { .. } => "custom",
         }
     }
@@ -1005,6 +1064,9 @@ impl Overlay {
                         seventv_paints: true,
                         seventv_badges: true,
                         item_card: ItemCard::default(),
+                        filters: ChatFilterSource::App,
+                        own_rules: ChatRules::default(),
+                        hide_bots: true,
                     },
                     x: 1392.0,
                     y: 200.0,

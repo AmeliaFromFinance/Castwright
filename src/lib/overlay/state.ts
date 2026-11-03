@@ -1,4 +1,5 @@
 import type { AlertPlay } from '$lib/bindings/AlertPlay';
+import type { ChatRules } from '$lib/bindings/ChatRules';
 import type { Credits } from '$lib/bindings/Credits';
 import type { Event } from '$lib/bindings/Event';
 import type { Overlay } from '$lib/bindings/Overlay';
@@ -32,10 +33,12 @@ export interface OverlayState {
   credits: Credits | null;
   /** Times each credits layer was told to roll. A change restarts it. */
   rolls: Record<string, number>;
+  /** The app's chat rules, for chat layers that use them. */
+  chatRules: ChatRules | null;
 }
 
 export function emptyState(): OverlayState {
-  return { overlay: null, vars: {}, recent: [], chat: [], widgetState: {}, alert: null, visibility: {}, credits: null, rolls: {} };
+  return { overlay: null, vars: {}, recent: [], chat: [], widgetState: {}, alert: null, visibility: {}, credits: null, rolls: {}, chatRules: null };
 }
 
 function isObj(v: unknown): v is Record<string, unknown> {
@@ -83,7 +86,8 @@ export function reduce(state: OverlayState, msg: OverlayMsg, now: number = Date.
         alert: state.alert,
         visibility: {},
         credits: state.credits,
-        rolls: state.rolls
+        rolls: state.rolls,
+        chatRules: isObj(msg.chat_rules) ? msg.chat_rules : state.chatRules
       };
     }
     case 'overlay':
@@ -128,6 +132,8 @@ export function reduce(state: OverlayState, msg: OverlayMsg, now: number = Date.
     case 'credits_roll':
       if (typeof msg.layer_id !== 'string' || !isObj(msg.credits)) return state;
       return { ...state, credits: msg.credits, rolls: { ...state.rolls, [msg.layer_id]: (state.rolls[msg.layer_id] ?? 0) + 1 } };
+    case 'chat_rules':
+      return isObj(msg.rules) ? { ...state, chatRules: msg.rules } : state;
     case 'play_sound':
     case 'reload':
       return state;

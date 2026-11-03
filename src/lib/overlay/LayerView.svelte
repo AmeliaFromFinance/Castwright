@@ -13,6 +13,8 @@
   import PollLayer from './layers/PollLayer.svelte';
   import CreditsLayer from './layers/CreditsLayer.svelte';
   import AdBreakLayer from './layers/AdBreakLayer.svelte';
+  import NowPlayingLayer from './layers/NowPlayingLayer.svelte';
+  import { npVisible, SAMPLE_TRACK, trackFromVars } from './music';
   import { adPhase, sampleAdPhase, scheduleFromVars } from './ads';
   import { adPreview } from './ad-preview.svelte';
   import { clock, useClock } from './clock.svelte';
@@ -37,8 +39,9 @@
   const kind = $derived(layer.kind);
   const isPoll = $derived(kind.type === 'poll');
   const isAd = $derived(kind.type === 'ad_break');
+  const isNp = $derived(kind.type === 'now_playing');
   $effect(() => {
-    if (isPoll || isAd) return useClock();
+    if (isPoll || isAd || isNp) return useClock();
   });
   // Poll layers hide themselves while nothing runs; the editor shows a sample instead.
   const pollLive = $derived(
@@ -51,7 +54,20 @@
     if (!p) return null;
     return (p.phase === 'running' ? kind.running_text : kind.soon_text).trim() ? p : null;
   });
-  const present = $derived((shown && (!isPoll || !!pollLive) && (!isAd || !!adNow)) || ghost);
+  // Now playing layers can hide while nothing plays; the editor shows a sample song then.
+  const npTrack = $derived(kind.type === 'now_playing' ? (trackFromVars(ctx.vars) ?? (ctx.mode === 'editor' ? SAMPLE_TRACK : null)) : null);
+  let pausedSince = $state<number | null>(null);
+  $effect(() => {
+    const playing = !!npTrack?.playing;
+    untrack(() => {
+      if (playing) pausedSince = null;
+      else if (pausedSince === null) pausedSince = Date.now();
+    });
+  });
+  const npShown = $derived(
+    kind.type === 'now_playing' ? npVisible(npTrack, kind.only_playing && ctx.mode !== 'editor', pausedSince, kind.hide_after_s, clock.now) : false
+  );
+  const present = $derived((shown && (!isPoll || !!pollLive) && (!isAd || !!adNow) && (!isNp || npShown)) || ghost);
   let rendered = $state(untrack(() => present));
   let animEl = $state<HTMLDivElement>();
   let idleEl = $state<HTMLDivElement>();
@@ -209,6 +225,8 @@
             <CreditsLayer {kind} layerId={layer.id} />
           {:else if kind.type === 'ad_break'}
             <AdBreakLayer {kind} phase={adNow} />
+          {:else if kind.type === 'now_playing'}
+            <NowPlayingLayer {kind} track={npShown ? npTrack : null} now={clock.now} />
           {:else if kind.type === 'custom'}
             <CustomLayer layerId={layer.id} {kind} />
           {/if}

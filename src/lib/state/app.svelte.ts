@@ -8,6 +8,7 @@ import type { QueueState } from '$lib/bindings/QueueState';
 import type { ServerInfo } from '$lib/bindings/ServerInfo';
 import type { Settings } from '$lib/bindings/Settings';
 import type { AdSchedule } from '$lib/bindings/AdSchedule';
+import type { MusicStatus } from '$lib/bindings/MusicStatus';
 import { countdown } from '$lib/overlay/ads';
 import type { TwitchStatus } from '$lib/bindings/TwitchStatus';
 import type { WindowEffect } from '$lib/bindings/WindowEffect';
@@ -15,6 +16,7 @@ import { applyTheme, watchSystemTheme } from '$lib/theme/apply';
 import { toasts } from './toast.svelte';
 import { loadPref, savePref } from './persist';
 import { updates } from './updates.svelte';
+import { moments } from './moments.svelte';
 import { whatsNew } from '$lib/whatsnew/whatsnew.svelte';
 import { sessions } from '$lib/sessions/store.svelte';
 import type { Theme } from '$lib/theme/themes';
@@ -85,6 +87,8 @@ class AppState {
   page = $state<Page>('overlays');
   /** Overlay open in the editor, if any. */
   editingOverlay = $state<string | null>(null);
+  /** Layer to select when the overlay editor opens. */
+  focusLayer = $state<string | null>(null);
   activityTab = $state<ActivityTab>('events');
 
   project = $state<Project | null>(null);
@@ -96,7 +100,10 @@ class AppState {
   twitch = $state<TwitchStatus | null>(null);
   queue = $state<QueueState>({ paused: false, muted: false, playing: null, waiting: [], last: null });
   ads = $state<AdSchedule>(emptyAds());
+  music = $state<MusicStatus | null>(null);
   vars = $state<Vars>({});
+  /** When each variable last changed while the app was open (ms). */
+  varTimes = $state<Record<string, number>>({});
   chat = $state<Event[]>([]);
   feed = $state<Event[]>([]);
   logs = $state<LogEntry[]>([]);
@@ -123,6 +130,7 @@ class AppState {
       ]);
       Object.assign(this, { project, settings, info, server, obs, twitch, queue, vars, chat, feed, logs });
       this.ads = await api.adSchedule().catch(() => emptyAds());
+      this.music = await api.musicStatus().catch(() => null);
       this.applyAppearance();
       watchSystemTheme(() => this.applyAppearance());
       await this.subscribe();
@@ -136,6 +144,7 @@ class AppState {
       this.fitToScreenOnce();
       // The browser demo starts fresh each time, so it counts as a new install.
       whatsNew.start(info.version, !settings.first_run_done || (this.demo && loadPref<string | null>('whatsnew-seen', null) === null));
+      updates.settings = settings.updates;
       void updates.check(info.version);
       if (server.error) toasts.show(server.error, 'error', 12_000);
     } catch (e) {
@@ -173,6 +182,8 @@ class AppState {
       }),
       on('cw://vars', (changes) => {
         const next = { ...this.vars };
+        const now = Date.now();
+        for (const k of Object.keys(changes)) this.varTimes[k] = now;
         for (const [k, v] of Object.entries(changes)) {
           if (v === null) delete next[k];
           else next[k] = v;
@@ -185,6 +196,7 @@ class AppState {
         if (l.source === 'discord' && l.level === 'error') toasts.show(l.message, 'error', 12_000, 'discord');
       }),
       on('cw://ads', (s) => (this.ads = s)),
+      on('cw://music', (s) => (this.music = s)),
       on('cw://ad-warning', (s) => this.adWarning(s)),
       on('cw://obs', (s) => (this.obs = s)),
       on('cw://obs-levels', (levels) => {
@@ -200,6 +212,7 @@ class AppState {
         if (c.type === 'ended') sessions.ended(c.session.id);
         else sessions.changed();
       }),
+      moments.listen(),
       on('cw://project', async () => {
         // Overlay visibility can change from automation; refresh quietly.
         this.project = await api.getProject();

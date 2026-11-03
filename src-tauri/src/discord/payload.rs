@@ -278,6 +278,7 @@ pub fn end_context(s: &SessionSummary, ch: &Channel) -> Value {
     put("alerts", json!(s.alerts));
     put("actions", json!(s.actions));
     put("markers", json!(s.markers.len()));
+    put("clips", json!(s.clips.len()));
     Value::Object(m)
 }
 
@@ -307,14 +308,18 @@ pub fn live_payload(hook: &DiscordWebhook, ch: &Channel, now_ms: i64) -> Value {
 
 fn summary_fields(s: &SessionSummary) -> Vec<Value> {
     let subs = s.new_subs + s.resubs + s.gifted_subs;
-    vec![
+    let mut fields = vec![
         field("Length", duration_text(s.duration_ms)),
         field("Peak viewers", thousands(s.session.peak_viewers as u64)),
         field("Average viewers", thousands(s.session.avg_viewers as u64)),
         field("Follows", thousands(s.follows as u64)),
         field("Subs", thousands(subs as u64)),
         field("Bits", thousands(s.bits)),
-    ]
+    ];
+    if !s.clips.is_empty() {
+        fields.push(field("Clips", thousands(s.clips.len() as u64)));
+    }
+    fields
 }
 
 fn ended_at(s: &SessionSummary) -> i64 {

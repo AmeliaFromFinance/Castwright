@@ -508,3 +508,64 @@ fn user_agents_are_shortened() {
         assert_eq!(short_agent(ua), want, "{ua}");
     }
 }
+
+#[tokio::test]
+async fn music_covers_and_spotify_callback() {
+    use crate::model::music::NowPlaying;
+    use crate::music::{ArtSource, MusicService};
+    let r = rig().await;
+    let settings = Arc::new(crate::store::settings::SettingsStore::open(
+        r._dir.path().join("settings.json"),
+    ));
+    let music = MusicService::new(
+        r.hub.clone(),
+        settings,
+        Arc::new(crate::store::secrets::Secrets::in_memory()),
+    );
+    let art = format!("{}/music/art/1", r.base);
+    let key = asset_key(TOKEN);
+    assert_eq!(
+        status(&format!("{art}?key={key}")).await,
+        404,
+        "no music service yet"
+    );
+    r.server.set_music(music.clone());
+    music.apply(
+        Some(NowPlaying {
+            title: "Song".into(),
+            ..NowPlaying::default()
+        }),
+        String::new(),
+        Some(ArtSource::Bytes {
+            mime: "image/png".into(),
+            bytes: vec![9; 10],
+        }),
+    );
+    assert_eq!(status(&art).await, 403);
+    let resp = reqwest::get(format!("{art}?key={key}")).await.unwrap();
+    assert_eq!(resp.status().as_u16(), 200);
+    assert_eq!(resp.headers()["content-type"], "image/png");
+    assert!(
+        resp.headers()["content-security-policy"]
+            .to_str()
+            .unwrap()
+            .contains("sandbox")
+    );
+    assert_eq!(resp.bytes().await.unwrap().len(), 10);
+    assert_eq!(
+        status(&format!("{}/music/art/2?key={key}", r.base)).await,
+        404
+    );
+
+    // A callback that doesn't match a sign-in started in the app does nothing.
+    let cb = reqwest::get(format!(
+        "{}/spotify/callback?code=x&state=<b>made-up</b>",
+        r.base
+    ))
+    .await
+    .unwrap();
+    assert_eq!(cb.status().as_u16(), 400);
+    let page = cb.text().await.unwrap();
+    assert!(page.contains("Start again from Castwright"));
+    assert!(!page.contains("<b>made-up"));
+}

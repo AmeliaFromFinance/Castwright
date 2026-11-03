@@ -1,24 +1,49 @@
 // Mirrors src-tauri/src/template.rs. Both must pass tests/vectors/templates.json.
 import { asNumber, formatNumber, parseNumber, resolve, stringify } from './condition';
 
+/** One `{{ ... }}` in a template. Offsets are into the template string. */
+export interface TemplateToken {
+  /** The key, trimmed: `counter.deaths` in `{{ counter.deaths | number }}`. */
+  key: string;
+  /** Where the key starts and ends, without the spaces around it. */
+  keyStart: number;
+  keyEnd: number;
+  /** The whole token, braces included. */
+  start: number;
+  end: number;
+  /** Filter text after the key, e.g. `default:"0"`. */
+  filters: string[];
+}
+
+/** The tokens `render` would fill in, by the same rules: no closing braces or empty braces are plain text. */
+export function scanTemplate(template: string): TemplateToken[] {
+  const out: TemplateToken[] = [];
+  let pos = 0;
+  for (;;) {
+    const start = template.indexOf('{{', pos);
+    if (start < 0) break;
+    const end = template.indexOf('}}', start + 2);
+    if (end < 0) break;
+    const inner = template.slice(start + 2, end);
+    pos = end + 2;
+    if (inner.trim() === '') continue;
+    const [rawKey = '', ...filters] = splitPipes(inner);
+    const lead = rawKey.length - rawKey.trimStart().length;
+    const key = rawKey.trim();
+    const keyStart = start + 2 + lead;
+    out.push({ key, keyStart, keyEnd: keyStart + key.length, start, end: pos, filters: filters.map((f) => f.trim()) });
+  }
+  return out;
+}
+
 export function render(template: string, ctx: unknown): string {
   let out = '';
-  let rest = template;
-  for (;;) {
-    const start = rest.indexOf('{{');
-    if (start < 0) break;
-    out += rest.slice(0, start);
-    const after = rest.slice(start + 2);
-    const end = after.indexOf('}}');
-    if (end < 0) {
-      out += rest.slice(start);
-      return out;
-    }
-    const inner = after.slice(0, end);
-    out += inner.trim() === '' ? `{{${inner}}}` : evalExpr(inner, ctx);
-    rest = after.slice(end + 2);
+  let pos = 0;
+  for (const t of scanTemplate(template)) {
+    out += template.slice(pos, t.start) + evalExpr(template.slice(t.start + 2, t.end - 2), ctx);
+    pos = t.end;
   }
-  return out + rest;
+  return out + template.slice(pos);
 }
 
 function splitPipes(s: string): string[] {

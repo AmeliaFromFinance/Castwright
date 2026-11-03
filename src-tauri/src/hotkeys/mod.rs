@@ -174,7 +174,7 @@ impl Hotkeys {
     }
 }
 
-pub fn perform(core: &Core, action: &HotkeyAction) -> AppResult<()> {
+pub fn perform(core: &Arc<Core>, action: &HotkeyAction) -> AppResult<()> {
     match action {
         HotkeyAction::ReplayLastAlert => core.alerts.replay_last(),
         HotkeyAction::SkipAlert => {
@@ -189,6 +189,14 @@ pub fn perform(core: &Core, action: &HotkeyAction) -> AppResult<()> {
         HotkeyAction::OpenGoLive => {
             core.hub
                 .emit_ui(crate::hub::ui::GOLIVE_OPEN, &serde_json::json!({}));
+            Ok(())
+        }
+        HotkeyAction::AddMarker => {
+            crate::moments::from_hotkey(core, crate::moments::MomentKind::Marker);
+            Ok(())
+        }
+        HotkeyAction::CreateClip => {
+            crate::moments::from_hotkey(core, crate::moments::MomentKind::Clip);
             Ok(())
         }
         HotkeyAction::RunAction { action_id } => core.automation.run_manual(action_id),
@@ -251,6 +259,22 @@ mod tests {
             perform(&core, &HotkeyAction::ReplayLastAlert).is_err(),
             "nothing played yet"
         );
+
+        // Not signed in: the marker fails later, as an event.
+        perform(&core, &HotkeyAction::AddMarker).unwrap();
+        let failed = || {
+            ui.0.lock()
+                .unwrap()
+                .iter()
+                .any(|(n, v)| n == crate::hub::ui::MOMENT && v["type"] == "failed")
+        };
+        for _ in 0..200 {
+            if failed() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        assert!(failed(), "a failed marker is reported");
         assert!(
             perform(
                 &core,

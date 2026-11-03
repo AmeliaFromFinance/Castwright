@@ -3,6 +3,7 @@ import type { Overlay } from '$lib/bindings/Overlay';
 import type { OverlayMsg } from '$lib/bindings/OverlayMsg';
 import { CHAT_KEEP, emptyState, parseMsg, reduce, RECENT_KEEP, setWidgetValue } from './state';
 import { alertPlay, ev, layer } from './test/fixtures';
+import { defaultChatRules } from './chat-filters';
 
 const overlay = (id = 'o1'): Overlay => ({
   id,
@@ -21,7 +22,8 @@ function hello(): OverlayMsg {
     vars: { 'session.subs': 3 },
     recent: [ev('follow'), ev('chat')],
     chat: [ev('chat', { user: { id: 'u1', login: 'a', display_name: 'A' } }), ev('chat', { user: { id: 'u2', login: 'b', display_name: 'B' } })],
-    widget_state: { l1: { count: 4 } }
+    widget_state: { l1: { count: 4 } },
+    chat_rules: defaultChatRules()
   };
 }
 
@@ -94,6 +96,15 @@ describe('reduce', () => {
   it('layer_visible sets an override', () => {
     const s = reduce(emptyState(), { type: 'layer_visible', layer_id: 'l9', visible: false });
     expect(s.visibility).toEqual({ l9: false });
+  });
+
+  it('chat rules come with hello and when they change', () => {
+    const s = reduce(emptyState(), hello());
+    expect(s.chatRules?.hide_bots).toBe(true);
+    const next = reduce(s, { type: 'chat_rules', rules: { ...defaultChatRules(), hide_words: ['spoiler'] } });
+    expect(next.chatRules?.hide_words).toEqual(['spoiler']);
+    const old = { ...hello(), chat_rules: undefined } as unknown as OverlayMsg;
+    expect(reduce(next, old).chatRules?.hide_words, 'an older app keeps the last rules').toEqual(['spoiler']);
   });
 
   it('play_sound, reload and unknown types leave state alone', () => {

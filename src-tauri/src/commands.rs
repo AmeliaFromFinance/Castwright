@@ -7,7 +7,9 @@ use crate::hub::ui;
 use crate::model::ads::AdSchedule;
 use crate::model::alert::AlertConfig;
 use crate::model::automation::Action;
+use crate::model::chat::ChatRules;
 use crate::model::event::{Event, EventKind};
+use crate::model::music::{MusicSettings, MusicStatus};
 use crate::model::overlay::Overlay;
 use crate::model::project::Project;
 use crate::model::runtime::{LogEntry, OverlayMsg, QueueState, ServerInfo};
@@ -408,6 +410,22 @@ pub fn set_var(core: Ctx, key: String, value: Value, persist: bool) -> AppResult
     }
     core.hub.set_var(&key, value, persist);
     Ok(())
+}
+
+#[tauri::command]
+pub fn saved_var_keys(core: Ctx) -> Vec<String> {
+    core.hub.vars.saved_keys()
+}
+
+/// Save `project`, with the variable already renamed in it, and move the value.
+#[tauri::command]
+pub async fn rename_var(
+    core: Ctx<'_>,
+    from: String,
+    to: String,
+    project: Project,
+) -> AppResult<crate::core::VarRenamed> {
+    blocking(&core, move |c| c.rename_var(&from, &to, project)).await
 }
 
 #[tauri::command]
@@ -825,11 +843,79 @@ pub async fn twitch_run_ad(core: Ctx<'_>, length_s: u32) -> AppResult<()> {
     core.twitch.run_ad(length_s).await
 }
 
+// ---------- markers and clips ----------
+
+#[tauri::command]
+pub async fn stream_add_marker(core: Ctx<'_>) -> AppResult<crate::model::session::MarkerEntry> {
+    crate::moments::add_marker(&core).await
+}
+
+#[tauri::command]
+pub fn stream_marker_note(core: Ctx, id: String, note: String) -> AppResult<()> {
+    crate::moments::set_note(&core, &id, &note)
+}
+
+/// Returns the clip id. The link follows as a `cw://moment` event.
+#[tauri::command]
+pub async fn stream_create_clip(core: Ctx<'_>) -> AppResult<String> {
+    crate::moments::create_clip(core.inner()).await
+}
+
 #[tauri::command]
 pub fn save_ad_settings(core: Ctx, ads: AdSettings) -> AppResult<AdSettings> {
     let ads = ads.clamped();
     core.settings.update(|s| s.ads = ads.clone())?;
     Ok(ads)
+}
+
+// ---------- music ----------
+
+#[tauri::command]
+pub fn music_status(core: Ctx) -> MusicStatus {
+    core.music.status()
+}
+
+#[tauri::command]
+pub fn save_music_settings(core: Ctx, music: MusicSettings) -> AppResult<MusicSettings> {
+    core.music.save_settings(music)
+}
+
+/// The app shows the song. Call again within 90 seconds to keep it fresh.
+#[tauri::command]
+pub fn music_watch(core: Ctx, on: bool) {
+    core.music.watch(on);
+}
+
+/// Returns the Spotify page to open in the browser.
+#[tauri::command]
+pub fn spotify_login(core: Ctx) -> AppResult<String> {
+    core.music.start_login()
+}
+
+#[tauri::command]
+pub fn spotify_cancel_login(core: Ctx) {
+    core.music.cancel_login();
+}
+
+#[tauri::command]
+pub fn spotify_logout(core: Ctx) {
+    core.music.logout();
+}
+
+// ---------- chat rules ----------
+
+#[tauri::command]
+pub fn save_chat_rules(core: Ctx, rules: ChatRules) -> AppResult<ChatRules> {
+    let rules = rules.cleaned();
+    core.project.update(|p| p.chat_rules = rules.clone());
+    core.hub.to_overlays(
+        None,
+        OverlayMsg::ChatRules {
+            rules: rules.clone(),
+        },
+    );
+    project_changed(&core);
+    Ok(rules)
 }
 
 // ---------- discord ----------

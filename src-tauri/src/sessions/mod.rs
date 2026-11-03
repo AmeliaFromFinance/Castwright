@@ -71,7 +71,11 @@ pub mod activity {
     pub const CHAT: &str = "chat";
     pub const ALERT: &str = "alert";
     pub const ACTION: &str = "action";
+    /// `user_key` = Twitch marker id, `amount` = seconds into the stream,
+    /// `text` = description sent to Twitch, `name` = note kept only here.
     pub const MARKER: &str = "marker";
+    /// `user_key` = clip id, `name` = title, `text` = link.
+    pub const CLIP: &str = "clip";
     pub const RAID_OUT: &str = "raid_out";
     /// `text` of a chat row from a moderator or a VIP.
     pub const ROLE_MOD: &str = "mod";
@@ -484,8 +488,80 @@ impl Sessions {
         self.record(activity::ACTION, "", "", None, name);
     }
 
-    pub fn on_marker(&self, description: &str) {
-        self.record(activity::MARKER, "", "", None, description);
+    pub fn on_marker(&self, id: &str, position_s: u32, description: &str) {
+        self.record(
+            activity::MARKER,
+            id,
+            "",
+            Some(position_s as f64),
+            description,
+        );
+    }
+
+    /// Markers added since the stream started.
+    pub fn marker_count(&self) -> u32 {
+        let Some(start) = self.current().map(|s| s.started_at) else {
+            return 0;
+        };
+        self.db
+            .with_conn(|c| {
+                c.query_row(
+                    "SELECT COUNT(*) FROM session_activity WHERE kind = ?1 AND ts >= ?2",
+                    params![activity::MARKER, start],
+                    |r| r.get::<_, i64>(0),
+                )
+            })
+            .map(|n| n as u32)
+            .unwrap_or(0)
+    }
+
+    /// Keep a note with a marker. False when no marker has this id.
+    pub fn set_marker_note(&self, id: &str, note: &str) -> AppResult<bool> {
+        self.update_activity(activity::MARKER, id, "name", note)
+    }
+
+    /// A clip was asked for. Its link works once Twitch has made it.
+    pub fn on_clip(&self, id: &str, url: &str) {
+        self.record(activity::CLIP, id, "", None, url);
+    }
+
+    pub fn clip_ready(&self, id: &str, url: &str, title: &str) -> AppResult<bool> {
+        let found = self.update_activity(activity::CLIP, id, "text", url)?;
+        self.update_activity(activity::CLIP, id, "name", title)?;
+        Ok(found)
+    }
+
+    /// Change one column of a marker or clip row and drop the cached summary
+    /// of the stream it belongs to.
+    fn update_activity(&self, kind: &str, id: &str, column: &str, value: &str) -> AppResult<bool> {
+        if id.is_empty() {
+            return Ok(false);
+        }
+        debug_assert!(column == "name" || column == "text");
+        self.db.with_conn(|c| {
+            let ts: Option<i64> = c
+                .query_row(
+                    "SELECT ts FROM session_activity WHERE kind = ?1 AND user_key = ?2",
+                    params![kind, id],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            let Some(ts) = ts else {
+                return Ok(false);
+            };
+            c.execute(
+                &format!(
+                    "UPDATE session_activity SET {column} = ?3 WHERE kind = ?1 AND user_key = ?2"
+                ),
+                params![kind, id, value],
+            )?;
+            c.execute(
+                "UPDATE sessions SET summary = NULL
+                 WHERE started_at <= ?1 AND (ended_at IS NULL OR ended_at >= ?1)",
+                params![ts],
+            )?;
+            Ok(true)
+        })
     }
 
     pub fn on_raid_out(&self, to_login: &str, to_name: &str, viewers: u32) {

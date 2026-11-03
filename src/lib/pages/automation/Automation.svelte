@@ -27,6 +27,8 @@
   import RunLog from './RunLog.svelte';
   import { actionsEditor as ed, flow, runLog } from './store.svelte';
   import VarsInspector from './VarsInspector.svelte';
+  import RenameVarDialog from '$lib/vars/RenameVarDialog.svelte';
+  import VarDetails from '$lib/vars/VarDetails.svelte';
 
   let confirmDelete = $state<Action | null>(null);
 
@@ -306,6 +308,8 @@
 
 <ImportActionsDialog bind:open={importOpen} pkg={importPkg} source={importSource} template={importTemplate} onimported={imported} />
 <TemplatePicker bind:open={pickerOpen} onpick={create} />
+<VarDetails />
+<RenameVarDialog />
 
 <Dialog open={confirmDelete !== null} title="Delete this action?" width={420} onclose={() => (confirmDelete = null)}>
   <p class="muted">“{confirmDelete?.name}” and all its nodes will be removed.</p>

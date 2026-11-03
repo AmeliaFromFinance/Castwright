@@ -4,6 +4,7 @@
   import type { Layer } from '$lib/bindings/Layer';
   import { evaluateGroup } from '$lib/logic/condition';
   import OverlayStage from '$lib/overlay/OverlayStage.svelte';
+  import { app } from '$lib/state/app.svelte';
   import { BellRing, Film, Image, Lock, Type } from '@lucide/svelte';
   import {
     HANDLES,
@@ -207,6 +208,7 @@
         {recent}
         {chat}
         {credits}
+        chatRules={app.project?.chat_rules ?? null}
         alert={store.testAlert}
         widgetState={store.widgetState}
         {assetUrl}

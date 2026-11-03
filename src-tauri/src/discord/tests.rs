@@ -295,6 +295,16 @@ fn end_payload_reuses_the_summary() {
     assert_eq!(ctx["top_chatter"], "pixelbyte");
     assert_eq!(ctx["date"], "14 November 2023");
     assert_eq!(ctx["duration_minutes"], 135);
+    assert_eq!(ctx["clips"], 0);
+
+    let mut with_clips = summary();
+    with_clips.clips = vec![Default::default(); 3];
+    let p = payload::end_payload(&hook("w"), &with_clips, &channel());
+    let last = p["embeds"][0]["fields"].as_array().unwrap().last().unwrap();
+    assert_eq!(
+        (&last["name"], &last["value"]),
+        (&json!("Clips"), &json!("3"))
+    );
 
     let edit = payload::ended_edit(&s, &channel());
     assert!(edit.get("content").is_none(), "the text stays as it was");

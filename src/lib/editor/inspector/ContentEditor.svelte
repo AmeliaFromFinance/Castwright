@@ -22,6 +22,10 @@
   import { AD_TOKENS } from '$lib/overlay/ads';
   import { adPreview } from '$lib/overlay/ad-preview.svelte';
   import TextStyleEditor from './TextStyleEditor.svelte';
+  import ChatRulesForm from '$lib/widgets/chat/ChatRulesForm.svelte';
+  import type { ChatFilterSource } from '$lib/bindings/ChatFilterSource';
+  import { resolveRules } from '$lib/overlay/chat-filters';
+  import { openPlace } from '$lib/state/golive.svelte';
 
   interface Props {
     layer: Layer;
@@ -176,12 +180,50 @@
       <Switch label="FrankerFaceZ" showLabel checked={k.ffz_emotes !== false} onchange={(v) => set((x) => x.type === 'chat' && (x.ffz_emotes = v), 'ffz')} />
     </div>
   </Prop>
-  <Prop label="Hide !commands">
-    <Switch label="Hide commands" checked={k.hide_commands} onchange={(v) => set((x) => x.type === 'chat' && (x.hide_commands = v), 'cmds')} />
-  </Prop>
   <Prop label="Newest on top">
     <Switch label="Newest on top" checked={k.newest_on_top} onchange={(v) => set((x) => x.type === 'chat' && (x.newest_on_top = v), 'top')} />
   </Prop>
+  <Collapse id="insp.chat.filters" title="Filters">
+    <div class="filters">
+      <Prop label="Rules" hint={(k.filters ?? 'app') === 'app' ? 'Hide and highlight rules from Settings → Chat filters.' : (k.filters ?? 'app') === 'own' ? 'Rules for this layer only.' : 'Only the switches below.'}>
+        <Segmented
+          label="Which rules"
+          value={(k.filters ?? 'app') as ChatFilterSource}
+          options={[
+            { value: 'app', label: 'App' },
+            { value: 'own', label: 'Own' },
+            { value: 'off', label: 'None' }
+          ]}
+          onchange={(v) =>
+            set((x) => {
+              if (x.type !== 'chat') return;
+              x.filters = v;
+              if (v === 'own' && !x.own_rules) x.own_rules = resolveRules(null);
+            }, 'filters')}
+        />
+      </Prop>
+      {#if (k.filters ?? 'app') === 'app'}
+        <Button size="sm" variant="ghost" onclick={() => openPlace('settings:chat')}>Edit app rules</Button>
+      {/if}
+      <Prop label="Hide !commands">
+        <Switch label="Hide commands" checked={k.hide_commands} onchange={(v) => set((x) => x.type === 'chat' && (x.hide_commands = v), 'cmds')} />
+      </Prop>
+      <Prop label="Hide bots" hint="Nightbot, StreamElements and the other bots in the list, plus your bot account.">
+        <Switch label="Hide bots" checked={k.hide_bots !== false} onchange={(v) => set((x) => x.type === 'chat' && (x.hide_bots = v), 'bots')} />
+      </Prop>
+      {#if k.filters === 'own'}
+        <ChatRulesForm
+          compact
+          uid="{uid}-rules"
+          rules={resolveRules(k.own_rules)}
+          onchange={(next) =>
+            set((x) => {
+              if (x.type === 'chat') x.own_rules = { ...next, hide_commands: x.hide_commands, hide_bots: x.hide_bots !== false };
+            }, 'own')}
+        />
+      {/if}
+    </div>
+  </Collapse>
   <Prop label="Hide users" for="{uid}-hide" hint="Names separated by commas, e.g. bots.">
     <input
       id="{uid}-hide"
@@ -367,6 +409,46 @@
     />
   <p class="hint">Hidden when no ad is coming. Change the card under Cards.</p>
   {@render textGroup(k.style)}
+{:else if k.type === 'now_playing'}
+  <Prop label="Layout">
+    <Segmented
+      label="Layout"
+      value={k.layout}
+      options={[
+        { value: 'compact', label: 'Compact' },
+        { value: 'card', label: 'Card' },
+        { value: 'vinyl', label: 'Vinyl' }
+      ]}
+      onchange={(v) => set((x) => x.type === 'now_playing' && (x.layout = v), 'layout')}
+    />
+  </Prop>
+  <Prop label="Only playing" hint="Hide while nothing plays.">
+    <Switch label="Only while playing" checked={k.only_playing} onchange={(v) => set((x) => x.type === 'now_playing' && (x.only_playing = v), 'only')} />
+  </Prop>
+  {#if k.only_playing}
+    <Prop label="Hide after" hint="Seconds after a pause.">
+      <NumberInput label="Seconds after a pause before hiding" unit="s" min={0} max={600} value={k.hide_after_s} oninput={(v) => set((x) => x.type === 'now_playing' && (x.hide_after_s = Math.max(0, Math.round(v))), 'hide')} />
+    </Prop>
+  {/if}
+  <Prop label="Show">
+    <div class="switches">
+      <Switch label="Cover" showLabel checked={k.show_art} onchange={(v) => set((x) => x.type === 'now_playing' && (x.show_art = v), 'art')} />
+      <Switch label="Album" showLabel checked={k.show_album} onchange={(v) => set((x) => x.type === 'now_playing' && (x.show_album = v), 'album')} />
+      <Switch label="Progress bar" showLabel checked={k.show_progress} onchange={(v) => set((x) => x.type === 'now_playing' && (x.show_progress = v), 'progress')} />
+      <Switch label="Times" showLabel checked={k.show_times} onchange={(v) => set((x) => x.type === 'now_playing' && (x.show_times = v), 'times')} />
+    </div>
+  </Prop>
+  <Prop label="Song change" hint="Slide the new song in. Off with reduced motion.">
+    <Switch label="Animate song changes" checked={k.animate} onchange={(v) => set((x) => x.type === 'now_playing' && (x.animate = v), 'anim')} />
+  </Prop>
+  <Prop label="Bar" hint="Empty uses Spotify green.">
+    <ColorInput label="Bar colour" value={k.bar_color} onchange={(v) => set((x) => x.type === 'now_playing' && (x.bar_color = v), 'bar')} />
+  </Prop>
+  <Prop label="Track">
+    <ColorInput label="Track colour" value={k.track_color} onchange={(v) => set((x) => x.type === 'now_playing' && (x.track_color = v), 'track')} />
+  </Prop>
+  <p class="hint">Pick where songs come from in Settings → Music. The editor shows a sample song while nothing plays. Change the card under Cards.</p>
+  {@render textGroup(k.style)}
 {:else if k.type === 'custom'}
   <CustomWidgetEditor kind={k} {uid} {wide} {ontogglewide} set={(fn, key) => set((x) => x.type === 'custom' && fn(x), key)} />
 {/if}
@@ -375,6 +457,12 @@
   .switches {
     display: grid;
     gap: 2px;
+  }
+  .filters {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 2px 0 6px;
   }
   .pair {
     display: grid;

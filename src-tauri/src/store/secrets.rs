@@ -149,7 +149,8 @@ pub mod keys {
     pub const TWITCH_BROADCASTER: &str = "twitch.broadcaster";
     pub const TWITCH_BOT: &str = "twitch.bot";
     pub const OBS_PASSWORD: &str = "obs.password";
-    pub const ALL: [&str; 3] = [TWITCH_BROADCASTER, TWITCH_BOT, OBS_PASSWORD];
+    pub const SPOTIFY: &str = "spotify";
+    pub const ALL: [&str; 4] = [TWITCH_BROADCASTER, TWITCH_BOT, OBS_PASSWORD, SPOTIFY];
 }
 
 #[cfg(test)]

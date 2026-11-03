@@ -12,6 +12,7 @@
     vars={s.vars}
     recent={s.recent}
     chat={s.chat}
+    chatRules={s.chatRules}
     alert={s.alert}
     widgetState={s.widgetState}
     visibility={s.visibility}

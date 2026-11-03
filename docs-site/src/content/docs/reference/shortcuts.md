@@ -11,7 +11,7 @@ On macOS, use <kbd>Cmd</kbd> where this page says <kbd>Ctrl</kbd>.
 
 | Keys | Does |
 | --- | --- |
-| <kbd>Ctrl</kbd> + <kbd>K</kbd> | Search and run commands: open an overlay, test an alert, run an action, jump to a setting |
+| <kbd>Ctrl</kbd> + <kbd>K</kbd> | Search and run commands: open an overlay, test an alert, run an action, add a stream marker, create a clip, jump to a setting |
 | <kbd>Ctrl</kbd> + <kbd>1</kbd> | Overlays |
 | <kbd>Ctrl</kbd> + <kbd>2</kbd> | Alerts |
 | <kbd>Ctrl</kbd> + <kbd>3</kbd> | Automation |
@@ -64,6 +64,8 @@ Global hotkeys work while another app, like a game, has focus. None are set at f
 | Pause or resume alerts | Toggles |
 | Mute or unmute alerts | Toggles |
 | Open the go-live check | Also brings the window to the front |
+| Add stream marker | Only while live. You can add a note afterwards. |
+| Create clip | Only while live. Shows the link when Twitch is done. |
 | Run an action | Any automation action |
 
 Key names in `settings.json`, in this order: `Ctrl`, `Alt`, `Shift`, `Super`, then one key.

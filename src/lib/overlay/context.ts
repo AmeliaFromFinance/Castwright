@@ -1,4 +1,5 @@
 import { getContext, setContext } from 'svelte';
+import type { ChatRules } from '$lib/bindings/ChatRules';
 import type { Credits } from '$lib/bindings/Credits';
 import type { Event } from '$lib/bindings/Event';
 import type { OverlayFeed } from './feed';
@@ -13,6 +14,8 @@ export interface StageCtx {
   readonly vars: Record<string, unknown>;
   readonly recent: readonly Event[];
   readonly chat: readonly Event[];
+  /** The app's chat rules; null outside the app and before the first hello. */
+  readonly chatRules: ChatRules | null;
   readonly alert: ActiveAlert | null;
   readonly widgetState: WidgetState;
   readonly mode: StageMode;

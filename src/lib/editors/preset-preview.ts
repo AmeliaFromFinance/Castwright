@@ -6,6 +6,7 @@ import type { LayerKind } from '$lib/bindings/LayerKind';
 import type { Overlay } from '$lib/bindings/Overlay';
 import type { TextStyle } from '$lib/bindings/TextStyle';
 import { presetBox, presetCard, presetText, type BoxPreset, type PresetTarget } from '$lib/overlay/presets';
+import { defaultChatRules } from '$lib/overlay/chat-filters';
 import type { ActiveAlert } from '$lib/overlay/state';
 import { DEFAULT_BOX, DEFAULT_TEXT } from '$lib/overlay/styles';
 import { defaultSceneRule } from '$lib/overlay/scenes';
@@ -92,7 +93,10 @@ export function previewOverlay(p: BoxPreset, target: PresetTarget): Overlay {
         style: text(p.text ?? {}, 22),
         bubble: presetBox(p, 'chat'),
         newest_on_top: false,
-        item_card: presetCard(p)
+        item_card: presetCard(p),
+        filters: 'off',
+        own_rules: defaultChatRules(),
+        hide_bots: false
       },
       22,
       14,

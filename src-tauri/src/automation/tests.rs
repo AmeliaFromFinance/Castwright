@@ -568,6 +568,28 @@ async fn scene_change_trigger() {
 }
 
 #[tokio::test]
+async fn song_change_trigger() {
+    let a = Action {
+        triggers: vec![Trigger::SongChanged],
+        steps: vec![say("Now playing {{title}} by {{artist}}")],
+        ..Action::default()
+    };
+    let r = rig(vec![a]);
+    assert!(r.auto.wants_songs());
+    r.auto
+        .on_signal(&Signal::SongChanged(crate::model::music::NowPlaying {
+            title: "Nightcall".into(),
+            artist: "Kavinsky".into(),
+            ..Default::default()
+        }));
+    assert_eq!(
+        wait_calls(&r.rec, 1).await,
+        vec!["chat bot=false reply=false Now playing Nightcall by Kavinsky"]
+    );
+    assert!(!rig(vec![]).auto.wants_songs());
+}
+
+#[tokio::test]
 async fn disabled_actions_dont_run_but_manual_does() {
     let mut a = command("off", Permission::Everyone, vec![say("ran")]);
     a.enabled = false;

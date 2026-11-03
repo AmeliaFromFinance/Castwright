@@ -27,6 +27,7 @@ function summary(): SessionSummary {
     alerts: 9,
     actions: 4,
     markers: [],
+    clips: [],
     timeline: [],
     chat_minutes: []
   };

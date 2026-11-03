@@ -1,9 +1,14 @@
 <script lang="ts">
   import { toasts } from '$lib/state/toast.svelte';
+  import { moments } from '$lib/state/moments.svelte';
+  import MomentToast from '$lib/shell/MomentToast.svelte';
   import { CircleCheck, CircleAlert, Info, X } from '@lucide/svelte';
 </script>
 
 <div class="toasts" aria-live="polite">
+  {#each moments.items as m (m.key)}
+    <MomentToast item={m} />
+  {/each}
   {#each toasts.items as t (t.id)}
     <div class="toast {t.kind}" role={t.kind === 'error' ? 'alert' : 'status'}>
       {#if t.kind === 'success'}<CircleCheck size={16} />{:else if t.kind === 'error'}<CircleAlert size={16} />{:else}<Info

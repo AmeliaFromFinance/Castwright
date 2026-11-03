@@ -293,7 +293,7 @@ fn stats() {
     s.on_alert("Ann followed");
     s.on_alert("Bob cheered");
     s.on_action("Hydrate");
-    s.on_marker("Boss down");
+    s.on_marker("m1", 600, "Boss down");
     s.on_raid_out("pixelbyte", "pixelbyte", 31);
 
     let c = s.tick(&twitch(false, 0, 0), now + MIN);
@@ -344,6 +344,57 @@ fn stats() {
     assert_eq!(s.summary(id).unwrap().unwrap().follows, 2);
     let list = s.list(10).unwrap();
     assert_eq!((list[0].follows, list[0].subs, list[0].bits), (2, 5, 1100));
+}
+
+#[test]
+fn markers_and_clips_are_kept_with_notes() {
+    let db = db();
+    let s = Sessions::load(db.clone());
+    let now = crate::util::now_ms();
+    assert_eq!(s.marker_count(), 0);
+    let id = started(&s.tick(&obs(true), now - 30 * MIN)).unwrap().id;
+    s.on_marker("m1", 1800, "Marker 1 · 0:30:00");
+    s.on_marker("m2", 1810, "Marker 2 · 0:30:10");
+    assert_eq!(s.marker_count(), 2);
+    assert!(s.set_marker_note("m1", "Boss down").unwrap());
+    assert!(!s.set_marker_note("nope", "x").unwrap());
+    assert!(
+        !s.set_marker_note("", "x").unwrap(),
+        "old markers without an id"
+    );
+    s.on_clip("c1", "https://clips.twitch.tv/c1");
+    assert!(
+        s.clip_ready("c1", "https://clips.twitch.tv/Shiny", "Clutch")
+            .unwrap()
+    );
+
+    let sum = s.summary(id).unwrap().unwrap();
+    assert_eq!(sum.markers.len(), 2);
+    let m = &sum.markers[0];
+    assert_eq!(
+        (m.id.as_str(), m.position_s, m.note.as_str()),
+        ("m1", 1800, "Boss down")
+    );
+    assert_eq!(m.description, "Marker 1 · 0:30:00");
+    assert_eq!(sum.markers[1].note, "");
+    assert_eq!(sum.clips.len(), 1);
+    assert_eq!(sum.clips[0].title, "Clutch");
+    assert_eq!(sum.clips[0].url, "https://clips.twitch.tv/Shiny");
+
+    // A note added after the stream ended still shows up.
+    s.tick(&obs(false), crate::util::now_ms() + MIN);
+    assert_eq!(s.summary(id).unwrap().unwrap().markers[1].note, "");
+    s.set_marker_note("m2", "Funny bit").unwrap();
+    assert_eq!(s.summary(id).unwrap().unwrap().markers[1].note, "Funny bit");
+}
+
+#[test]
+fn old_summaries_without_marker_ids_still_load() {
+    let old = r#"{"session":{"id":1,"started_at":0,"ended_at":1,"source":"twitch","title":"","categories":[],"peak_viewers":0,"avg_viewers":0},"markers":[{"ts":5,"description":"Old"}]}"#;
+    let s: SessionSummary = serde_json::from_str(old).unwrap();
+    assert_eq!(s.markers[0].description, "Old");
+    assert!(s.markers[0].id.is_empty());
+    assert!(s.clips.is_empty());
 }
 
 #[test]

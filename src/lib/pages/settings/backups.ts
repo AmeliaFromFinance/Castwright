@@ -6,7 +6,8 @@ export const REASON_LABELS: Record<BackupReason, string> = {
   manual: 'Back up now',
   before_restore: 'Before restore',
   before_import: 'Before import',
-  before_migration: 'Before upgrade'
+  before_migration: 'Before upgrade',
+  before_rename: 'Before renaming a variable'
 };
 
 /** "3 Nov 2026, 14:05" in the local time zone. */

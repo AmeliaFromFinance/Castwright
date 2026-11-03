@@ -19,7 +19,6 @@ use ts_rs::TS;
 
 const MAX_CHAT: usize = 500;
 const MAX_TITLE: usize = 140;
-const MAX_MARKER: usize = 140;
 const MAX_TAGS: usize = 10;
 const MAX_TAG_LEN: usize = 25;
 const MAX_TIMEOUT_S: u32 = 1_209_600;
@@ -302,51 +301,12 @@ impl TwitchActions for TwitchService {
     }
 
     async fn create_clip(&self) -> AppResult<String> {
-        let id = self.require_broadcaster()?;
-        let v = self
-            .helix(
-                AccountRole::Broadcaster,
-                Method::POST,
-                "/clips",
-                &[("broadcaster_id", id)],
-                None,
-            )
-            .await
-            .map_err(|e| match e.status() {
-                Some(404) => AppError::Twitch("Clips can only be made while you're live.".into()),
-                _ => e.into_app("make clips"),
-            })?;
-        let url = Self::first(&v)
-            .map(|c| str_of(c, "edit_url"))
-            .unwrap_or_default();
-        if url.is_empty() {
-            return Err(AppError::Twitch(
-                "Twitch didn't return the new clip.".into(),
-            ));
-        }
-        Ok(url)
+        let clip = self.start_clip().await?;
+        Ok(clip.edit_url)
     }
 
     async fn create_marker(&self, description: &str) -> AppResult<()> {
-        let id = self.require_broadcaster()?;
-        let description = truncate(description.trim(), MAX_MARKER);
-        let body = json!({ "user_id": id, "description": description });
-        self.helix(
-            AccountRole::Broadcaster,
-            Method::POST,
-            "/streams/markers",
-            &[],
-            Some(&body),
-        )
-        .await
-        .map_err(|e| match e.status() {
-            Some(404) => {
-                AppError::Twitch("Stream markers can only be added while you're live.".into())
-            }
-            _ => e.into_app("add stream markers"),
-        })?;
-        self.hub.sessions.on_marker(&description);
-        Ok(())
+        self.add_marker(description).await.map(|_| ())
     }
 
     async fn run_ad(&self, length_s: u32) -> AppResult<()> {

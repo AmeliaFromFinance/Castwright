@@ -25,6 +25,7 @@ export function sectionOf(a: Action): string {
     case 'ad_soon':
     case 'ad_begin':
     case 'ad_end':
+    case 'song_changed':
       return 'Stream events';
     default:
       return 'Buttons and Stream Deck';

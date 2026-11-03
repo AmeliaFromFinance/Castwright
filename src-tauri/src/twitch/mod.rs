@@ -7,6 +7,7 @@ mod badges;
 mod eventsub;
 mod helix;
 pub mod moderation;
+pub mod moments;
 pub mod normalize;
 mod points;
 mod polls;
@@ -76,6 +77,9 @@ pub(crate) struct Timing {
     pub ads_poll: Duration,
     /// Ad countdown checks (warnings, ad end).
     pub ads_tick: Duration,
+    /// Get Clips checks while a new clip is being made, and the longest wait.
+    pub clip_poll: Duration,
+    pub clip_wait: Duration,
 }
 
 impl Default for Timing {
@@ -92,6 +96,8 @@ impl Default for Timing {
             badge_refresh: Duration::from_secs(3 * 3600),
             ads_poll: Duration::from_secs(60),
             ads_tick: Duration::from_secs(1),
+            clip_poll: Duration::from_secs(1),
+            clip_wait: Duration::from_secs(15),
         }
     }
 }

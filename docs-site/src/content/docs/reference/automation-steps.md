@@ -36,6 +36,7 @@ An action is a set of trigger and step nodes joined by lines. A run starts at th
 | Ad starting soon | `ad_soon` | Minutes before (1) |
 | Ad break begins | `ad_begin` | None |
 | Ad break ends | `ad_end` | None |
+| Song changes | `song_changed` | None. Gives `title`, `artist`, `album` and `art_url`. See [Music](/guide/music/#song-changes-trigger). |
 
 An alert variation can also run an action when its alert starts playing. That run gets the event fields, like an Event trigger.
 
@@ -125,8 +126,8 @@ Options marked "T" accept [templates](/reference/templates/).
 | Send chat message | `chat_send` | Message (T), send as bot (off), reply (off) | Up to 500 characters; longer text is cut. Empty messages are skipped. Without a bot account it sends as you. Reply only works for chat commands. |
 | Announcement | `chat_announce` | Message (T), color (`primary`) | Colors: `primary`, `blue`, `green`, `orange`, `purple`. Anything else becomes `primary`. Sent as you. |
 | Shoutout | `shoutout` | User (T), message (T, empty) | Takes a login, `@` optional. The message, if any, is sent from the bot account when one is signed in. Twitch allows one shoutout every 2 minutes, and the same streamer once an hour. You can't shout out yourself. |
-| Create clip | `create_clip` | None | Only while live. Saves the clip edit link to `last.clip.url`. |
-| Stream marker | `create_marker` | Description (T, empty) | Only while live. Description up to 140 characters; longer is cut. |
+| Create clip | `create_clip` | None | Only while live. Saves the clip edit link to `last.clip.url`. The clip shows in the [stream summary](/guide/activity/#markers-and-clips). |
+| Add stream marker | `create_marker` | Description (T, empty) | Only while live. Description up to 140 characters; longer is cut. The marker shows in the [stream summary](/guide/activity/#markers-and-clips). |
 | Run ad | `run_ad` | Length in seconds | Rounded to the nearest of 30, 60, 90, 120, 150 or 180. |
 | Set stream info | `set_stream_info` | Title (T), category (T) | Empty leaves that part unchanged. Titles over 140 characters fail. The category is found by search: an exact name match, otherwise the first result. |
 | Time out user | `timeout_user` | User (T), duration in seconds, reason (T, empty) | Duration 1 second to 14 days (1,209,600 s). Reason up to 500 characters. |

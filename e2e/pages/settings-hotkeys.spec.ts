@@ -24,7 +24,7 @@ test('settings hotkeys: record, conflicts, clear, action rows and the switch', a
   const section = page.locator('#hotkeys');
   await expect(section.getByText('only work in the desktop app')).toBeVisible();
   const items = section.getByRole('listitem');
-  await expect(items).toHaveCount(6);
+  await expect(items).toHaveCount(8);
   const recorder = (name: string) => section.getByRole('button', { name: new RegExp(`^Hotkey for ${name}:`) });
 
   // Record a new combo.
@@ -65,7 +65,7 @@ test('settings hotkeys: record, conflicts, clear, action rows and the switch', a
 
   // A hotkey for an automation action.
   await section.getByRole('button', { name: 'Add action hotkey' }).click();
-  await expect(items).toHaveCount(7);
+  await expect(items).toHaveCount(9);
   await items.last().getByLabel('Action to run').selectOption({ label: '!uptime' });
   await recorder('Run "!uptime"').click();
   await page.keyboard.press('Control+Alt+KeyU');
@@ -79,7 +79,7 @@ test('settings hotkeys: record, conflicts, clear, action rows and the switch', a
 
   // Removing the row and switching everything off.
   await section.getByRole('button', { name: 'Remove Run "!uptime"' }).click();
-  await expect(items).toHaveCount(6);
+  await expect(items).toHaveCount(8);
   const all = section.getByRole('switch', { name: 'Use global hotkeys' });
   await all.click();
   await expect(all).toHaveAttribute('aria-checked', 'false');

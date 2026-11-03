@@ -74,6 +74,8 @@ pub enum Trigger {
     },
     AdBegin,
     AdEnd,
+    /// A new song starts, from Settings → Music.
+    SongChanged,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]

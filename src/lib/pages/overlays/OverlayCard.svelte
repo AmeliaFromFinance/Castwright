@@ -37,7 +37,7 @@
     <div class="fit" bind:clientWidth={bw} bind:clientHeight={bh}>
       {#if scale > 0}
         <div class="stage" style="width:{overlay.width * scale}px;height:{overlay.height * scale}px" inert aria-hidden="true">
-          <OverlayStage {overlay} vars={app.vars} {recent} {chat} {assetUrl} mode="editor" {scale} paused muted />
+          <OverlayStage {overlay} vars={app.vars} {recent} {chat} chatRules={app.project?.chat_rules ?? null} {assetUrl} mode="editor" {scale} paused muted />
         </div>
       {/if}
     </div>

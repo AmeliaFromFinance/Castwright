@@ -1,8 +1,7 @@
 <script lang="ts">
-  import { whatsNew } from '$lib/whatsnew/whatsnew.svelte';
   import { app } from '$lib/state/app.svelte';
   import { updates } from '$lib/state/updates.svelte';
-  import { openExternal } from '$lib/util/os';
+  import { percent } from '$lib/state/update-flow';
   import { count, duration } from '$lib/format';
   import { golive } from '$lib/state/golive.svelte';
   import { HeartPulse, ListChecks } from '@lucide/svelte';
@@ -84,10 +83,21 @@
   {/if}
   {#if updates.available}
     {@const u = updates.available}
-    <span class="item pair">
-      <button type="button" class="link update" onclick={() => openExternal(u.url)}>Version {u.version} is out</button>
-      <button type="button" class="link" onclick={() => (u.notes.trim() ? whatsNew.showUpdate(u.version, u.notes, u.url) : openExternal(u.url))}>What's new</button>
-    </span>
+    {@const p = updates.phase}
+    <button type="button" class="item link update" onclick={() => (updates.open = true)}>
+      {#if p.kind === 'downloading'}
+        {@const pct = percent(p.downloaded, p.total)}
+        <span class="mini" aria-hidden="true"><span style:width="{pct ?? 0}%"></span></span>Downloading {pct === null ? '' : `${pct}%`}
+      {:else if p.kind === 'ready' || p.kind === 'ask'}
+        Restart to update
+      {:else if p.kind === 'waiting'}
+        Update after stream
+      {:else if p.kind === 'error'}
+        Update failed
+      {:else}
+        Version {u.version} is out
+      {/if}
+    </button>
   {/if}
   {#if app.demo}<span class="item demo">Demo mode</span>{/if}
   <span class="item faint">v{app.info?.version ?? ''}</span>
@@ -133,8 +143,17 @@
     background: var(--bg-2);
     color: var(--text);
   }
-  .pair {
-    gap: 14px;
+  .mini {
+    width: 42px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--bg-3);
+    overflow: hidden;
+  }
+  .mini span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
   }
   .update {
     color: var(--accent-text);

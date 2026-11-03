@@ -122,6 +122,11 @@ export function tokensForAction(a: Action): Token[] {
     if (t.type === 'command') COMMAND_TOKENS.forEach(add);
     else if (t.type === 'event') [...tokensFor(t.kind), ...interactTokens(t.kind)].forEach(add);
     else if (t.type === 'scene_changed') add({ token: 'scene', label: 'New scene' });
+    else if (t.type === 'song_changed') {
+      add({ token: 'title', label: 'Song' });
+      add({ token: 'artist', label: 'Artist' });
+      add({ token: 'album', label: 'Album' });
+    }
     else interactTokens(t.type).forEach(add);
   }
   add({ token: 'stream.title', label: 'Stream title' });

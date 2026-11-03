@@ -1,11 +1,13 @@
 pub mod ads;
 pub mod alert;
 pub mod automation;
+pub mod chat;
 pub mod condition;
 pub mod event;
 pub mod graph;
 pub mod interact;
 pub mod moderation;
+pub mod music;
 pub mod overlay;
 pub mod project;
 pub mod runtime;

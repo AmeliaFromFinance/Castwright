@@ -8,6 +8,7 @@ use crate::hub::{Hub, UiSink};
 use crate::model::project::Project;
 use crate::model::runtime::{LogLevel, OverlayMsg};
 use crate::model::session::SessionChange;
+use crate::music::{Hooks, MusicService};
 use crate::obs::ObsService;
 use crate::server::OverlayServer;
 use crate::sessions::LiveSignal;
@@ -33,6 +34,14 @@ pub struct Paths {
 
 const DAY: Duration = Duration::from_secs(24 * 60 * 60);
 
+#[derive(Debug, Clone, serde::Serialize, ts_rs::TS)]
+#[ts(export)]
+pub struct VarRenamed {
+    pub project: Project,
+    /// The backup made just before, to undo the rename.
+    pub backup: Option<String>,
+}
+
 pub struct Core {
     pub hub: Arc<Hub>,
     pub settings: Arc<SettingsStore>,
@@ -45,6 +54,7 @@ pub struct Core {
     pub twitch: Arc<TwitchService>,
     pub obs: Arc<ObsService>,
     pub discord: Arc<Discord>,
+    pub music: Arc<MusicService>,
     pub paths: Paths,
     /// ms since epoch.
     pub started_at: i64,
@@ -158,6 +168,8 @@ impl Core {
                     hub_sync.set_var("twitch.login", login.into(), false);
                     hub_sync.set_var("twitch.display_name", name.into(), false);
                     hub_sync.set_var("twitch.user_id", id.into(), false);
+                    let bot_login = st.bot.as_ref().map(|b| b.login.clone()).unwrap_or_default();
+                    hub_sync.set_var("twitch.bot_login", bot_login.into(), false);
                     let bot: Vec<String> = st.bot.map(|b| vec![b.id]).unwrap_or_default();
                     hub_sync.sessions.set_ignored_users(bot.clone());
                     automation.set_ignored_users(bot);
@@ -186,6 +198,40 @@ impl Core {
             s.server.token.clone(),
         );
         let info = server.start(s.server.port, s.server.allow_lan).await;
+        let music = MusicService::new(hub.clone(), settings.clone(), secrets.clone());
+        {
+            let (srv, srv2, proj, auto) = (
+                server.clone(),
+                server.clone(),
+                project.clone(),
+                automation.clone(),
+            );
+            music.set_hooks(Hooks {
+                port: Box::new(move || {
+                    let i = srv.info();
+                    i.running.then_some(i.port)
+                }),
+                wanted: Box::new(move || {
+                    let shown = proj.read(|p| {
+                        p.overlays
+                            .iter()
+                            .filter(|o| {
+                                o.layers.iter().any(|l| {
+                                    matches!(
+                                        l.kind,
+                                        crate::model::overlay::LayerKind::NowPlaying { .. }
+                                    )
+                                })
+                            })
+                            .map(|o| o.id.clone())
+                            .collect::<Vec<_>>()
+                    });
+                    shown.iter().any(|id| srv2.overlay_clients(id) > 0) || auto.wants_songs()
+                }),
+            });
+        }
+        server.set_music(music.clone());
+        music.start();
         match &info.error {
             Some(e) if info.running => hub.log(LogLevel::Warn, "server", e.clone()),
             Some(e) => hub.log(LogLevel::Error, "server", e.clone()),
@@ -226,6 +272,7 @@ impl Core {
             twitch,
             obs,
             discord,
+            music,
             paths,
             started_at,
             crash_notice: std::sync::Mutex::new(crash_notice),
@@ -313,6 +360,44 @@ impl Core {
         Ok(p)
     }
 
+    /// Save a project in which a variable was renamed, and move its value. The project
+    /// is backed up first; the result names that backup so the rename can be undone.
+    pub fn rename_var(&self, from: &str, to: &str, project: Project) -> AppResult<VarRenamed> {
+        if crate::vars::is_built_in(from) {
+            return crate::error::user_err("Built-in variables can't be renamed.");
+        }
+        if !crate::vars::valid_key(to) {
+            return crate::error::user_err(
+                "Variable names can use letters, numbers, dots, dashes and underscores.",
+            );
+        }
+        // Pointing reads of a name that was never set at an existing variable is fine.
+        let has_value = self.hub.vars.get(from).is_some();
+        if has_value && (crate::vars::is_built_in(to) || self.hub.vars.get(to).is_some()) {
+            return crate::error::user_err(format!("There's already a variable called {to}."));
+        }
+        let made = self.backup(BackupReason::BeforeRename).map_err(|e| {
+            AppError::User(format!(
+                "Couldn't back up the project first, so nothing was changed. {e}"
+            ))
+        })?;
+        let backup = made
+            .or_else(|| self.backups.newest(&self.source()))
+            .map(|b| b.file);
+        self.project.restore(project)?;
+        let changes = self.hub.vars.rename(from, to);
+        save_vars(&self.hub, &self.project);
+        self.hub.broadcast_vars(changes);
+        let p = self.project.get();
+        for o in &p.overlays {
+            self.hub
+                .to_overlays(Some(&o.id), OverlayMsg::Overlay { overlay: o.clone() });
+        }
+        self.hub
+            .emit_ui(crate::hub::ui::PROJECT, &serde_json::json!({}));
+        Ok(VarRenamed { project: p, backup })
+    }
+
     /// Save everything that's pending. Called when the app exits.
     pub async fn shutdown(&self) {
         self.obs.shutdown().await;
@@ -335,6 +420,13 @@ impl Core {
         self.project.flush()?;
         save_vars(&self.hub, &self.project);
         Ok(())
+    }
+
+    /// Live on Twitch, streaming in OBS, or a stream session is still open.
+    pub fn is_live(&self) -> bool {
+        self.twitch.status().stream.live
+            || self.obs.snapshot().stream.active
+            || self.hub.sessions.current().is_some()
     }
 
     pub fn project_dir(&self) -> &Path {
@@ -471,6 +563,62 @@ mod tests {
                 "steps": [{ "type": "add_to_variable", "key": "counter.deaths", "amount": 1 }]
             }]
         })
+    }
+
+    #[tokio::test]
+    async fn rename_var_backs_up_and_moves_the_value() {
+        let dir = tempfile::tempdir().unwrap();
+        let core = Core::start(paths(dir.path()), Arc::new(crate::hub::NullUi))
+            .await
+            .unwrap();
+        wait_for_backups(&core, 1).await;
+        core.hub
+            .set_var("counter.deaths", serde_json::json!(3), true);
+        let mut p = core.project.get();
+        p.name = "Renamed".into();
+        assert!(core.rename_var("session.subs", "x.y", p.clone()).is_err());
+        assert!(
+            core.rename_var("counter.deaths", "obs.scene", p.clone())
+                .is_err()
+        );
+        assert!(
+            core.rename_var("counter.deaths", "bad name", p.clone())
+                .is_err()
+        );
+        assert_eq!(core.backups.list().len(), 1, "no backup when refused");
+        let out = core
+            .rename_var("counter.deaths", "counter.falls", p)
+            .unwrap();
+        assert_eq!(out.project.name, "Renamed");
+        assert_eq!(core.project.get().name, "Renamed");
+        assert_eq!(
+            core.hub.vars.get("counter.falls"),
+            Some(serde_json::json!(3))
+        );
+        assert!(core.hub.vars.get("counter.deaths").is_none());
+        let list = core.backups.list();
+        assert_eq!(list[0].reason, BackupReason::BeforeRename);
+        assert_eq!(out.backup.as_deref(), Some(list[0].file.as_str()));
+        // Undo: the backup has the old name and value.
+        core.restore(
+            &core.backups.dir().join(&list[0].file),
+            BackupReason::BeforeRestore,
+        )
+        .unwrap();
+        assert_eq!(
+            core.hub.vars.get("counter.deaths"),
+            Some(serde_json::json!(3))
+        );
+        assert!(core.hub.vars.get("counter.falls").is_none());
+        assert_ne!(core.project.get().name, "Renamed");
+        // A name nothing set can move onto an existing variable.
+        let p = core.project.get();
+        assert!(core.rename_var("counter.deth", "counter.deaths", p).is_ok());
+        assert_eq!(
+            core.hub.vars.get("counter.deaths"),
+            Some(serde_json::json!(3))
+        );
+        core.shutdown().await;
     }
 
     #[tokio::test]

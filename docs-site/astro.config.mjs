@@ -32,6 +32,7 @@ export default defineConfig({
             { label: 'Automation', slug: 'guide/automation' },
             { label: 'Channel points, polls and predictions', slug: 'guide/interact' },
             { label: 'Ads and Discord', slug: 'guide/ads-discord' },
+            { label: 'Music and now playing', slug: 'guide/music' },
             { label: 'Activity', slug: 'guide/activity' },
             { label: 'Settings and themes', slug: 'guide/settings' },
             { label: 'Stream Deck and hotkeys', slug: 'guide/stream-deck' },

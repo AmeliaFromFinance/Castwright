@@ -78,7 +78,7 @@ describe('bindings', () => {
 
   it('lists every built-in action first', () => {
     const r = rows(list);
-    expect(r.map((b) => b.action.type)).toEqual(['replay_last_alert', 'skip_alert', 'toggle_alert_pause', 'toggle_alert_mute', 'open_go_live', 'run_action']);
+    expect(r.map((b) => b.action.type)).toEqual(['replay_last_alert', 'skip_alert', 'toggle_alert_pause', 'toggle_alert_mute', 'open_go_live', 'add_marker', 'create_clip', 'run_action']);
     expect(r[1]!.keys).toBe('Ctrl+Alt+S');
     expect(r[0]!.keys).toBe('');
   });

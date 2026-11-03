@@ -195,6 +195,8 @@ pub fn action_label(action: &HotkeyAction) -> &'static str {
         HotkeyAction::ToggleAlertPause => "Pause or resume alerts",
         HotkeyAction::ToggleAlertMute => "Mute or unmute alerts",
         HotkeyAction::OpenGoLive => "Open the go-live check",
+        HotkeyAction::AddMarker => "Add stream marker",
+        HotkeyAction::CreateClip => "Create clip",
         HotkeyAction::RunAction { .. } => "Run an action",
     }
 }

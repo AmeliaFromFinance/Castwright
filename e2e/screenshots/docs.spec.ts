@@ -71,6 +71,36 @@ test('session summary', async ({ page }) => {
   await shot(page, 'session-summary');
 });
 
+test('summary with markers and clips', async ({ page }) => {
+  await open(page);
+  const palette = async (command: string) => {
+    await page.keyboard.press('Control+k');
+    await page.getByRole('combobox', { name: 'Search commands' }).fill(command);
+    await page.keyboard.press('Enter');
+  };
+  await palette('add stream marker');
+  await page.getByRole('textbox', { name: 'Marker note' }).fill('Final boss, first try');
+  await page.keyboard.press('Enter');
+  await palette('create clip');
+  await page.getByRole('status', { name: 'Clip ready' }).waitFor();
+  await palette('last stream summary');
+  const dialog = page.getByRole('dialog', { name: 'Stream summary' });
+  await dialog.getByRole('region', { name: 'Markers' }).getByText('Final boss, first try').waitFor();
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(400);
+  await dialog.screenshot({ path: out('summary-markers-clips') });
+});
+
+test('update download', async ({ page }) => {
+  await open(page, 'demo=static&update=downloading');
+  await page.locator('footer.status').getByRole('button', { name: /is out/ }).click();
+  const dialog = page.getByRole('dialog', { name: /is out/ });
+  await dialog.getByRole('button', { name: 'Download and install' }).click();
+  await dialog.getByText(/· 45%/).waitFor();
+  await shot(page, 'update-download');
+});
+
 test('settings', async ({ page }) => {
   await open(page);
   await nav(page, 'Settings');
@@ -176,6 +206,16 @@ test('automation', async ({ page }) => {
   await page.getByText('Big raid welcome', { exact: true }).first().click();
   await page.waitForTimeout(600);
   await shot(page, 'automation');
+});
+
+test('variable details', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Automation');
+  await page.getByText('Count deaths', { exact: true }).first().click();
+  await page.waitForTimeout(400);
+  await page.getByRole('region', { name: 'Variables' }).getByRole('button', { name: 'counter.deaths details' }).click();
+  await page.getByRole('dialog', { name: 'counter.deaths' }).waitFor();
+  await shot(page, 'variable-details');
 });
 
 test('import actions', async ({ page }, info) => {
@@ -421,4 +461,40 @@ test('discord settings', async ({ page }) => {
   await page.locator('[data-webhook]').first().waitFor();
   await page.waitForTimeout(800);
   await shot(page, 'discord-settings');
+});
+
+test('now playing layer', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Overlays');
+  await page.locator('[data-overlay-card]').first().getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.getByRole('button', { name: 'Add now playing layer' }).click();
+  await page.getByRole('spinbutton', { name: 'Width', exact: true }).fill('820');
+  await page.getByRole('spinbutton', { name: 'Height', exact: true }).fill('210');
+  await page.getByRole('spinbutton', { name: 'X position' }).fill('48');
+  await page.getByRole('spinbutton', { name: 'Y position' }).fill('600');
+  await page.getByRole('spinbutton', { name: 'Font size' }).fill('38');
+  await page.getByRole('radio', { name: 'Vinyl' }).click();
+  await page.getByRole('switch', { name: 'Album' }).click();
+  await page.locator('.cw-stage .cw-np-vinyl').waitFor();
+  await page.getByRole('radio', { name: 'Vinyl' }).scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1500);
+  await shot(page, 'now-playing-layer');
+});
+
+test('chat highlights', async ({ page }) => {
+  const chat = await openChat(page);
+  await page.getByRole('button', { name: 'Chat display options' }).click();
+  await page.getByRole('switch', { name: 'Show hidden as a line' }).click();
+  await chat.getByRole('option', { name: /^river_dev:/ }).scrollIntoViewIfNeeded();
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: out('chat-highlights') });
+});
+
+test('music settings', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Settings');
+  await page.getByRole('button', { name: 'Music', exact: true }).click();
+  await page.locator('#music').getByText('Signed in as Demo listener').waitFor();
+  await page.waitForTimeout(800);
+  await shot(page, 'music-settings');
 });

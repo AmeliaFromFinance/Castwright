@@ -1,5 +1,8 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { scanTemplate } from '$lib/logic/template';
+  import { varHover } from '$lib/vars/hover';
+  import VarChip from '$lib/vars/VarChip.svelte';
   import { insertToken, type Token } from './tokens';
 
   interface Props {
@@ -18,6 +21,18 @@
 
   const id = `tpl-${Math.random().toString(36).slice(2, 9)}`;
   let el: HTMLInputElement | HTMLTextAreaElement | undefined = $state();
+
+  const hover = varHover();
+  const cards = $derived.by(() => {
+    if (!hover) return [];
+    const seen = new Set<string>();
+    return scanTemplate(value).flatMap((t) => {
+      const c = hover.card(t.key);
+      if (!c || seen.has(c.key)) return [];
+      seen.add(c.key);
+      return [c];
+    });
+  });
 
   async function insert(token: string) {
     const r = insertToken(value, el?.selectionStart ?? null, el?.selectionEnd ?? null, token);
@@ -59,6 +74,11 @@
       oninput={(e) => onchange(e.currentTarget.value)}
     />
   {/if}
+  {#if hover && cards.length}
+    <div class="vars" role="group" aria-label="Variables in {label}">
+      {#each cards as c (c.key)}<VarChip card={c} {hover} />{/each}
+    </div>
+  {/if}
   {#if tokens.length}
     <div class="chips" role="group" aria-label="Insert into {label}">
       {#each tokens as t (t.token)}
@@ -93,6 +113,11 @@
   }
   textarea {
     min-height: 56px;
+  }
+  .vars {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
   }
   .chips {
     display: flex;

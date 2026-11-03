@@ -22,11 +22,36 @@ struct Inner {
 }
 
 /// Prefixes that describe live state and are never saved.
-const LIVE_PREFIXES: [&str; 4] = ["stream.", "obs.", "twitch.", "ads."];
+const LIVE_PREFIXES: [&str; 5] = ["stream.", "obs.", "twitch.", "ads.", "music."];
 
 fn is_live_key(key: &str) -> bool {
     LIVE_PREFIXES.iter().any(|p| key.starts_with(p))
 }
+
+/// Set by Castwright itself: live values and the `last.*` and `session.*` ones.
+pub fn is_built_in(key: &str) -> bool {
+    is_live_key(key) || SESSION_KEYS.contains(&key) || LAST_KEYS.contains(&key)
+}
+
+const LAST_KEYS: [&str; 17] = [
+    "last.follow.name",
+    "last.sub.name",
+    "last.sub.tier",
+    "last.sub.months",
+    "last.gift.name",
+    "last.gift.amount",
+    "last.cheer.name",
+    "last.cheer.amount",
+    "last.raid.name",
+    "last.raid.viewers",
+    "last.redemption.name",
+    "last.redemption.reward",
+    "last.donation.name",
+    "last.donation.amount",
+    "last.event.name",
+    "last.event.kind",
+    "last.clip.url",
+];
 
 pub fn valid_key(key: &str) -> bool {
     !key.is_empty()
@@ -156,6 +181,40 @@ impl Vars {
         if g.persistent.remove(key) {
             g.dirty = true;
         }
+        changes
+    }
+
+    /// Names of the variables that are saved to disk.
+    pub fn saved_keys(&self) -> Vec<String> {
+        let mut keys: Vec<_> = self
+            .inner
+            .lock()
+            .unwrap()
+            .persistent
+            .iter()
+            .cloned()
+            .collect();
+        keys.sort();
+        keys
+    }
+
+    /// Move a value to a new name, kept or not as before. Nothing happens when `from`
+    /// doesn't exist; an existing `to` is replaced.
+    pub fn rename(&self, from: &str, to: &str) -> Changes {
+        let mut g = self.inner.lock().unwrap();
+        let mut changes = Map::new();
+        if from == to || !valid_key(to) {
+            return changes;
+        }
+        let Some(value) = g.values.remove(from) else {
+            return changes;
+        };
+        let persist = g.persistent.remove(from);
+        if persist {
+            g.dirty = true;
+        }
+        changes.insert(from.to_string(), Value::Null);
+        Self::set_locked(&mut g, to, value, persist, &mut changes);
         changes
     }
 
@@ -440,6 +499,27 @@ mod tests {
         assert!(v.get("ok").is_some());
         assert!(v.get("bad key").is_none());
         assert!(v.get("obs.scene").is_none());
+    }
+
+    #[test]
+    fn rename_keeps_value_and_saving() {
+        let v = Vars::new();
+        v.set("counter.deaths", Value::from(4), true);
+        v.set("temp", Value::from("x"), false);
+        v.take_dirty();
+        let ch = v.rename("counter.deaths", "counter.falls");
+        assert_eq!(ch.get("counter.deaths"), Some(&Value::Null));
+        assert_eq!(ch.get("counter.falls"), Some(&Value::from(4)));
+        assert!(v.get("counter.deaths").is_none());
+        let saved = v.take_dirty().unwrap();
+        assert_eq!(saved.get("counter.falls"), Some(&Value::from(4)));
+        assert!(!saved.contains_key("counter.deaths"));
+        v.rename("temp", "temp2");
+        assert_eq!(v.get("temp2"), Some(Value::from("x")));
+        assert!(!v.saved_keys().contains(&"temp2".to_string()));
+        assert!(v.rename("missing", "other").is_empty());
+        assert!(v.rename("temp2", "bad key").is_empty());
+        assert_eq!(v.saved_keys(), ["counter.falls"]);
     }
 
     #[test]

@@ -207,3 +207,44 @@ See [`.cwactions` files](/reference/files/#cwactions-files) for the format.
 ## Run log and variables
 
 The right side shows each run with its result and any errors, plus every [variable](/reference/variables/). Edit a value inline, delete it, or add one. The pin keeps a variable after Castwright restarts.
+
+## Variable inspector
+
+The Variables list shows where each variable is used.
+
+- **Used in 3**: three places set or show it, like steps, overlay layers and alerts.
+- A warning icon marks a likely mistake. See below.
+- Filter the list with **All**, **Used**, **Unused** and **Problems**.
+
+Click a variable's name to open its details:
+
+- Its value, its type, whether it's saved or live, and when it last changed.
+- **Written by**: steps that set it, or the part of Castwright that keeps it up to date, like Twitch or OBS.
+- **Read by**: steps, conditions, overlay layers and alert texts that use it.
+
+Click any place in the lists to go there. A step opens with its node selected, a layer opens in the overlay editor, and an alert opens on the Alerts page.
+
+![Variable details](../../../assets/screens/variable-details.png)
+
+### Problems
+
+| Problem | What it means | What to do |
+| --- | --- | --- |
+| Nothing sets it | Something reads the variable, but no step sets it and it has no value. Often a typo. | Use **Change to…** when a close name is suggested. |
+| Saved, but nothing uses it | A saved variable that nothing reads. | Delete it, unless a custom widget or the local API uses it. Those aren't checked. |
+
+### Rename a variable
+
+1. Open the variable's details and click **Rename…**.
+2. Type the new name. The preview lists every change.
+3. Click **Rename**.
+
+Every template, condition, layer setting and script call (`get`, `set`, `save`) with the old name changes, and the value moves to the new name. Names that only look alike, like `counter.deaths2`, stay as they are.
+
+A backup is made first. Click **Undo** on the message that follows, or restore the backup from **Settings → Backups and data**.
+
+Built-in variables, like `session.subs` and `obs.scene`, can't be renamed.
+
+### Variables in a step
+
+In the step inspector, fields that use variables list them under the field. Hover one to see its value and how many places use it. Click it to open its details.

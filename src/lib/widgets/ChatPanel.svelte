@@ -22,6 +22,9 @@
   import { chatExtras } from '$lib/overlay/emotes/store.svelte';
   import { chatPieces } from '$lib/overlay/emotes/tokenize';
   import type { Event } from '$lib/bindings/Event';
+  import type { ChatRules } from '$lib/bindings/ChatRules';
+  import { HIDE_LABELS, HIGHLIGHT_LABELS, highlightColor, makeJudge, resolveRules, type Verdict } from '$lib/overlay/chat-filters';
+  import { openPlace } from '$lib/state/golive.svelte';
 
   let { compact = true }: { compact?: boolean } = $props();
 
@@ -33,7 +36,54 @@
 
   const signedIn = $derived(!!app.twitch?.broadcaster);
   const hasBot = $derived(!!app.twitch?.bot);
-  const messages = $derived(app.chat.slice(-200));
+  const all = $derived(app.chat.slice(-200));
+
+  // Filters: the app's rules, used here unless switched off.
+  const FILTER_DEFAULTS = { enabled: true, showHidden: false };
+  let filterPrefs = $state({ ...FILTER_DEFAULTS, ...loadPref<Partial<typeof FILTER_DEFAULTS>>('chat.filters', {}) });
+  function setFilterPref(key: keyof typeof FILTER_DEFAULTS, on: boolean) {
+    filterPrefs[key] = on;
+    savePref('chat.filters', filterPrefs);
+  }
+  const rules = $derived(resolveRules(app.project?.chat_rules));
+  const judge = $derived(
+    makeJudge(rules, {
+      broadcaster: [app.twitch?.broadcaster?.login ?? '', app.twitch?.broadcaster?.display_name ?? ''],
+      botLogin: app.twitch?.bot?.login ?? ''
+    })
+  );
+  const NONE: Verdict = { hidden: null, highlights: [] };
+  const verdicts = $derived(new Map(all.map((m) => [m.id, filterPrefs.enabled ? judge(m) : NONE])));
+  /** Hidden runs the user opened. Keyed by the first message in the run. */
+  let opened = $state<Record<string, boolean>>({});
+  type Row = { type: 'msg'; m: Event; dim: boolean } | { type: 'hidden'; id: string; items: Event[] };
+  const rows = $derived.by(() => {
+    const out: Row[] = [];
+    for (const m of all) {
+      if (!verdicts.get(m.id)?.hidden) {
+        out.push({ type: 'msg', m, dim: false });
+        continue;
+      }
+      if (!filterPrefs.showHidden) continue;
+      const prev = out.at(-1);
+      if (prev?.type === 'hidden') prev.items.push(m);
+      else out.push({ type: 'hidden', id: m.id, items: [m] });
+    }
+    // Opened runs show their messages, faded.
+    return out.flatMap((r): Row[] => (r.type === 'hidden' && opened[r.id] ? [r, ...r.items.map((m) => ({ type: 'msg' as const, m, dim: true }))] : [r]));
+  });
+  /** Messages shown as lines, for keyboard moves and mod shortcuts. */
+  const messages = $derived(rows.flatMap((r) => (r.type === 'msg' ? [r.m] : [])));
+
+  async function setRule<K extends keyof ChatRules>(key: K, value: ChatRules[K]) {
+    const saved = await attempt(() => api.saveChatRules({ ...rules, [key]: value }));
+    if (saved && app.project) app.project.chat_rules = saved;
+  }
+
+  function hiddenText(items: Event[]): string {
+    const reasons = [...new Set(items.map((m) => verdicts.get(m.id)?.hidden).filter((r): r is NonNullable<typeof r> => !!r))];
+    return `${items.length} hidden · ${reasons.map((r) => HIDE_LABELS[r]).join(', ')}`;
+  }
 
   const OPTIONS = [
     ['twitchBadges', 'Twitch badges'],
@@ -184,9 +234,27 @@
     </IconButton>
     {#if showOptions}
       <div class="menu" role="group" aria-label="Chat display options">
+        <div class="menu-head">Display</div>
         {#each OPTIONS as [key, label] (key)}
           <Switch {label} showLabel checked={opts[key]} onchange={(v) => setOption(key, v)} />
         {/each}
+        <div class="menu-head">Filters</div>
+        <Switch label="Use filters" showLabel checked={filterPrefs.enabled} onchange={(v) => setFilterPref('enabled', v)} />
+        {#if filterPrefs.enabled}
+          <Switch label="Show hidden as a line" showLabel checked={filterPrefs.showHidden} onchange={(v) => setFilterPref('showHidden', v)} />
+          <Switch label="Hide bots" showLabel checked={rules.hide_bots} onchange={(v) => setRule('hide_bots', v)} />
+          <Switch label="Hide !commands" showLabel checked={rules.hide_commands} onchange={(v) => setRule('hide_commands', v)} />
+          <Switch label="Highlight first-time chatters" showLabel checked={rules.highlight_first} onchange={(v) => setRule('highlight_first', v)} />
+          <Switch label="Highlight mentions" showLabel checked={rules.highlight_mentions} onchange={(v) => setRule('highlight_mentions', v)} />
+        {/if}
+        <button
+          type="button"
+          class="all-filters"
+          onclick={() => {
+            showOptions = false;
+            void openPlace('settings:chat');
+          }}>All filters in Settings…</button
+        >
       </div>
     {/if}
   </div>
@@ -198,18 +266,33 @@
   {/if}
 </div>
 <ol class="chat" class:compact bind:this={list} onscroll={onScroll} aria-label="Chat messages" aria-live="off" role="listbox">
-  {#each messages as m, i (m.id)}
+  {#each rows as row (row.type === 'msg' ? row.m.id : `hidden-${row.id}`)}
+    {#if row.type === 'hidden'}
+      <li role="option" aria-selected="false" class="hidden-run" data-hidden={[...new Set(row.items.map((x) => verdicts.get(x.id)?.hidden))].join(' ')}>
+        <button type="button" tabindex="-1" aria-expanded={!!opened[row.id]} onclick={() => (opened = { ...opened, [row.id]: !opened[row.id] })}>{hiddenText(row.items)}</button>
+      </li>
+    {:else}
+    {@const m = row.m}
+    {@const i = messages.indexOf(m)}
+    {@const v = verdicts.get(m.id) ?? NONE}
+    {@const hl = highlightColor(rules, v)}
     {@const extra = opts.paints || opts.seventvBadges ? chatExtras.cosmetics(m.user?.id) : undefined}
     {@const deleted = m.data.deleted === true}
     <li
       role="option"
       aria-selected={m.id === tabbable}
       data-id={m.id}
+      data-highlight={v.highlights.join(' ') || undefined}
+      data-hidden={v.hidden ?? undefined}
       class:own={m.data.sent_by_castwright === true}
       class:deleted
+      class:dim={row.dim}
+      class:hl={v.highlights.length > 0}
+      style={hl ? `--hl:${hl}` : undefined}
+      title={v.highlights.length ? v.highlights.map((h) => HIGHLIGHT_LABELS[h]).join(' · ') : undefined}
       class:menu-open={menu?.message.id === m.id}
       tabindex={m.id === tabbable ? 0 : -1}
-      aria-label="{m.user?.display_name ?? ''}: {m.message ?? ''}{deleted ? ' (deleted)' : ''}"
+      aria-label="{m.user?.display_name ?? ''}: {m.message ?? ''}{deleted ? ' (deleted)' : ''}{v.highlights.length ? ` (${v.highlights.map((h) => HIGHLIGHT_LABELS[h]).join(', ')})` : ''}"
       onfocus={() => (focusId = m.id)}
       onkeydown={(e) => onItemKey(e, m, i)}
       oncontextmenu={(e) => {
@@ -229,6 +312,8 @@
       ><span class="colon">:</span>
       <span class="msg selectable"><ChatText pieces={chatPieces(messageParts(m), emotes)} height={emoteHeight} /></span>
       {#if deleted}<span class="tag">deleted</span>{/if}
+      {#if v.highlights.includes('first')}<span class="tag hl-tag">first message</span>{/if}
+      {#if v.highlights.includes('redeemed')}<span class="tag hl-tag">highlighted</span>{/if}
       {#if m.user}
         <button
           type="button"
@@ -243,6 +328,7 @@
         >
       {/if}
     </li>
+    {/if}
   {:else}
     <li class="none muted" role="option" aria-selected="false" aria-disabled="true">{signedIn ? 'Chat messages appear here.' : 'Sign in to Twitch in Settings to see chat.'}</li>
   {/each}
@@ -421,6 +507,57 @@
   .none {
     font-size: 12px;
     padding: 6px 0;
+  }
+  .menu-head {
+    font-size: 10.5px;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-faint);
+    margin-top: 4px;
+  }
+  .menu-head:first-child {
+    margin-top: 0;
+  }
+  .all-filters {
+    justify-self: start;
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--accent-text);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  li.hl {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--hl) 22%, transparent), color-mix(in srgb, var(--hl) 6%, transparent));
+    box-shadow: inset 3px 0 0 var(--hl);
+  }
+  li.hl:hover,
+  li.hl.menu-open {
+    background: color-mix(in srgb, var(--hl) 26%, var(--bg-2));
+  }
+  .hl-tag {
+    color: var(--hl);
+  }
+  li.dim {
+    opacity: 0.55;
+  }
+  .hidden-run {
+    padding: 0;
+  }
+  .hidden-run:hover {
+    background: none;
+  }
+  .hidden-run button {
+    border: 0;
+    background: none;
+    padding: 1px 4px;
+    font-size: 11px;
+    color: var(--text-faint);
+    cursor: pointer;
+  }
+  .hidden-run button:hover {
+    color: var(--text-muted);
+    text-decoration: underline;
   }
   .send {
     display: flex;

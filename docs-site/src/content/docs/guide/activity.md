@@ -25,6 +25,38 @@ To delete the history, use **Settings → Backups and data → Clear history**.
 
 A full-size chat view with Twitch and 7TV badges, 7TV name paints and 7TV, BetterTTV and FrankerFaceZ emotes. The options button turns each of those on or off. You can send messages as yourself or as your bot.
 
+### Filters and highlights
+
+Chat hides noise and marks messages you shouldn't miss.
+
+![Chat with highlights and the filter options](../../../assets/screens/chat-highlights.png)
+
+| Hides | |
+| --- | --- |
+| **Bots** | Nightbot, StreamElements, Streamlabs, Moobot, Fossabot, Sery_Bot, Wizebot and your own bot account. Edit the list in Settings. |
+| **Commands** | Messages starting with `!` |
+| **Users** | Names you list |
+| **Words** | Words you list, whole words and any case. Write `/pattern/i` for a regular expression. |
+
+| Highlights | |
+| --- | --- |
+| **First-time chatters** | The first message Castwright ever saw from someone. Marked **first message**. |
+| **Mentions** | Messages with your name in them |
+| **Keywords** | Words you list |
+| **Users** | Names you list, and mods or VIPs if you turn them on |
+| **Highlighted with points** | Twitch's "Highlight my message" reward. Marked **highlighted**. |
+
+Each highlight has its own colour. Hover a highlighted message to see why.
+
+The options button in the chat panel has quick switches for bots, commands, first-time chatters and mentions. **All filters in Settings…** opens [Settings → Chat filters](/guide/settings/#chat-filters) for the rest. These rules are shared with [chat layers](/guide/overlay-editor/#chat-layer-filters).
+
+| Option | Default | |
+| --- | --- | --- |
+| **Use filters** | On | Off shows every message, unmarked. Only for this panel. |
+| **Show hidden as a line** | Off | Hidden messages show as a short line, like **1 hidden · bot**. Click it to see them. |
+
+Filters only change what you see. Mod tools work on every message that shows, and hidden messages stay in chat on Twitch.
+
 ### Mod tools
 
 Hover a message and click **⋯**, or right-click it, to open its menu:
@@ -103,10 +135,30 @@ To find it later:
 | **First-time chatters** | People whose first message Castwright ever saw came during this stream. On your first recorded stream, everyone counts as new. |
 | **Raids** | Who raided you (and with how many viewers) and who you raided. |
 | **Donations** | Twitch charity donations, if any. |
-| **Alerts, actions, markers** | Alerts played, automation actions run and stream markers added. |
+| **Alerts, actions** | Alerts played and automation actions run. |
+| **Markers** | Each stream marker: time into the stream and its note. See [Markers and clips](#markers-and-clips). |
+| **Clips** | Clips made from Castwright: title and link. |
 | **Events per 10 minutes** | Bars for follows, subs, bits, raids and other events, with chat below. Hover a bar to see the numbers. |
 
 Test events never count.
+
+### Markers and clips
+
+Mark a moment or clip it without leaving your game:
+
+- Set the **Add stream marker** and **Create clip** [hotkeys](/guide/settings/#hotkeys), or
+- pick them in the command palette (<kbd>Ctrl</kbd> + <kbd>K</kbd>), or
+- use the [automation steps](/reference/automation-steps/#chat-and-twitch).
+
+They only work while you're live.
+
+**Markers** get a name like "Marker 3 · 1:23:45" (number and time into the stream). A message lets you type a short note for about 10 seconds. Press <kbd>Enter</kbd> to save it. Twitch can't change a marker after it's made, so the note is kept by Castwright and shows in the summary, not on Twitch.
+
+**Clips** take Twitch a few seconds. A message shows **Making a clip…**, then the clip's title and link with **Copy link** and **Open**. If Twitch takes longer than 15 seconds, you still get the link. It works a little later.
+
+The summary lists both, with the time into the stream. Click a clip to open it. CSV and JSON exports include them too.
+
+![Summary with markers and clips](../../../assets/screens/summary-markers-clips.png)
 
 ### Share and save
 
@@ -121,7 +173,7 @@ Test events never count.
 - **If the stream drops** and comes back within 5 minutes, it continues the same session.
 - **If Castwright closes mid-stream**, the session carries on when you open it again. If the stream ended while the app was closed, the session ends at the last time Castwright saw it live.
 - Streams shorter than 1 minute (a quick test) aren't kept.
-- Chat, alerts, actions, markers and raids out are only counted while Castwright is open.
+- Chat, alerts, actions, markers, clips and raids out are only counted while Castwright is open. Clips made on Twitch directly don't show up.
 
 ## Log
 

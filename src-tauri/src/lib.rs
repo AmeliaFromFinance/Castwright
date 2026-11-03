@@ -9,6 +9,8 @@ pub mod golive;
 pub mod hotkeys;
 pub mod hub;
 pub mod model;
+pub mod moments;
+pub mod music;
 pub mod obs;
 pub mod paths;
 pub mod server;
@@ -17,6 +19,7 @@ pub mod sessions;
 pub mod store;
 pub mod template;
 pub mod twitch;
+pub mod updates;
 pub mod util;
 pub mod vars;
 pub mod window;
@@ -69,6 +72,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(move |app| {
             let handle = app.handle().clone();
             let paths = paths::core_paths(&handle, &layout)?;
@@ -78,6 +83,7 @@ pub fn run() {
             }
             diag::crash::install(logs);
             app.manage(layout);
+            app.manage(Arc::new(updates::Updates::default()));
             let core = tauri::async_runtime::block_on(core::Core::start(
                 paths,
                 Arc::new(TauriUi(handle.clone())),
@@ -146,6 +152,8 @@ pub fn run() {
             commands::get_vars,
             commands::set_var,
             commands::delete_var,
+            commands::saved_var_keys,
+            commands::rename_var,
             commands::reset_session,
             commands::list_sessions,
             commands::session_summary,
@@ -208,9 +216,24 @@ pub fn run() {
             commands::twitch_snooze_ad,
             commands::twitch_run_ad,
             commands::save_ad_settings,
+            commands::stream_add_marker,
+            commands::stream_marker_note,
+            commands::stream_create_clip,
+            updates::update_prepare,
+            updates::update_download,
+            updates::update_restart,
+            updates::update_cancel_restart,
+            updates::save_update_settings,
             commands::save_discord_webhook,
             commands::delete_discord_webhook,
             commands::discord_send_test,
+            commands::music_status,
+            commands::save_music_settings,
+            commands::music_watch,
+            commands::spotify_login,
+            commands::spotify_cancel_login,
+            commands::spotify_logout,
+            commands::save_chat_rules,
             commands::obs_snapshot,
             commands::obs_connect,
             commands::obs_disconnect,
@@ -243,7 +266,9 @@ pub fn run() {
             && let Some(core) = handle.try_state::<Arc<core::Core>>()
         {
             let core = core.inner().clone();
+            let auto_install = core.settings.get().updates.auto_install;
             tauri::async_runtime::block_on(async move { core.shutdown().await });
+            updates::install_on_exit(handle, auto_install);
         }
     });
 }

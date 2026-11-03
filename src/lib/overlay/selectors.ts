@@ -16,7 +16,7 @@ export interface VariableInfo {
   description: string;
 }
 
-const TEXT_KINDS: readonly LayerType[] = ['text', 'goal', 'counter', 'timer', 'event_list', 'alerts', 'poll', 'credits', 'ad_break'];
+const TEXT_KINDS: readonly LayerType[] = ['text', 'goal', 'counter', 'timer', 'event_list', 'alerts', 'poll', 'credits', 'ad_break', 'now_playing'];
 
 export const SELECTORS: readonly SelectorInfo[] = [
   { selector: ':scope', kinds: [], description: 'This layer’s box' },
@@ -44,6 +44,13 @@ export const SELECTORS: readonly SelectorInfo[] = [
   { selector: '.cw-top', kinds: ['chat'], description: 'The list when newest is on top' },
   { selector: '.cw-chat-line', kinds: ['chat'], description: 'Each message card' },
   { selector: '.cw-chat-line[data-user-id]', kinds: ['chat'], description: 'Messages from one chatter (by Twitch user id)' },
+  { selector: '.cw-hl', kinds: ['chat'], description: 'A highlighted message (any reason)' },
+  { selector: '.cw-hl-first', kinds: ['chat'], description: 'Highlighted: first message from this chatter' },
+  { selector: '.cw-hl-mention', kinds: ['chat'], description: 'Highlighted: mentions your name' },
+  { selector: '.cw-hl-keyword', kinds: ['chat'], description: 'Highlighted: has a keyword' },
+  { selector: '.cw-hl-user', kinds: ['chat'], description: 'Highlighted: from a listed user, a mod or a VIP' },
+  { selector: '.cw-hl-redeemed', kinds: ['chat'], description: 'Highlighted with channel points ("Highlight my message")' },
+  { selector: '.cw-chat-line[data-highlight~="mention"]', kinds: ['chat'], description: 'Same as the classes above; data-highlight lists every reason' },
   // Chat content. Keep classes used inside a message together here.
   { selector: '.cw-chat-badge', kinds: ['chat', 'credits'], description: 'Any badge' },
   { selector: '.cw-badge-twitch', kinds: ['chat', 'credits'], description: 'A Twitch badge (moderator, subscriber…)' },
@@ -129,6 +136,30 @@ export const SELECTORS: readonly SelectorInfo[] = [
   { selector: '.cw-ad-card', kinds: ['ad_break'], description: 'The card around the message' },
   { selector: '.cw-ad-text', kinds: ['ad_break'], description: 'The message' },
 
+  { selector: '.cw-np', kinds: ['now_playing'], description: 'The whole layer' },
+  { selector: '.cw-np-compact', kinds: ['now_playing'], description: 'Layout class on .cw-np (also .cw-np-card, .cw-np-vinyl)' },
+  { selector: '.cw-np-card', kinds: ['now_playing'], description: 'Added to .cw-np in the card layout' },
+  { selector: '.cw-np-vinyl', kinds: ['now_playing'], description: 'Added to .cw-np in the vinyl layout' },
+  { selector: '.cw-np-playing', kinds: ['now_playing'], description: 'Added to .cw-np while the song plays' },
+  { selector: '.cw-np-paused', kinds: ['now_playing'], description: 'Added to .cw-np while it is paused' },
+  { selector: '.cw-np-still', kinds: ['now_playing'], description: 'Added to .cw-np when motion is reduced (the record stops spinning)' },
+  { selector: '.cw-np-item', kinds: ['now_playing'], description: 'The card around the song' },
+  { selector: '.cw-np-body', kinds: ['now_playing'], description: 'Cover and text row. Animates in when the song changes' },
+  { selector: '.cw-np-art', kinds: ['now_playing'], description: 'The cover (the record in vinyl)' },
+  { selector: '.cw-np-text', kinds: ['now_playing'], description: 'Title, artist, album and progress' },
+  { selector: '.cw-np-line', kinds: ['now_playing'], description: 'One line of text, cut off with … when too long' },
+  { selector: '.cw-np-title', kinds: ['now_playing'], description: 'The title (title · artist in compact)' },
+  { selector: '.cw-np-artist', kinds: ['now_playing'], description: 'The artist' },
+  { selector: '.cw-np-album', kinds: ['now_playing'], description: 'The album' },
+  { selector: '.cw-np-progress', kinds: ['now_playing'], description: 'Bar and times' },
+  { selector: '.cw-np-bar', kinds: ['now_playing'], description: 'The bar background' },
+  { selector: '.cw-np-fill', kinds: ['now_playing'], description: 'The played part of the bar' },
+  { selector: '.cw-np-smooth', kinds: ['now_playing'], description: 'Added to .cw-np-fill while it moves smoothly' },
+  { selector: '.cw-np-times', kinds: ['now_playing'], description: 'Elapsed and length row' },
+  { selector: '.cw-np-elapsed', kinds: ['now_playing'], description: 'Time played' },
+  { selector: '.cw-np-duration', kinds: ['now_playing'], description: 'Length of the song' },
+  { selector: '.cw-np[data-state="paused"]', kinds: ['now_playing'], description: 'Same as .cw-np-paused (playing while it plays)' },
+
   { selector: '.cw-custom', kinds: ['custom'], description: 'The widget frame. Its own HTML has the widget’s CSS' }
 ];
 
@@ -137,6 +168,7 @@ export const VARIABLES: readonly VariableInfo[] = [
   { name: '--cw-name', kinds: ['poll'], description: 'Bar colour on each choice (set when tint or a name stripe is on)' },
   { name: '--cw-tint', kinds: ['chat', 'event_list', 'poll'], description: 'Tint colour on each card' },
   { name: '--cw-lean', kinds: ['chat', 'event_list', 'poll'], description: '1 or -1 when cards lean in turn' },
+  { name: '--cw-hl', kinds: ['chat'], description: 'Highlight colour on a highlighted .cw-chat-line' },
   { name: '--cw-pct', kinds: ['poll'], description: 'The choice’s share, e.g. 42%, on .cw-poll-choice' },
   { name: '--cw-accent', kinds: ['alerts'], description: 'Accent colour, on .cw-alert' },
   { name: '--cw-w', kinds: ['alerts'], description: 'Layer width inside its padding, on .cw-alert-wrap' },
@@ -174,6 +206,7 @@ const KIND_NAMES: Record<LayerType, string> = {
   poll: 'Poll / prediction',
   credits: 'Credits',
   ad_break: 'Ad break',
+  now_playing: 'Now playing',
   custom: 'Custom widget'
 };
 

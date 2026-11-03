@@ -5,10 +5,12 @@ import type { BackupSettings } from "./BackupSettings";
 import type { DiscordSettings } from "./DiscordSettings";
 import type { GoLiveSettings } from "./GoLiveSettings";
 import type { HotkeySettings } from "./HotkeySettings";
+import type { MusicSettings } from "./MusicSettings";
 import type { ObsSettings } from "./ObsSettings";
 import type { ServerSettings } from "./ServerSettings";
 import type { SummarySettings } from "./SummarySettings";
 import type { TwitchSettings } from "./TwitchSettings";
+import type { UpdateSettings } from "./UpdateSettings";
 
 export type Settings = { first_run_done: boolean, 
 /**
@@ -22,4 +24,4 @@ alerts_muted: boolean, golive: GoLiveSettings, backups: BackupSettings,
 /**
  * Global hotkeys. Kept per computer, not in the project.
  */
-hotkeys: HotkeySettings, summary: SummarySettings, ads: AdSettings, discord: DiscordSettings, };
+hotkeys: HotkeySettings, summary: SummarySettings, ads: AdSettings, discord: DiscordSettings, updates: UpdateSettings, music: MusicSettings, };

@@ -19,6 +19,7 @@ use tokio_tungstenite::tungstenite::Message;
 
 mod ads_tests;
 mod moderation_tests;
+mod moments_tests;
 
 #[derive(Debug, Clone)]
 struct Rec {
@@ -63,6 +64,10 @@ struct Mock {
     /// Snoozes the mock ad schedule has left.
     snoozes: u32,
     no_ads_scope: bool,
+    /// Get Clips calls answered with an empty list before the clip shows up.
+    clip_busy: u32,
+    /// The stream is offline: markers and clips get 404.
+    offline: bool,
 }
 
 type Shared = Arc<Mutex<Mock>>;
@@ -192,6 +197,9 @@ fn helix(m: &mut Mock, rec: &Rec, token: &str) -> Response {
         return r;
     }
     if let Some(r) = ads_tests::reply_for(m, rec, path) {
+        return r;
+    }
+    if let Some(r) = moments_tests::reply_for(m, rec, path) {
         return r;
     }
     let interactive =
@@ -385,6 +393,8 @@ fn fast() -> Timing {
         badge_refresh: Duration::from_secs(3600),
         ads_poll: Duration::from_secs(3600),
         ads_tick: Duration::from_secs(3600),
+        clip_poll: Duration::from_millis(20),
+        clip_wait: Duration::from_millis(300),
     }
 }
 

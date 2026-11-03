@@ -31,16 +31,18 @@ pub enum BackupReason {
     BeforeRestore,
     BeforeImport,
     BeforeMigration,
+    BeforeRename,
 }
 
 impl BackupReason {
-    const ALL: [BackupReason; 6] = [
+    const ALL: [BackupReason; 7] = [
         BackupReason::Startup,
         BackupReason::Daily,
         BackupReason::Manual,
         BackupReason::BeforeRestore,
         BackupReason::BeforeImport,
         BackupReason::BeforeMigration,
+        BackupReason::BeforeRename,
     ];
 
     fn slug(self) -> &'static str {
@@ -51,6 +53,7 @@ impl BackupReason {
             BackupReason::BeforeRestore => "before-restore",
             BackupReason::BeforeImport => "before-import",
             BackupReason::BeforeMigration => "before-migration",
+            BackupReason::BeforeRename => "before-rename",
         }
     }
 
@@ -162,6 +165,14 @@ impl Backups {
     /// Newest first.
     pub fn list(&self) -> Vec<BackupInfo> {
         self.entries().into_iter().map(|e| e.info).collect()
+    }
+
+    /// The newest backup of one project folder.
+    pub fn newest(&self, source: &str) -> Option<BackupInfo> {
+        self.entries()
+            .into_iter()
+            .find(|e| e.manifest.as_ref().is_some_and(|m| m.source == source))
+            .map(|e| e.info)
     }
 
     fn entries(&self) -> Vec<Entry> {

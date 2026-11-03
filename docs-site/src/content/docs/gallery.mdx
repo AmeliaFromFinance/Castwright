@@ -22,8 +22,11 @@ import backups from '../../assets/screens/backups.png';
 import templates from '../../assets/screens/overlay-templates.png';
 import importActions from '../../assets/screens/import-actions.png';
 import summary from '../../assets/screens/session-summary.png';
+import summaryMoments from '../../assets/screens/summary-markers-clips.png';
+import updateDownload from '../../assets/screens/update-download.png';
 import hotkeys from '../../assets/screens/hotkeys.png';
 import notes from '../../assets/screens/automation-notes.png';
+import variableDetails from '../../assets/screens/variable-details.png';
 import scenes from '../../assets/screens/overlay-scenes.png';
 import modTools from '../../assets/screens/mod-tools.png';
 import viewerCard from '../../assets/screens/viewer-card.png';
@@ -37,6 +40,9 @@ import actionTemplates from '../../assets/screens/action-templates.png';
 import adsPopover from '../../assets/screens/ads-popover.png';
 import adLayer from '../../assets/screens/ad-break-layer.png';
 import discord from '../../assets/screens/discord-settings.png';
+import nowPlaying from '../../assets/screens/now-playing-layer.png';
+import music from '../../assets/screens/music-settings.png';
+import chatHighlights from '../../assets/screens/chat-highlights.png';
 import palette from '../../assets/screens/palette.png';
 import settings from '../../assets/screens/settings.png';
 import themeEditor from '../../assets/screens/theme-editor.png';
@@ -61,8 +67,10 @@ Click any screenshot to enlarge it. Use the arrow keys to move between them.
     { src: actionTemplates, title: 'Action templates', caption: 'Ready-made actions with a preview of each flow' },
     { src: notes, title: 'Notes and frames', caption: 'Explain and group parts of a flow' },
     { src: trace, title: 'Live run trace', caption: 'Lines light up as a run passes through' },
+    { src: variableDetails, title: 'Variable details', caption: 'What sets and reads a variable, with links to each place' },
     { src: importActions, title: 'Sharing actions', caption: 'Import with a preview, clashes and re-linking' },
     { src: chat, title: 'Chat', caption: 'Twitch and 7TV badges, 7TV paints and third-party emotes' },
+    { src: chatHighlights, title: 'Chat filters', caption: 'Hide bots and commands, highlight first-time chatters and mentions' },
     { src: rewards, title: 'Channel points', caption: 'Rewards and a queue to complete or refund redemptions' },
     { src: polls, title: 'Polls and predictions', caption: 'Start, end, lock and pay out with live results' },
     { src: pollLayer, title: 'Poll layer', caption: 'Live bars and a countdown on stream' },
@@ -70,16 +78,20 @@ Click any screenshot to enlarge it. Use the arrow keys to move between them.
     { src: adsPopover, title: 'Ad panel', caption: 'Next ad, snoozes and run an ad from the status bar' },
     { src: adLayer, title: 'Ad break layer', caption: 'A heads-up for viewers before and during ads' },
     { src: discord, title: 'Discord posts', caption: 'Go-live and end posts with previews and a test button' },
+    { src: nowPlaying, title: 'Now playing layer', caption: 'The current song with cover and progress, here as a spinning record' },
+    { src: music, title: 'Music settings', caption: 'Spotify, your computer’s media controls or a text file' },
     { src: modTools, title: 'Mod tools', caption: 'Delete, time out or ban from any message' },
     { src: viewerCard, title: 'Viewer card', caption: 'Account age, follow age, sub status and a mod note' },
     { src: activity, title: 'Activity', caption: 'Event history with filters, details and replay' },
     { src: summary, title: 'Stream summary', caption: 'Numbers, top chatters and a timeline after each stream' },
+    { src: summaryMoments, title: 'Markers and clips', caption: 'Stream markers with your notes and clips with links, from a hotkey' },
     { src: palette, title: 'Command palette', caption: 'Ctrl K to find anything' },
     { src: alertControls, title: 'Alert controls', caption: 'Pause, skip, replay and mute from the status bar' },
     { src: golive, title: 'Go-live check', caption: 'OBS, overlays, Twitch and alerts checked in seconds' },
     { src: health, title: 'Health', caption: 'Live status of overlays, OBS, Twitch and the app' },
     { src: bugReport, title: 'Bug report', caption: 'One zip with secrets removed, never uploaded' },
     { src: settings, title: 'Settings', caption: 'OBS, Twitch, overlay server, themes and backups' },
+    { src: updateDownload, title: 'Updates', caption: "Read what's new, download and restart, never mid-stream" },
     { src: hotkeys, title: 'Global hotkeys', caption: 'Control alerts and actions from inside a game' },
     { src: backups, title: 'Backups', caption: 'Daily snapshots with one-click restore' },
     { src: themeEditor, title: 'Theme editor', caption: 'Build a theme with a live readability check' },

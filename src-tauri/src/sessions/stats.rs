@@ -4,8 +4,8 @@ use super::activity;
 use crate::error::AppResult;
 use crate::model::event::{Event, EventKind};
 use crate::model::session::{
-    ChatMinute, CreditName, Credits, MarkerEntry, RaidEntry, Ranked, SessionSummary, StreamSession,
-    TimelineMark,
+    ChatMinute, ClipEntry, CreditName, Credits, MarkerEntry, RaidEntry, Ranked, SessionSummary,
+    StreamSession, TimelineMark,
 };
 use crate::store::db::Db;
 use rusqlite::params;
@@ -348,11 +348,17 @@ pub fn summarize(db: &Db, session: &StreamSession) -> AppResult<SessionSummary> 
         s.actions = count(activity::ACTION)?;
 
         let mut stmt = c.prepare(
-            "SELECT ts, kind, name, amount, text FROM session_activity
-             WHERE kind IN (?1, ?2) AND ts BETWEEN ?3 AND ?4 ORDER BY ts",
+            "SELECT ts, kind, name, amount, text, user_key FROM session_activity
+             WHERE kind IN (?1, ?2, ?3) AND ts BETWEEN ?4 AND ?5 ORDER BY ts",
         )?;
         let rows = stmt.query_map(
-            params![activity::MARKER, activity::RAID_OUT, start, end],
+            params![
+                activity::MARKER,
+                activity::RAID_OUT,
+                activity::CLIP,
+                start,
+                end
+            ],
             |r| {
                 Ok((
                     r.get::<_, i64>(0)?,
@@ -360,15 +366,26 @@ pub fn summarize(db: &Db, session: &StreamSession) -> AppResult<SessionSummary> 
                     r.get::<_, String>(2)?,
                     r.get::<_, Option<f64>>(3)?,
                     r.get::<_, String>(4)?,
+                    r.get::<_, String>(5)?,
                 ))
             },
         )?;
         for row in rows {
-            let (ts, kind, name, amount, text) = row?;
+            let (ts, kind, name, amount, text, key) = row?;
             if kind == activity::MARKER {
                 s.markers.push(MarkerEntry {
                     ts,
                     description: text,
+                    id: key,
+                    position_s: amount.unwrap_or(0.0).max(0.0) as u32,
+                    note: name,
+                });
+            } else if kind == activity::CLIP {
+                s.clips.push(ClipEntry {
+                    ts,
+                    id: key,
+                    title: name,
+                    url: text,
                 });
             } else {
                 s.raids_out.push(RaidEntry {

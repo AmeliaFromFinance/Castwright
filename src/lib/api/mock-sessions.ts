@@ -1,5 +1,6 @@
 // Stream sessions for the browser demo. Mirrors src-tauri/src/sessions/stats.rs.
 
+import type { ClipEntry } from '$lib/bindings/ClipEntry';
 import type { CreditName } from '$lib/bindings/CreditName';
 import type { Credits } from '$lib/bindings/Credits';
 import type { Event } from '$lib/bindings/Event';
@@ -10,6 +11,7 @@ import type { Ranked } from '$lib/bindings/Ranked';
 import type { SessionListItem } from '$lib/bindings/SessionListItem';
 import type { SessionSummary } from '$lib/bindings/SessionSummary';
 import type { StreamSession } from '$lib/bindings/StreamSession';
+import { clock } from '$lib/sessions/summary';
 
 const TOP = 5;
 const MIN = 60_000;
@@ -23,6 +25,7 @@ export interface DemoSession {
   alerts: number;
   actions: number;
   markers: MarkerEntry[];
+  clips: ClipEntry[];
   raidsOut: RaidEntry[];
 }
 
@@ -43,6 +46,15 @@ function top(tally: Map<string, number>, n = TOP): Ranked[] {
 
 function add(tally: Map<string, number>, name: string, amount: number) {
   tally.set(name, (tally.get(name) ?? 0) + amount);
+}
+
+export function demoMarker(n: number, ts: number, start: number, note = ''): MarkerEntry {
+  const position_s = Math.max(0, Math.round((ts - start) / 1000));
+  return { ts, description: `Marker ${n} · ${clock(position_s)}`, id: `demo-marker-${ts}`, position_s, note };
+}
+
+export function demoClip(ts: number, title: string, key: string): ClipEntry {
+  return { ts, id: `DemoClip${key}`, title, url: `https://clips.twitch.tv/DemoClip${key}` };
 }
 
 export function summarize(d: DemoSession, now: number): SessionSummary {
@@ -71,6 +83,7 @@ export function summarize(d: DemoSession, now: number): SessionSummary {
     alerts: d.alerts,
     actions: d.actions,
     markers: d.markers.filter((m) => inRange(m.ts)),
+    clips: d.clips.filter((c) => inRange(c.ts)),
     timeline: [],
     chat_minutes: []
   };
@@ -156,6 +169,7 @@ interface Plan {
   alerts: number;
   actions: number;
   markers: string[];
+  clips: string[];
 }
 
 const PLANS: Plan[] = [
@@ -178,7 +192,8 @@ const PLANS: Plan[] = [
     chatPerMin: 14,
     alerts: 61,
     actions: 14,
-    markers: ['First summit', 'Chapter 7 clear']
+    markers: ['First summit', 'Chapter 7 clear'],
+    clips: ['That jump though']
   },
   {
     seed: 11,
@@ -199,7 +214,8 @@ const PLANS: Plan[] = [
     chatPerMin: 8,
     alerts: 24,
     actions: 6,
-    markers: []
+    markers: [],
+    clips: []
   }
 ];
 
@@ -243,7 +259,11 @@ function fromPlan(p: Plan, id: number, now: number, names: string[], make: MakeE
       chat.push({ ts: start + m * MIN + Math.floor(rnd() * MIN), name });
     }
   }
-  const markers = p.markers.map((description, i) => ({ ts: start + Math.floor(((i + 1) * span) / (p.markers.length + 1)), description }));
+  const markers = p.markers.map((note, i) => {
+    const ts = start + Math.floor(((i + 1) * span) / (p.markers.length + 1));
+    return demoMarker(i + 1, ts, start, note);
+  });
+  const clips = p.clips.map((title, i) => demoClip(start + Math.floor(span * 0.6) + i * MIN, title, `${p.seed}${i}`));
   return {
     session: {
       id,
@@ -261,6 +281,7 @@ function fromPlan(p: Plan, id: number, now: number, names: string[], make: MakeE
     alerts: p.alerts,
     actions: p.actions,
     markers,
+    clips,
     raidsOut: p.raidOut ? [{ ts: end - MIN, name: p.raidOut[0], viewers: p.raidOut[1] }] : []
   };
 }

@@ -20,11 +20,12 @@ The editor shows your overlay exactly as OBS will, with live chat, events and va
 | **Image** | A logo, frame or picture from your project files. |
 | **Video** | A looping video or animation. |
 | **Alerts** | Where alerts play. Design them on the [Alerts](/guide/alerts/) page. |
-| **Chat** | Live chat with Twitch and 7TV badges, 7TV name paints and 7TV, BetterTTV and FrankerFaceZ emotes. Can hide commands and bots. |
+| **Chat** | Live chat with Twitch and 7TV badges, 7TV name paints and 7TV, BetterTTV and FrankerFaceZ emotes. Hides bots and commands, and highlights messages. See [Chat layer filters](#chat-layer-filters). |
 | **Goal** | A progress bar towards a target, such as follows or bits this stream. |
 | **Counter** | A number from a [variable](/reference/variables/), like a death counter. |
 | **Timer** | Countdown, stopwatch, clock or stream uptime. |
 | **Events** | Recent follows, subs, cheers and more, as a list or ticker. |
+| **Music** | The song playing now, with cover and progress. See [Music and now playing](/guide/music/#now-playing-layer). |
 | **Credits** | An end-of-stream roll of everyone who followed, subbed, gifted, cheered, raided or chatted. See [Credits layer](#credits-layer). |
 | **Widget** | Your own HTML, CSS and JavaScript. See [custom widgets](/reference/custom-widgets/). |
 
@@ -65,6 +66,24 @@ Each layer has these sections on the right:
 | **Advanced** | Custom CSS for the layer, and its ID for automation. The list under the CSS box shows which classes this layer has; click one to insert a rule. See [Custom CSS](/reference/styling/). |
 
 Hide a layer with the eye in the Layers list. The **Show/hide overlay layer** automation step can show it at certain moments, like after a raid.
+
+## Chat layer filters
+
+Under **Content → Filters**, pick which hide and highlight rules the layer uses:
+
+| Rules | |
+| --- | --- |
+| **App** | The rules in [Settings → Chat filters](/guide/settings/#chat-filters), shared with the chat panel. The default. |
+| **Own** | Rules for this layer only. The full rule list shows right there. |
+| **None** | No rules, apart from the switches below. |
+
+**Hide !commands** and **Hide bots** always apply, whichever rules you pick. **Hide users** adds names on top.
+
+Highlighted messages get a coloured bar and a soft tint. Restyle them with the `.cw-hl-…` classes in the [styling reference](/reference/styling/#chat).
+
+## Now playing layer
+
+Shows the song from [Settings → Music](/guide/music/), in a compact, card or vinyl layout. It can hide while nothing plays and slides in each new song. See [Music and now playing](/guide/music/#now-playing-layer).
 
 ## Credits layer
 

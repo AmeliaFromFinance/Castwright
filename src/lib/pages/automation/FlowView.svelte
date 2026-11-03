@@ -504,6 +504,24 @@
     if (id) untrack(() => requestAnimationFrame(() => reveal(id)));
   });
 
+  // Jump here from elsewhere, like the variable details: select the node and center it.
+  $effect(() => {
+    const f = flow.focus;
+    if (!f || f.actionId !== action.id) return;
+    untrack(() => {
+      flow.focus = null;
+      if (!nodeById(g, f.nodeId)) return;
+      requestAnimationFrame(() => {
+        flow.select([f.nodeId], true);
+        requestAnimationFrame(() => {
+          const r = rects.get(f.nodeId);
+          if (r) view = centerOn(view, { x: r.x + r.w / 2, y: r.y + Math.min(r.h, 200) / 2 }, vw, vh);
+          focusNode(f.nodeId);
+        });
+      });
+    });
+  });
+
   function fit() {
     // Room for the toolbar on top, and the add bar and overview below. A narrow canvas
     // has no room beside the overview, so keep clear above it.

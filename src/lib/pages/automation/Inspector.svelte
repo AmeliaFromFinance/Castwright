@@ -7,6 +7,9 @@
   import StepCard from './StepCard.svelte';
   import { actionsEditor as ed } from './store.svelte';
   import TriggerCard from './TriggerCard.svelte';
+  import { provideVarHover } from '$lib/vars/hover';
+  import { varInspector as vi } from '$lib/vars/inspector.svelte';
+  import { problemText } from '$lib/vars/text';
 
   interface Props {
     action: Action;
@@ -22,6 +25,16 @@
   const issues = $derived((ed.issues[action.id] ?? []).filter((i) => i.key === `node.${nodeId}`));
   const tokens = $derived(tokensForAction(action));
   const patch = (p: Record<string, unknown>) => ed.patchNode(action.id, nodeId, p);
+
+  provideVarHover({
+    card(key) {
+      let k: string | null = key;
+      while (k && !vi.usage.has(k)) k = k.includes('.') ? k.slice(0, k.lastIndexOf('.')) : null;
+      const info = k ? vi.info(k) : null;
+      return info && { key: info.key, value: info.value, exists: info.exists, usedIn: info.usedIn, problem: problemText(info.problem) };
+    },
+    open: (key) => (vi.details = key)
+  });
 </script>
 
 <aside class="insp" aria-label="Inspector">

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { ChatRules } from '$lib/bindings/ChatRules';
   import type { Credits } from '$lib/bindings/Credits';
   import type { Event } from '$lib/bindings/Event';
   import type { Layer } from '$lib/bindings/Layer';
@@ -19,6 +20,8 @@
     recent?: readonly Event[];
     /** Chat messages, oldest first. */
     chat?: readonly Event[];
+    /** The app's chat rules, for chat layers that use them. */
+    chatRules?: ChatRules | null;
     alert?: ActiveAlert | null;
     widgetState?: WidgetState;
     /** Per-layer visibility overrides (from `layer_visible`). */
@@ -55,6 +58,7 @@
     vars = {},
     recent = [],
     chat = [],
+    chatRules = null,
     alert = null,
     widgetState = {},
     visibility = {},
@@ -106,6 +110,9 @@
     },
     get chat() {
       return chat;
+    },
+    get chatRules() {
+      return chatRules;
     },
     get alert() {
       return alert;

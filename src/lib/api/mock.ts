@@ -5,7 +5,10 @@
 // `&oldscopes` for a Twitch sign-in made before the mod tools and `&crashed` for
 // the prompt shown after a crash.
 
+import { version as DEMO_VERSION } from '../../../package.json';
 import type { Backend, Unlisten } from './backend';
+import { isValidVarKey } from '$lib/pages/automation/validate';
+import { builtIn } from '$lib/vars/builtins';
 import starter from './fixtures/starter-project.json';
 import samples from './fixtures/sample-events.json';
 import type { Action } from '$lib/bindings/Action';
@@ -48,8 +51,11 @@ import { ACTION_LABELS, findConflict } from '$lib/pages/settings/hotkeys';
 import { DEFAULT_SOCIAL_TEMPLATE } from '$lib/sessions/summary';
 import { createInteractMock } from './mock-interact';
 import { createAdsMock } from './mock-ads';
+import { createMusicMock } from './mock-music';
+import { defaultChatRules } from '$lib/overlay/chat-filters';
 import { DEFAULT_END as DEFAULT_DISCORD_END } from '$lib/pages/settings/discord';
-import { credits, listItem, liveActivity, pastSessions, summarize, type DemoPerson, type DemoSession, type MakeEvent } from './mock-sessions';
+import { credits, demoClip, demoMarker, listItem, liveActivity, pastSessions, summarize, type DemoPerson, type DemoSession, type MakeEvent } from './mock-sessions';
+import { createUpdatesMock } from './mock-updates';
 
 type Listener = (payload: unknown) => void;
 
@@ -169,6 +175,8 @@ function defaultSettings(): Settings {
     },
     summary: { social_template: DEFAULT_SOCIAL_TEMPLATE },
     ads: { warn: true, warn_minutes: 1 },
+    updates: { auto_install: false, channel: 'stable' },
+    music: { source: 'spotify', spotify_client_id: 'demo-client-id', text_file: '', text_format: '{artist} - {title}' },
     discord: {
       webhooks: [
         {
@@ -343,6 +351,7 @@ export function createDemoBackend(): Backend {
     typeof location !== 'undefined' && new URLSearchParams(location.search).get('demo') === 'static';
 
   let project = clone(starter as unknown as Project);
+  project.chat_rules ??= defaultChatRules();
   let templates: Overlay[] = [];
   let settings = defaultSettings();
   const deaths = project.actions.find((a) => a.name === 'Count deaths');
@@ -388,6 +397,22 @@ export function createDemoBackend(): Backend {
   ];
   kinds.forEach(([k, i], n) => history.unshift(demoEvent(k, i, (kinds.length - n) * 95_000)));
   for (let i = 0; i < 18; i++) chat.push(chatEvent(i, (18 - i) * 21_000));
+  // Lines for chat filters: a bot, a command, a first-time chatter, a mention and a highlighted message.
+  const extra = (name: string, color: string, text: string, ago: number, data: Record<string, unknown> = {}): Event => {
+    const e = chatEvent(0, ago, text);
+    e.user = { id: `9${name.length}${ago}`, login: name.toLowerCase(), display_name: name };
+    e.roles = { broadcaster: false, moderator: false, vip: false, subscriber: false };
+    e.data = { color, badges: [], badge_images: [], ...data };
+    return e;
+  };
+  chat.push(
+    extra('Nightbot', '#7C7CE1', 'Follow the socials! castwright.sinist3r.lol', 150_000),
+    extra('glitchgoose', '#5FD3A5', '!uptime', 115_000),
+    extra('tinyowl', '#FFB4A2', 'hi! first time catching a stream, the alerts are lovely', 73_000, { first_chat: true }),
+    extra('river_dev', '#9AD0FF', '@Castwright what font is the chat in?', 52_000),
+    extra('wren_plays', '#F5C451', 'Happy stream day everyone!', 33_000, { message_type: 'channel_points_highlighted' })
+  );
+  chat.sort((a, b) => a.ts - b.ts);
 
   const makeEvent: MakeEvent = (kind, i, ts) => ({ ...demoEvent(kind, i, 0), ts });
   const sessions: DemoSession[] = pastSessions(
@@ -411,7 +436,12 @@ export function createDemoBackend(): Backend {
     firstChatters: ['quietfox', 'LumenLark'],
     alerts: 9,
     actions: 4,
-    markers: [{ ts: now() - 1_800_000, description: 'Clutch round' }],
+    markers: [
+      demoMarker(1, twitch.stream.started_at + 1_520_000, twitch.stream.started_at, 'Clutch round'),
+      demoMarker(2, now() - 1_800_000, twitch.stream.started_at, ''),
+      demoMarker(3, now() - 620_000, twitch.stream.started_at, 'Chat picked the next level')
+    ],
+    clips: [demoClip(now() - 1_790_000, 'No way that worked', 'Tonight1'), demoClip(now() - 300_000, 'Raid train arrives', 'Tonight2')],
     raidsOut: []
   };
   sessions.push(liveSession);
@@ -458,7 +488,8 @@ export function createDemoBackend(): Backend {
     'obs.scene': obs.program_scene,
     'twitch.login': twitch.broadcaster?.login ?? '',
     'twitch.display_name': twitch.broadcaster?.display_name ?? '',
-    'twitch.user_id': twitch.broadcaster?.id ?? ''
+    'twitch.user_id': twitch.broadcaster?.id ?? '',
+    'twitch.bot_login': twitch.bot?.login ?? ''
   };
   const assets: AssetInfo[] = [
     { name: 'fanfare.ogg', path: 'assets/fanfare.ogg', bytes: 182_331, kind: 'audio' },
@@ -473,8 +504,10 @@ export function createDemoBackend(): Backend {
     vars: Record<string, unknown>;
     key: string;
   }
-  const isLive = (k: string) => /^(stream|obs|twitch|ads)\./.test(k);
-  const savedVars = () => Object.fromEntries(Object.entries(vars).filter(([k]) => !isLive(k)));
+  const isLive = (k: string) => /^(stream|obs|twitch|ads|music)\./.test(k);
+  /** Variables set without "Keep after restart". */
+  const sessionOnly = new Set<string>();
+  const savedVars = () => Object.fromEntries(Object.entries(vars).filter(([k]) => !isLive(k) && !sessionOnly.has(k)));
   const contentKey = () => JSON.stringify([project, savedVars()]);
   const isDaily = (r: BackupReason) => r === 'startup' || r === 'daily';
   const backupEntry = (reason: BackupReason, ts: number, key = contentKey()): MockBackup => {
@@ -636,6 +669,8 @@ export function createDemoBackend(): Backend {
     })
   });
   ads.publish();
+  const music = createMusicMock({ emit, setVars, settings: () => settings, staticMode });
+  music.publish();
 
   if (!staticMode && typeof window !== 'undefined') {
     let n = 0;
@@ -750,7 +785,7 @@ export function createDemoBackend(): Backend {
         error: twitch.error
       },
       app: {
-        version: '0.7.0',
+        version: DEMO_VERSION,
         os: 'demo',
         arch: 'browser',
         portable: false,
@@ -767,14 +802,14 @@ export function createDemoBackend(): Backend {
     };
   };
   let crashNotice: CrashInfo | null = query.has('crashed')
-    ? { ts: now() - 3_600_000, version: '0.7.0', os: 'demo', thread: 'main', message: 'demo crash', location: 'src/demo.rs:1:1', backtrace: '', log: [] }
+    ? { ts: now() - 3_600_000, version: DEMO_VERSION, os: 'demo', thread: 'main', message: 'demo crash', location: 'src/demo.rs:1:1', backtrace: '', log: [] }
     : null;
   const bugReportFiles = (includeProject: boolean, window: unknown) => {
     const json = (v: unknown) => JSON.stringify(v, null, 2) + '\n';
     const health = { ...healthSnapshot(), window };
     const files = [
       { name: 'README.txt', what: 'What this is', data: 'Castwright bug report (demo)\nNothing was uploaded. To share it, attach this file to a GitHub issue.\n' },
-      { name: 'app.json', what: 'Version and system', data: json({ version: '0.7.0', os: 'demo', portable: false }) },
+      { name: 'app.json', what: 'Version and system', data: json({ version: DEMO_VERSION, os: 'demo', portable: false }) },
       { name: 'health.json', what: 'Health check', data: json(health) },
       { name: 'settings.json', what: 'Settings without secrets', data: json({ ...settings, server: { ...settings.server, token: '[removed]' } }) },
       { name: 'log.txt', what: 'Recent log', data: logs.map((l) => `${new Date(l.ts).toISOString()} ${l.level.toUpperCase()} [${l.source}] ${l.message}`).join('\n') + '\n' },
@@ -787,9 +822,41 @@ export function createDemoBackend(): Backend {
     if (includeProject) files.push({ name: 'project.json', what: 'Your project, without secrets', data: json(project) });
     return files;
   };
-  const reportName = () => `castwright-bug-report-0.7.0-${new Date().toISOString().slice(0, 10)}.zip`;
+  const reportName = () => `castwright-bug-report-${DEMO_VERSION}-${new Date().toISOString().slice(0, 10)}.zip`;
+
+  // Markers and clips, like src-tauri/src/moments.rs.
+  const streaming = () => twitch.stream.live || obs.stream.active;
+  const addMarker = () => {
+    if (!streaming()) throw { code: 'user', message: "Markers only work while you're live." };
+    const ts = now();
+    const m = demoMarker(liveSession.markers.length + 1, ts, liveSession.session.started_at);
+    liveSession.markers.push(m);
+    emit('cw://moment', { type: 'marker', marker: m });
+    return m;
+  };
+  let clipCount = 0;
+  const createClip = () => {
+    if (!streaming()) throw { code: 'user', message: "Clips only work while you're live." };
+    clipCount++;
+    const clip = demoClip(now(), '', `New${clipCount}`);
+    liveSession.clips.push(clip);
+    emit('cw://moment', { type: 'clip_started', id: clip.id });
+    setTimeout(() => {
+      clip.title = ['Chat called it', 'That was close', 'Perfect timing'][(clipCount - 1) % 3]!;
+      emit('cw://moment', { type: 'clip_ready', clip });
+    }, 1200);
+    return clip.id;
+  };
 
   const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
+    ...createUpdatesMock({ emit, live: streaming, settings: () => settings, query }),
+    stream_add_marker: () => addMarker(),
+    stream_marker_note: ({ id, note }) => {
+      const m = liveSession.markers.find((x) => x.id === id);
+      if (!m) throw { code: 'user', message: "That marker wasn't found." };
+      m.note = String(note).trim().slice(0, 200);
+    },
+    stream_create_clip: () => createClip(),
     get_project: () => project,
     save_overlay: ({ overlay }) => {
       const o = clone(overlay as Overlay);
@@ -982,8 +1049,33 @@ export function createDemoBackend(): Backend {
       return report;
     },
     get_vars: () => vars,
-    set_var: ({ key, value }) => setVars({ [String(key)]: value }),
+    set_var: ({ key, value, persist }) => {
+      if (persist) sessionOnly.delete(String(key));
+      else sessionOnly.add(String(key));
+      setVars({ [String(key)]: value });
+    },
+    saved_var_keys: () => Object.keys(savedVars()).sort(),
+    rename_var: ({ from, to, project: next }) => {
+      const [a, b] = [String(from), String(to)];
+      if (builtIn(a) || isLive(a)) throw { code: 'user', message: "Built-in variables can't be renamed." };
+      if (!isValidVarKey(b)) throw { code: 'user', message: 'Variable names can use letters, numbers, dots, dashes and underscores.' };
+      if (a in vars && (builtIn(b) || isLive(b) || b in vars)) throw { code: 'user', message: `There's already a variable called ${b}.` };
+      const made = makeBackup('before_rename');
+      const backup = made?.file ?? backups[0]?.info.file ?? null;
+      project = clone(next as Project);
+      if (a in vars) {
+        const value = vars[a];
+        const kept = !sessionOnly.has(a);
+        sessionOnly.delete(a);
+        if (!kept) sessionOnly.add(b);
+        setVars({ [a]: null, [b]: value });
+        delete vars[a];
+      }
+      emit('cw://project', {});
+      return { project, backup };
+    },
     delete_var: ({ key }) => {
+      sessionOnly.delete(String(key));
       delete vars[String(key)];
       emit('cw://vars', { [String(key)]: null });
     },
@@ -1067,7 +1159,7 @@ export function createDemoBackend(): Backend {
       settings.twitch.client_id = String(clientId);
     },
     app_info: () => ({
-      version: '0.7.0',
+      version: DEMO_VERSION,
       os: 'demo',
       project_dir: '~/Castwright/Projects/Default',
       config_dir: '~/.config/castwright',
@@ -1207,6 +1299,12 @@ export function createDemoBackend(): Backend {
     },
     ...interact.handlers,
     ...ads.handlers,
+    ...music.handlers,
+    save_chat_rules: ({ rules }) => {
+      project.chat_rules = clone(rules as Project['chat_rules']);
+      emit('cw://project', {});
+      return project.chat_rules;
+    },
     obs_snapshot: () => obs,
     obs_connect: () => undefined,
     obs_disconnect: () => undefined,
@@ -1324,7 +1422,7 @@ export function createDemoBackend(): Backend {
       const h = handlers[cmd];
       if (!h) throw { code: 'other', message: `Unknown command: ${cmd}` };
       await new Promise((r) => setTimeout(r, 0));
-      return clone(h(args)) as T;
+      return clone(await h(args)) as T;
     },
     async listen<T>(event: string, cb: (payload: T) => void): Promise<Unlisten> {
       const set = listeners.get(event) ?? new Set<Listener>();
