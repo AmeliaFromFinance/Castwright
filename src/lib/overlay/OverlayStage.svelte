@@ -4,11 +4,13 @@
   import type { Event } from '$lib/bindings/Event';
   import type { Layer } from '$lib/bindings/Layer';
   import type { Overlay } from '$lib/bindings/Overlay';
+  import type { TimerRun } from '$lib/bindings/TimerRun';
   import { evaluateGroup } from '$lib/logic/condition';
   import type { Phase } from './anim';
   import { setStageCtx, type StageMode, type WidgetStoreFn } from './context';
   import type { OverlayFeed } from './feed';
-  import { ensureFonts, fontsFor } from './fonts';
+  import { ensureFonts, fontsFor, resolveFont } from './fonts';
+  import { DEFAULT_FONT_VAR, fontStack } from './styles';
   import LayerView from './LayerView.svelte';
   import { baseVisible, currentScene, sceneAllows } from './scenes';
   import type { ActiveAlert, WidgetState } from './state';
@@ -22,6 +24,8 @@
     chat?: readonly Event[];
     /** The app's chat rules, for chat layers that use them. */
     chatRules?: ChatRules | null;
+    /** The project's default font, for text set to `Default`. */
+    defaultFont?: string | null;
     alert?: ActiveAlert | null;
     widgetState?: WidgetState;
     /** Per-layer visibility overrides (from `layer_visible`). */
@@ -51,6 +55,8 @@
     rolls?: Record<string, number>;
     /** A credits layer wants fresh names. */
     onLoadCredits?: () => void;
+    /** Started, paused or reset timer layers, by layer id. */
+    timers?: Record<string, TimerRun>;
   }
 
   let {
@@ -59,6 +65,7 @@
     recent = [],
     chat = [],
     chatRules = null,
+    defaultFont = null,
     alert = null,
     widgetState = {},
     visibility = {},
@@ -74,7 +81,8 @@
     onWidgetStore,
     credits = null,
     rolls = {},
-    onLoadCredits
+    onLoadCredits,
+    timers = {}
   }: Props = $props();
 
   /** Rolls started here (editor), on top of the ones from the app. */
@@ -141,6 +149,9 @@
     get rolls() {
       return allRolls;
     },
+    get timers() {
+      return timers;
+    },
     loadCredits: () => onLoadCredits?.(),
     assetUrl: (p: string) => {
       try {
@@ -152,15 +163,16 @@
     storeWidgetValue: (layerId: string, key: string, value: unknown) => onWidgetStore?.(layerId, key, value)
   });
 
+  const baseFont = $derived(resolveFont(null, defaultFont));
   const fontKey = $derived(
     JSON.stringify(
-      fontsFor(overlay, alert ? [alert.play.title_style, alert.play.message_style] : []).map((f) => [f.family, [...f.weights], f.italic])
+      fontsFor(overlay, alert ? [alert.play.title_style, alert.play.message_style] : [], baseFont).map((f) => [f.family, [...f.weights], f.italic])
     )
   );
   $effect(() => {
     void fontKey;
     try {
-      ensureFonts(fontsFor(overlay, alert ? [alert.play.title_style, alert.play.message_style] : []));
+      ensureFonts(fontsFor(overlay, alert ? [alert.play.title_style, alert.play.message_style] : [], baseFont));
     } catch (err) {
       console.warn('[overlay] font loading failed', err);
     }
@@ -185,7 +197,7 @@
     class:cw-clip={clip}
     class:cw-editor={mode === 'editor'}
     data-overlay-id={overlay?.id}
-    style="width:{width}px;height:{height}px;{s !== 1 ? `transform:scale(${s});` : ''}"
+    style="width:{width}px;height:{height}px;{DEFAULT_FONT_VAR}:{fontStack(baseFont)};{s !== 1 ? `transform:scale(${s});` : ''}"
   >
     {#each layers as layer (layer.id)}
       <LayerView

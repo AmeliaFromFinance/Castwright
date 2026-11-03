@@ -216,6 +216,7 @@ Every state option also takes `toggle`, which flips the current state.
 | --- | --- | --- | --- |
 | Show/hide overlay layer | `set_layer_visible` | Overlay, layer, state (`on`) | Changes the layer's visibility switch and saves it in the project. A [scene rule](/guide/overlay-editor/#scenes) can still hide it. |
 | Roll credits | `roll_credits` | Overlay, credits layer | Starts the [credits layer](/guide/overlay-editor/#credits-layer) from the top with the stream's latest names. Shows the layer if it's hidden. Running it again restarts the roll. |
+| Timer | `timer_control` | Overlay, timer layer, action (`start`), seconds (0) | For countdown and stopwatch layers. Actions: `start` (from the beginning), `pause`, `resume`, `toggle`, `reset` and `add`. `add` adds the seconds; below 0 takes time off. See [Timer controls](/guide/overlay-editor/#timer-controls). |
 | Play alert | `play_alert` | Title (T), message (T, empty), image (empty), sound (empty), duration in ms (6000) | Joins the alert queue. Duration is kept between 500 and 120,000 ms. |
 | Pause alerts | `pause_alerts` | State (`on`) | `on` pauses the queue, `off` resumes it. The alert on screen still finishes. |
 | Skip alert | `skip_alert` | None | Ends the alert on screen. Does nothing when no alert is playing. |

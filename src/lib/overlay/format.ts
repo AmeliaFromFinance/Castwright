@@ -1,5 +1,7 @@
 import type { TimerMode } from '$lib/bindings/TimerMode';
+import type { TimerRun } from '$lib/bindings/TimerRun';
 import { asNumber } from '$lib/logic/condition';
+import { timerElapsed } from './timer';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -27,6 +29,8 @@ export interface TimerInput {
   /** `vars['stream.started_at']` (ms). */
   streamStartedAt: unknown;
   now: number;
+  /** Started, paused or reset from the app. Wins over the anchor and page load. */
+  run?: TimerRun | null;
 }
 
 function timestamp(v: unknown): number | null {
@@ -39,6 +43,7 @@ function timestamp(v: unknown): number | null {
  *
  * Countdown: ends `duration_s` after the anchor (or page load). With an anchor and
  * `duration_s` 0, the anchor is the end time. Shows the full length until the anchor is set.
+ * Once started or paused from the app, that state is used instead.
  */
 export function timerText(t: TimerInput): string {
   switch (t.mode) {
@@ -49,11 +54,13 @@ export function timerText(t: TimerInput): string {
       return start === null ? '' : formatDuration((t.now - start) / 1000);
     }
     case 'stopwatch': {
+      if (t.run) return formatDuration(timerElapsed(t.run, t.now) / 1000);
       const start = t.hasAnchor ? timestamp(t.anchor) : t.loadedAt;
       return formatDuration(start === null ? 0 : (t.now - start) / 1000);
     }
     case 'countdown': {
       const duration = Math.max(0, t.durationS) * 1000;
+      if (t.run) return formatDuration(Math.ceil(Math.max(0, duration - timerElapsed(t.run, t.now)) / 1000 - 1e-6));
       let end: number;
       if (t.hasAnchor) {
         const a = timestamp(t.anchor);

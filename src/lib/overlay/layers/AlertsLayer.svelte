@@ -20,7 +20,7 @@
   let { layerId, width, height }: Props = $props();
   const ctx = getStageCtx();
 
-  let current = $state<AlertPlay | null>(null);
+  let current = $state.raw<AlertPlay | null>(null);
   let card = $state<HTMLElement>();
   let video = $state<HTMLVideoElement>();
   let timers: ReturnType<typeof setTimeout>[] = [];
@@ -198,16 +198,19 @@
         void start(a);
       } else if (a.stoppedAt !== null && !exiting) {
         runExit(a.play, alertTimes(a).endAt);
+      } else if (current !== a.play && !exiting) {
+        // Same alert with new content (editor preview): update without restarting.
+        current = a.play;
       }
     });
   });
 
   // Alert video: with sound on the audio layer, muted elsewhere.
+  const volume = $derived(current ? Math.min(1, Math.max(0, current.volume / 100)) || 0 : 0);
   $effect(() => {
     const v = video;
-    const p = current;
-    if (!v || !p) return;
-    v.volume = Math.min(1, Math.max(0, p.volume / 100));
+    if (!v) return;
+    v.volume = volume;
     v.muted = !isAudio;
     v.play().catch(() => {
       if (!v.muted) {
@@ -240,7 +243,16 @@
           <div class="cw-alert-media">
             {#if videoUrl}
               <!-- svelte-ignore a11y_media_has_caption -->
-              <video bind:this={video} src={videoUrl} autoplay playsinline muted loop preload="auto"></video>
+              <video
+                bind:this={video}
+                src={videoUrl}
+                autoplay
+                playsinline
+                muted
+                loop
+                preload="auto"
+                onerror={() => console.warn(`[overlay] alert video failed to load: ${current?.video ?? ''}`)}
+              ></video>
             {:else}
               <img src={imageUrl} alt="" draggable="false" />
             {/if}

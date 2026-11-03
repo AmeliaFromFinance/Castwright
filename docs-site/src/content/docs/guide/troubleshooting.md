@@ -36,6 +36,12 @@ Overlay sound goes through OBS, not your speakers.
 - If Settings lists event types Twitch refused, sign out and in again to grant the missing permissions.
 - Use **Alerts → Test** to check the alert itself works.
 
+## An alert video doesn't play
+
+- Files can be up to 512 MB. A bigger file is refused with a message. Shorten or compress it first.
+- Use `webm` or `mp4` (H.264). On Linux, `mp4` needs the GStreamer `libav` plugins (often `gstreamer1.0-libav`).
+- Check that the file is still in the asset list. A missing file shows **(missing)** in the picker.
+
 ## A chat command doesn't answer
 
 - Is the action **enabled**, and does the command name match (without `!`)?

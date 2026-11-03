@@ -57,7 +57,7 @@ export function newId(): string {
 
 export function defaultTextStyle(): TextStyle {
   return {
-    font_family: 'Inter',
+    font_family: 'Default',
     font_size: 28,
     font_weight: 600,
     color: '#ffffff',
@@ -116,6 +116,7 @@ export function kindDefaults<T extends LayerType>(type: T): KindOf<T> {
       style: defaultTextStyle(),
       bubble: defaultBoxStyle(),
       newest_on_top: false,
+      stack: 'auto',
       seventv_emotes: true,
       bttv_emotes: true,
       ffz_emotes: true,
@@ -143,6 +144,8 @@ export function kindDefaults<T extends LayerType>(type: T): KindOf<T> {
       kinds: [],
       max_items: 5,
       direction: 'vertical',
+      newest_on_top: true,
+      ticker_dir: 'left',
       item_format: '',
       style: defaultTextStyle(),
       item_box: defaultBoxStyle(),
@@ -168,6 +171,7 @@ export function kindDefaults<T extends LayerType>(type: T): KindOf<T> {
       fit_s: 0,
       repeat: false,
       start: 'on_load',
+      scroll: 'up',
       heading: '',
       footer: '',
       names: 'plain',
@@ -238,6 +242,7 @@ export function kindDefaults<T extends LayerType>(type: T): KindOf<T> {
       type: 'queue',
       show_playing: true,
       next_count: 5,
+      first_on_top: true,
       show_positions: true,
       show_notes: true,
       hide_empty: true,

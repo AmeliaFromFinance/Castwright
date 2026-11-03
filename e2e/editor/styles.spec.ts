@@ -196,3 +196,28 @@ test('side columns resize and remember their width', async ({ page }) => {
   await page.keyboard.press('Shift+ArrowLeft');
   await expect.poll(async () => Math.round((await side.boundingBox())!.width)).toBe(Math.round(s0 + 64));
 });
+
+test('the default font reaches text set to Default', async ({ page }) => {
+  await openEditor(page);
+  await selectLayer(page, 'Chat');
+  const chat = canvas(page).locator('.cw-type-chat .cw-chat');
+  // The starter project names Inter; switch the chat layer to Default.
+  await expect(page.getByLabel('Font', { exact: true }).first()).toHaveValue('Inter');
+  await page.getByRole('button', { name: 'Use the default font' }).first().click();
+  await expect(page.getByLabel('Font', { exact: true }).first()).toHaveValue('Default');
+  await expect.poll(() => style(chat, 'font-family')).toMatch(/^"?Inter"?,/);
+
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Appearance' }).click();
+  const font = page.getByRole('combobox', { name: 'Default font' });
+  await expect(font).toHaveValue('Inter');
+  await font.fill('Bangers');
+  await font.press('Tab');
+
+  // Back to the editor, still open.
+  await page.getByRole('button', { name: 'Overlays', exact: true }).click();
+  await expect(page.getByLabel('Overlay name')).toHaveValue('Gameplay HUD');
+  await expect.poll(() => style(chat, 'font-family')).toMatch(/^"?Bangers"?,/);
+  // Layers that name a font keep it.
+  expect(await style(canvas(page).locator('.cw-type-goal').first(), 'font-family')).not.toContain('Bangers');
+});

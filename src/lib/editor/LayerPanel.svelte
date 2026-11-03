@@ -7,18 +7,25 @@
   import type { EditorStore } from './store.svelte';
   import LayerIcon from './ui/LayerIcon.svelte';
 
-  let { store }: { store: EditorStore } = $props();
+  let { store, onmenu }: { store: EditorStore; onmenu?: (e: MouseEvent, layerId: string) => void } = $props();
 
   const SHORT: Record<string, string> = { event_list: 'Events', custom: 'Widget', poll: 'Poll', credits: 'Credits', ad_break: 'Ads', now_playing: 'Music', hype_train: 'Hype', giveaway: 'Giveaway', queue: 'Queue' };
 
   /** Front layer first. */
   const rows = $derived(store.doc.layers.slice().reverse());
-  const sel = $derived(store.selected);
+  const sel = $derived(store.multi ? null : store.selected);
+  const count = $derived(store.selectedIds.length);
   const selIndex = $derived(sel ? store.doc.layers.findIndex((l) => l.id === sel.id) : -1);
 
   let renaming = $state<string | null>(null);
   let dragRow = $state<number | null>(null);
   let dropBefore = $state<number | null>(null);
+
+  function pick(e: MouseEvent, id: string) {
+    if (e.shiftKey) store.selectRange(id, rows.map((r) => r.id));
+    else if (e.ctrlKey || e.metaKey) store.toggleSelect(id);
+    else store.select(id);
+  }
 
   async function startRename(id: string) {
     renaming = id;
@@ -97,10 +104,10 @@
       <IconButton size="sm" label="Send backward" disabled={!sel || selIndex === 0} onclick={() => sel && store.move(sel.id, -1)}>
         <ArrowDown />
       </IconButton>
-      <IconButton size="sm" label="Duplicate layer" disabled={!sel} onclick={() => sel && store.duplicate(sel.id)}>
+      <IconButton size="sm" label={count > 1 ? `Duplicate ${count} layers` : 'Duplicate layer'} disabled={!count} onclick={() => store.duplicateMany(store.selectedIds)}>
         <Copy />
       </IconButton>
-      <IconButton size="sm" label="Delete layer" tone="danger" disabled={!sel} onclick={() => sel && store.remove(sel.id)}>
+      <IconButton size="sm" label={count > 1 ? `Delete ${count} layers` : 'Delete layer'} tone="danger" disabled={!count} onclick={() => store.removeMany(store.selectedIds)}>
         <Trash2 />
       </IconButton>
     </header>
@@ -109,7 +116,7 @@
         {#each rows as l, i (l.id)}
           <li
             class="item"
-            class:on={l.id === store.selectedId}
+            class:on={store.isSelected(l.id)}
             class:hidden={!l.visible}
             class:scene-off={!!store.previewScene && !sceneAllows(l.scenes, store.previewScene)}
             class:dragging={dragRow === i}
@@ -120,6 +127,11 @@
             ondragstart={(e) => onDragStart(e, i)}
             ondragover={(e) => onDragOver(e, i)}
             ondrop={onDrop}
+            oncontextmenu={(e) => {
+              if (renaming === l.id) return;
+              e.preventDefault();
+              onmenu?.(e, l.id);
+            }}
             ondragend={() => {
               dragRow = null;
               dropBefore = null;
@@ -147,9 +159,10 @@
                 type="button"
                 class="pick"
                 id="layer-{l.id}"
-                aria-pressed={l.id === store.selectedId}
-                title="{typeLabel(l.kind.type)} · double-click or F2 to rename"
-                onclick={() => store.select(l.id)}
+                aria-pressed={store.isSelected(l.id)}
+                title="{typeLabel(l.kind.type)} · double-click or F2 to rename. Ctrl or Shift + click to pick several."
+                onmousedown={(e) => e.shiftKey && e.preventDefault()}
+                onclick={(e) => pick(e, l.id)}
                 ondblclick={() => startRename(l.id)}
                 onkeydown={(e) => onRowKey(e, l.id)}
               >

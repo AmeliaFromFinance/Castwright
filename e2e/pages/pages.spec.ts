@@ -26,6 +26,44 @@ async function open(page: Page, section: 'Alerts' | 'Automation'): Promise<strin
   return errors;
 }
 
+test('alerts: a video on the follow alert', async ({ page }) => {
+  const errors = await open(page, 'Alerts');
+  await page.getByRole('button', { name: /^Follow/ }).click();
+  await expect(page.getByRole('heading', { level: 2, name: 'Follow' })).toBeVisible();
+  const card = page.locator('[data-variation]').first();
+  const expand = card.getByRole('button', { expanded: false }).and(card.locator('.expand'));
+  if (await expand.count()) await expand.click();
+
+  const preview = page.getByRole('region', { name: 'Preview' });
+  const shown = preview.locator('[data-alert-id]');
+  await expect(shown).toBeVisible();
+
+  await card.getByRole('combobox', { name: 'Image' }).selectOption('assets/logo.png');
+  const video = card.getByRole('combobox', { name: 'Video' });
+  await video.selectOption('assets/stinger.webm');
+  await expect(video).toHaveValue('assets/stinger.webm');
+  await expect(card.getByRole('combobox', { name: 'Image' })).toHaveValue('');
+
+  // Edits update the card in place instead of restarting it (and its video).
+  const id = await shown.getAttribute('data-alert-id');
+  const title = card.getByRole('textbox', { name: 'Title', exact: true });
+  await title.fill('New follower: {{name}}');
+  await expect(shown).toContainText('New follower:');
+  await card.getByLabel('On screen (s)').fill('7');
+  await expect(shown).toHaveAttribute('data-alert-id', id!);
+
+  // A replay starts it again.
+  await preview.getByRole('button', { name: 'Replay' }).click();
+  await expect(shown).not.toHaveAttribute('data-alert-id', id!);
+
+  // Saved: still there after leaving the page.
+  await page.getByRole('navigation', { name: 'Main sections' }).getByRole('button', { name: 'Activity' }).click();
+  await page.getByRole('navigation', { name: 'Main sections' }).getByRole('button', { name: 'Alerts' }).click();
+  await page.getByRole('button', { name: /^Follow/ }).click();
+  await expect(page.locator('[data-variation]').first().getByRole('combobox', { name: 'Video' })).toHaveValue('assets/stinger.webm');
+  expect(errors).toEqual([]);
+});
+
 test('alerts: variations, preview, order and queue', async ({ page }) => {
   const errors = await open(page, 'Alerts');
 

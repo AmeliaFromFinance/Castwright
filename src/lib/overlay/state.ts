@@ -4,6 +4,7 @@ import type { Credits } from '$lib/bindings/Credits';
 import type { Event } from '$lib/bindings/Event';
 import type { Overlay } from '$lib/bindings/Overlay';
 import type { OverlayMsg } from '$lib/bindings/OverlayMsg';
+import type { TimerRun } from '$lib/bindings/TimerRun';
 
 export const CHAT_KEEP = 200;
 export const RECENT_KEEP = 50;
@@ -35,10 +36,14 @@ export interface OverlayState {
   rolls: Record<string, number>;
   /** The app's chat rules, for chat layers that use them. */
   chatRules: ChatRules | null;
+  /** The project's default font. */
+  defaultFont: string | null;
+  /** Started, paused or reset timer layers, by layer id. */
+  timers: Record<string, TimerRun>;
 }
 
 export function emptyState(): OverlayState {
-  return { overlay: null, vars: {}, recent: [], chat: [], widgetState: {}, alert: null, visibility: {}, credits: null, rolls: {}, chatRules: null };
+  return { overlay: null, vars: {}, recent: [], chat: [], widgetState: {}, alert: null, visibility: {}, credits: null, rolls: {}, chatRules: null, defaultFont: null, timers: {} };
 }
 
 function isObj(v: unknown): v is Record<string, unknown> {
@@ -87,7 +92,9 @@ export function reduce(state: OverlayState, msg: OverlayMsg, now: number = Date.
         visibility: {},
         credits: state.credits,
         rolls: state.rolls,
-        chatRules: isObj(msg.chat_rules) ? msg.chat_rules : state.chatRules
+        chatRules: isObj(msg.chat_rules) ? msg.chat_rules : state.chatRules,
+        defaultFont: typeof msg.default_font === 'string' && msg.default_font ? msg.default_font : state.defaultFont,
+        timers: isObj(msg.timers) ? (msg.timers as Record<string, TimerRun>) : {}
       };
     }
     case 'overlay':
@@ -134,6 +141,11 @@ export function reduce(state: OverlayState, msg: OverlayMsg, now: number = Date.
       return { ...state, credits: msg.credits, rolls: { ...state.rolls, [msg.layer_id]: (state.rolls[msg.layer_id] ?? 0) + 1 } };
     case 'chat_rules':
       return isObj(msg.rules) ? { ...state, chatRules: msg.rules } : state;
+    case 'default_font':
+      return typeof msg.font === 'string' && msg.font !== state.defaultFont ? { ...state, defaultFont: msg.font } : state;
+    case 'timer':
+      if (typeof msg.layer_id !== 'string' || !isObj(msg.run)) return state;
+      return { ...state, timers: { ...state.timers, [msg.layer_id]: msg.run } };
     case 'play_sound':
     case 'sound_play':
     case 'sound_stop':

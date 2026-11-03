@@ -216,6 +216,16 @@ pub enum Step {
         overlay_id: String,
         layer_id: String,
     },
+    /// Start, pause, resume or reset a countdown or stopwatch layer, or add time.
+    TimerControl {
+        overlay_id: String,
+        layer_id: String,
+        #[serde(default)]
+        action: super::runtime::TimerAction,
+        /// For add. Below 0 takes time off.
+        #[serde(default)]
+        seconds: f64,
+    },
     PlayAlert {
         title: String,
         #[serde(default)]

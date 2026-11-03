@@ -206,3 +206,40 @@ async fn delete_events_reach_the_window_and_overlays() {
         OverlayMsg::ChatClear
     ));
 }
+
+#[tokio::test]
+async fn mod_actions_remove_chat_right_away() {
+    use crate::model::event::{Event, EventKind};
+    let mock = MockServer::start().await;
+    let s = setup(&mock, "ws://127.0.0.1:1", broadcaster);
+    let say = |id: &str, user: &str| {
+        let mut e = Event::new(EventKind::Chat).with_user("v", "V");
+        e.id = id.into();
+        e.user.as_mut().unwrap().id = user.into();
+        s.hub.publish(e);
+    };
+    say("m1", "999");
+    say("m2", "999");
+    say("m3", "42");
+    let mut ov = s.hub.subscribe_overlays();
+    let ids = |hub: &Hub| {
+        hub.recent_chat()
+            .into_iter()
+            .map(|e| e.id)
+            .collect::<Vec<_>>()
+    };
+
+    s.svc.delete_chat_message("m3").await.unwrap();
+    assert_eq!(ids(&s.hub), ["m1", "m2"]);
+    assert!(matches!(
+        ov.recv().await.unwrap().msg,
+        OverlayMsg::ChatDelete { message_id } if message_id == "m3"
+    ));
+
+    s.svc.ban("999", Some(60), "").await.unwrap();
+    assert!(ids(&s.hub).is_empty());
+    assert!(matches!(
+        ov.recv().await.unwrap().msg,
+        OverlayMsg::ChatClearUser { user_id } if user_id == "999"
+    ));
+}

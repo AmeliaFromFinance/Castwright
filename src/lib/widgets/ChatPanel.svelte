@@ -36,7 +36,9 @@
 
   const signedIn = $derived(!!app.twitch?.broadcaster);
   const hasBot = $derived(!!app.twitch?.bot);
-  const all = $derived(app.chat.slice(-200));
+  /** Mods may want to see what Twitch removed, crossed out. */
+  let showRemoved = $state(loadPref<boolean>('chat.showRemoved', false));
+  const all = $derived((showRemoved ? app.chat : app.liveChat).slice(-200));
 
   // Filters: the app's rules, used here unless switched off.
   const FILTER_DEFAULTS = { enabled: true, showHidden: false };
@@ -238,6 +240,15 @@
         {#each OPTIONS as [key, label] (key)}
           <Switch {label} showLabel checked={opts[key]} onchange={(v) => setOption(key, v)} />
         {/each}
+        <Switch
+          label="Show removed messages"
+          showLabel
+          checked={showRemoved}
+          onchange={(v) => {
+            showRemoved = v;
+            savePref('chat.showRemoved', v);
+          }}
+        />
         <div class="menu-head">Filters</div>
         <Switch label="Use filters" showLabel checked={filterPrefs.enabled} onchange={(v) => setFilterPref('enabled', v)} />
         {#if filterPrefs.enabled}
@@ -292,7 +303,7 @@
       title={v.highlights.length ? v.highlights.map((h) => HIGHLIGHT_LABELS[h]).join(' · ') : undefined}
       class:menu-open={menu?.message.id === m.id}
       tabindex={m.id === tabbable ? 0 : -1}
-      aria-label="{m.user?.display_name ?? ''}: {m.message ?? ''}{deleted ? ' (deleted)' : ''}{v.highlights.length ? ` (${v.highlights.map((h) => HIGHLIGHT_LABELS[h]).join(', ')})` : ''}"
+      aria-label="{m.user?.display_name ?? ''}: {m.message ?? ''}{deleted ? ' (removed)' : ''}{v.highlights.length ? ` (${v.highlights.map((h) => HIGHLIGHT_LABELS[h]).join(', ')})` : ''}"
       onfocus={() => (focusId = m.id)}
       onkeydown={(e) => onItemKey(e, m, i)}
       oncontextmenu={(e) => {
@@ -311,7 +322,7 @@
         onclick={(e) => m.user && (mod.card = { user: m.user, x: e.clientX + 8, y: e.clientY + 8 })}>{m.user?.display_name ?? ''}</button
       ><span class="colon">:</span>
       <span class="msg selectable"><ChatText pieces={chatPieces(messageParts(m), emotes)} height={emoteHeight} /></span>
-      {#if deleted}<span class="tag">deleted</span>{/if}
+      {#if deleted}<span class="tag">removed</span>{/if}
       {#if v.highlights.includes('first')}<span class="tag hl-tag">first message</span>{/if}
       {#if v.highlights.includes('redeemed')}<span class="tag hl-tag">highlighted</span>{/if}
       {#if m.user}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { OverlayStage } from '$lib/overlay';
+  import { app } from '$lib/state/app.svelte';
   import { BOX_PRESETS, type BoxPreset, type PresetTarget } from '$lib/overlay/presets';
   import { PREVIEW_CHAT, PREVIEW_EVENTS, PREVIEW_H, PREVIEW_W, previewAlert, previewOverlay } from './preset-preview';
 
@@ -42,6 +43,7 @@
     chat={target === 'chat' ? PREVIEW_CHAT : []}
     recent={target === 'events' ? PREVIEW_EVENTS : []}
     alert={target === 'alert' ? previewAlert(p) : null}
+    defaultFont={app.project?.default_font}
     {scale}
     mode="editor"
     paused

@@ -22,7 +22,7 @@ Nodes can sit anywhere. Lines can go from any side of a node to any side of anot
 - **Move a node**: drag it. With **Snap** on it lines up with the grid; hold <kbd>Alt</kbd> to place it freely.
 - **Drag past the edge**: while you drag a node, a line or a selection box, hold the pointer near the edge of the canvas and the view scrolls. The closer to the edge, the faster. <kbd>Esc</kbd> stops.
 - **Connect two nodes**: hover a node, drag from one of the dots on its sides and drop on another node.
-- **Add a step**: double-click empty space, use the bar at the bottom (with a node selected, the new step goes under it and is connected), or drag a line from a dot and let go on empty space.
+- **Add a step**: right-click or double-click empty space, press <kbd>A</kbd>, use the bar at the bottom (with a node selected, the new step goes under it and is connected), or drag a line from a dot and let go on empty space. See [menus and search](#menus-and-search).
 - **Edit**: click a node. Its settings open beside the flow.
 - **Lines from an If**: the first is **Then**, the second **Otherwise**. Click the label on a line to switch between Then, Otherwise and **Always**.
 - **Select several**: <kbd>Shift</kbd> or <kbd>Ctrl</kbd> + click, or <kbd>Shift</kbd> + drag a box. Dragging one moves them all.
@@ -41,6 +41,8 @@ A dashed node with **Not connected** can't run because no trigger leads to it. T
 | <kbd>Ctrl</kbd> + <kbd>G</kbd> | Put the selection in a frame |
 | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> | Remove the selected frame (or the frame of the selected nodes), keeping what's inside |
 | <kbd>Shift</kbd> + double-click | Add a note there |
+| <kbd>A</kbd> or <kbd>/</kbd> | Search steps and triggers, and add one where the pointer is |
+| <kbd>Shift</kbd> + <kbd>F10</kbd> or the menu key | Open the menu for the selection (or the canvas menu) |
 | Arrow keys | Nudge the selection (<kbd>Shift</kbd> for a grid step) |
 | <kbd>Enter</kbd> / <kbd>Esc</kbd> | Open or close the settings (on a note: edit it, on a frame: rename it); <kbd>Esc</kbd> again clears the selection |
 | <kbd>Esc</kbd> while dragging | Stop where you are (a line being drawn is dropped) |
@@ -48,6 +50,26 @@ A dashed node with **Not connected** can't run because no trigger leads to it. T
 | <kbd>F</kbd> | Fit the whole flow in view |
 | <kbd>Space</kbd> + drag | Move around (so does the middle mouse button) |
 | <kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> | Undo and redo |
+
+## Menus and search
+
+Right-click anything on the canvas for a menu. <kbd>Esc</kbd>, a click outside or scrolling closes it.
+
+![Canvas menu with a search](../../../assets/screens/automation-menu.png)
+
+**Empty canvas**
+
+- Type to search every step and trigger by name, group or a related word (`wait`, `sleep` and `pause` all find **Wait**). Spelling can be loose.
+- <kbd>↑</kbd> / <kbd>↓</kbd> to pick, <kbd>Enter</kbd> to add. The new node goes where you right-clicked.
+- With an empty search, the steps you added last are at the top.
+- **Add after selected**: with nodes selected, the new step is connected under them.
+- Also **Paste**, **Add note**, **Add frame**, **Select all**, **Tidy up** and **Fit to view**.
+
+**A node**: **Open in inspector**, **Insert step after…** (search, then the new step is connected under it), **Duplicate**, **Copy**, **Group in frame**, **Disconnect all** and **Delete**. With several nodes selected, the menu works on all of them.
+
+**A line**: **Insert step here…** puts a new step in the middle of the line. A line from an If keeps its Then or Otherwise. Lines from an If can also switch between **Then**, **Otherwise** and **Always**. **Delete line** removes it.
+
+The bottom bar opens the same search, showing only that group.
 
 ## Notes and frames
 

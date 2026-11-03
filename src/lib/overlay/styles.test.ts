@@ -82,6 +82,11 @@ describe('text and box styles', () => {
     expect(fontStack('Inter, sans-serif')).toBe('Inter, sans-serif');
     expect(fontStack('')).toContain('system-ui');
   });
+  it('points Default and empty fonts at the stage default', () => {
+    for (const f of ['Default', 'default', '', '  ']) expect(fontStack(f)).toMatch(/^var\(--cw-default-font, "Inter", /);
+    expect(textStyleCss({ ...DEFAULT_TEXT, font_family: 'Default' })).toContain('font-family:var(--cw-default-font');
+    expect(DEFAULT_TEXT.font_family).toBe('Default');
+  });
 });
 
 describe('box frames', () => {

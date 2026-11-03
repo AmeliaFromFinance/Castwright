@@ -12,4 +12,8 @@ export type Project = { format: number, name: string, overlays: Array<Overlay>, 
 /**
  * What the chat panel and chat layers hide and highlight.
  */
-chat_rules: ChatRules, soundboard: Soundboard, };
+chat_rules: ChatRules, soundboard: Soundboard, 
+/**
+ * Font for overlay text set to `Default`. Part of the look, so it travels with backups.
+ */
+default_font: string, };

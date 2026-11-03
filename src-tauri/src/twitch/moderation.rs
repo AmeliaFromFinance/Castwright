@@ -96,12 +96,14 @@ impl TwitchService {
         self.mod_call(
             Method::DELETE,
             "/moderation/chat",
-            vec![("message_id", id)],
+            vec![("message_id", id.clone())],
             None,
             "delete chat messages",
         )
-        .await
-        .map(|_| ())
+        .await?;
+        // Don't wait for EventSub: it may be missing or slow.
+        self.hub.delete_chat(&id);
+        Ok(())
     }
 
     /// `duration_s` None = permanent ban.
@@ -126,8 +128,9 @@ impl TwitchService {
             Some(&json!({ "data": data })),
             what,
         )
-        .await
-        .map(|_| ())
+        .await?;
+        self.hub.clear_chat_user(&user_id);
+        Ok(())
     }
 
     pub async fn unban(&self, user_id: &str) -> AppResult<()> {

@@ -23,6 +23,7 @@
     type Rect
   } from './geometry';
   import type { EditorStore } from './store.svelte';
+  import { unionRect } from './multi';
 
   interface Props {
     store: EditorStore;
@@ -33,9 +34,11 @@
     credits?: Credits | null;
     assetUrl: (path: string) => string;
     onedit?: (layerId: string) => void;
+    /** Right-click on a layer. */
+    onmenu?: (e: MouseEvent, layerId: string) => void;
   }
 
-  let { store, stage = $bindable(), vars, recent, chat, credits = null, assetUrl, onedit }: Props = $props();
+  let { store, stage = $bindable(), vars, recent, chat, credits = null, assetUrl, onedit, onmenu }: Props = $props();
 
   const PAD = 40;
   const ZOOM_MIN = 0.05;
@@ -51,8 +54,22 @@
   let dragging = $state(false);
 
   type Drag =
-    | { mode: 'move'; id: string; start: Box; px: number; py: number; moved: boolean }
-    | { mode: 'resize'; id: string; handle: Handle; start: Box; px: number; py: number; moved: boolean };
+    | {
+        mode: 'move';
+        /** Start positions of every layer that moves. */
+        starts: Map<string, { x: number; y: number }>;
+        /** Their bounds at the start, used for snapping. */
+        group: Rect;
+        /** Clicked inside a selection of several: picks just this one if the mouse doesn't move. */
+        only: string | null;
+        /** Shift or Ctrl on a picked layer: takes it out instead, if the mouse doesn't move. */
+        untoggle: boolean;
+        px: number;
+        py: number;
+        moved: boolean;
+      }
+    | { mode: 'resize'; id: string; handle: Handle; start: Box; px: number; py: number; moved: boolean }
+    | { mode: 'box'; x0: number; y0: number; x1: number; y1: number; base: string[]; px: number; py: number; moved: boolean };
   let drag = $state<Drag | null>(null);
 
   const W = $derived(store.doc.width);
@@ -67,8 +84,15 @@
   const onCanvas = $derived(
     store.doc.layers.filter((l) => store.showHidden || (l.visible && evaluateGroup(l.visible_when, vars)))
   );
-  const selected = $derived(store.selected && onCanvas.some((l) => l.id === store.selectedId) ? store.selected : null);
-  const hovered = $derived(hoverId && hoverId !== store.selectedId ? (onCanvas.find((l) => l.id === hoverId) ?? null) : null);
+  const selected = $derived(!store.multi && store.selected && onCanvas.some((l) => l.id === store.selectedId) ? store.selected : null);
+  const many = $derived(store.multi ? onCanvas.filter((l) => store.isSelected(l.id)) : []);
+  const manyBounds = $derived(many.length ? unionRect(many) : null);
+  const hovered = $derived(hoverId && !store.isSelected(hoverId) ? (onCanvas.find((l) => l.id === hoverId) ?? null) : null);
+  const boxRect = $derived(
+    drag?.mode === 'box' && drag.moved
+      ? { x: Math.min(drag.x0, drag.x1), y: Math.min(drag.y0, drag.y1), w: Math.abs(drag.x1 - drag.x0), h: Math.abs(drag.y1 - drag.y0) }
+      : null
+  );
 
   function toModel(e: PointerEvent | MouseEvent): [number, number] {
     const r = frame!.getBoundingClientRect();
@@ -79,10 +103,12 @@
     return { x: l.x, y: l.y, w: l.w, h: l.h, rotation: l.rotation };
   }
 
-  function targetsFor(id: string) {
-    const others: Rect[] = onCanvas.filter((l) => l.id !== id).map((l) => bounds(boxOf(l)));
+  function targetsFor(ids: ReadonlySet<string>) {
+    const others: Rect[] = onCanvas.filter((l) => !ids.has(l.id)).map((l) => bounds(boxOf(l)));
     return snapTargets({ width: W, height: H }, others);
   }
+
+  const touches = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
   function placeholder(l: Layer): { icon: typeof Type; text: string } | null {
     const k = l.kind;
@@ -98,13 +124,38 @@
     surface?.focus({ preventScroll: true });
     const [mx, my] = toModel(e);
     const hits = hitTest(onCanvas, mx, my);
-    const id = e.altKey ? cycleHit(hits, store.selectedId) : (hits[0] ?? null);
-    store.select(id);
-    if (!id) return;
-    const l = store.layer(id);
-    if (!l || l.locked) return;
+    const adding = e.shiftKey || e.ctrlKey || e.metaKey;
     e.preventDefault();
-    drag = { mode: 'move', id, start: boxOf(l), px: e.clientX, py: e.clientY, moved: false };
+    if (!hits.length) {
+      // Empty canvas: drag a box to pick layers.
+      if (!adding) store.select(null);
+      drag = { mode: 'box', x0: mx, y0: my, x1: mx, y1: my, base: adding ? store.selectedIds.slice() : [], px: e.clientX, py: e.clientY, moved: false };
+      surface?.setPointerCapture(e.pointerId);
+      return;
+    }
+    const id = (e.altKey ? cycleHit(hits, store.selectedId) : hits[0]) ?? hits[0]!;
+    // Shift or Ctrl adds the layer; a click without moving on one already picked takes it out.
+    // Ctrl also turns off snapping while dragging.
+    const picked = store.isSelected(id);
+    const keep = (adding || store.multi) && picked && !e.altKey;
+    if (adding && !e.altKey) {
+      if (!picked) store.toggleSelect(id);
+    } else if (!keep) store.select(id);
+    const movable = store.selection.filter((l) => !l.locked);
+    if (!movable.length || store.layer(id)?.locked) {
+      if (adding && picked && !e.altKey) store.toggleSelect(id);
+      return;
+    }
+    drag = {
+      mode: 'move',
+      starts: new Map(movable.map((l) => [l.id, { x: l.x, y: l.y }])),
+      group: unionRect(movable)!,
+      only: keep ? id : null,
+      untoggle: adding && picked && !e.altKey,
+      px: e.clientX,
+      py: e.clientY,
+      moved: false
+    };
     surface?.setPointerCapture(e.pointerId);
   }
 
@@ -127,6 +178,15 @@
     }
     const sx = e.clientX - drag.px;
     const sy = e.clientY - drag.py;
+    if (drag.mode === 'box') {
+      [drag.x1, drag.y1] = toModel(e);
+      if (!drag.moved && Math.hypot(sx, sy) < 3) return;
+      drag.moved = true;
+      const r = { x: Math.min(drag.x0, drag.x1), y: Math.min(drag.y0, drag.y1), w: Math.abs(drag.x1 - drag.x0), h: Math.abs(drag.y1 - drag.y0) };
+      const inside = onCanvas.filter((l) => touches(bounds(boxOf(l)), r)).map((l) => l.id);
+      store.selectMany([...drag.base, ...inside]);
+      return;
+    }
     if (!drag.moved) {
       if (Math.hypot(sx, sy) < 3) return;
       drag.moved = true;
@@ -138,15 +198,15 @@
     const snap = store.snapping && !(e.ctrlKey || e.metaKey);
     const threshold = snapThreshold(z);
     if (drag.mode === 'move') {
-      const r = { ...drag.start, x: drag.start.x + dx, y: drag.start.y + dy };
-      const s = snapMove(bounds(r), targetsFor(drag.id), threshold, snap);
+      const r = { ...drag.group, x: drag.group.x + dx, y: drag.group.y + dy };
+      const s = snapMove(r, targetsFor(new Set(drag.starts.keys())), threshold, snap);
       guides = s.guides;
-      store.setRect(drag.id, { x: Math.round(r.x + s.dx), y: Math.round(r.y + s.dy) });
+      store.moveGroup(drag.starts, dx + s.dx, dy + s.dy);
     } else {
       let r = resizeBox(drag.start, drag.handle, dx, dy, { keepAspect: e.shiftKey, min: 4 });
       let g: Guide[] = [];
       if (snap && !e.shiftKey && !drag.start.rotation) {
-        const s = snapResize(r, drag.handle, targetsFor(drag.id), threshold);
+        const s = snapResize(r, drag.handle, targetsFor(new Set([drag.id])), threshold);
         r = s.rect;
         g = s.guides;
       }
@@ -158,10 +218,22 @@
   function up(e: PointerEvent) {
     if (surface?.hasPointerCapture(e.pointerId)) surface.releasePointerCapture(e.pointerId);
     if (!drag) return;
-    if (drag.moved) store.endGesture();
+    if (drag.mode !== 'box' && drag.moved) store.endGesture();
+    if (drag.mode === 'move' && !drag.moved && drag.only) {
+      if (drag.untoggle) store.toggleSelect(drag.only);
+      else store.select(drag.only);
+    }
     drag = null;
     dragging = false;
     guides = [];
+  }
+
+  function contextmenu(e: MouseEvent) {
+    const [mx, my] = toModel(e);
+    const id = hitTest(onCanvas, mx, my)[0];
+    if (!id) return;
+    e.preventDefault();
+    onmenu?.(e, id);
   }
 
   function dblclick(e: MouseEvent) {
@@ -194,7 +266,13 @@
 
   const rectStyle = (l: Layer) =>
     `left:${l.x * z}px;top:${l.y * z}px;width:${l.w * z}px;height:${l.h * z}px;` + (l.rotation ? `transform:rotate(${l.rotation}deg);` : '');
-  const selBounds = $derived(selected ? bounds(boxOf(selected)) : null);
+  const selBounds = $derived(selected ? bounds(boxOf(selected)) : manyBounds);
+  const sizeText = $derived.by(() => {
+    const b = selBounds;
+    if (!b) return '';
+    if (dragging && drag?.mode === 'move') return selected ? `${Math.round(selected.x)}, ${Math.round(selected.y)}` : `${Math.round(b.x)}, ${Math.round(b.y)}`;
+    return selected ? `${Math.round(selected.w)} × ${Math.round(selected.h)}` : `${many.length} layers · ${Math.round(b.w)} × ${Math.round(b.h)}`;
+  });
 </script>
 
 <div class="viewport" bind:this={viewport} bind:clientWidth={vw} bind:clientHeight={vh}>
@@ -209,8 +287,10 @@
         {chat}
         {credits}
         chatRules={app.project?.chat_rules ?? null}
+        defaultFont={app.project?.default_font}
         alert={store.testAlert}
         widgetState={store.widgetState}
+        timers={app.timers}
         {assetUrl}
         mode="editor"
         scale={z}
@@ -231,7 +311,7 @@
         bind:this={surface}
         class="surface"
         role="application"
-        aria-label="Overlay canvas. Click a layer to select it, drag to move, arrow keys to nudge."
+        aria-label="Overlay canvas. Click a layer to select it, Shift or Ctrl + click to pick several, drag on empty space to pick with a box, drag to move, arrow keys to nudge."
         aria-roledescription="canvas"
         tabindex="0"
         style:cursor
@@ -241,6 +321,7 @@
         onpointercancel={up}
         onpointerleave={() => !drag && (hoverId = null)}
         ondblclick={dblclick}
+        oncontextmenu={contextmenu}
       >
         {#each onCanvas as l (l.id)}
           {@const ph = placeholder(l)}
@@ -281,11 +362,18 @@
               {/each}
             {/if}
           </div>
-          {#if selBounds && (dragging || selBounds.w * z > 60)}
-            <div class="size mono" style="left:{(selBounds.x + selBounds.w / 2) * z}px;top:{(selBounds.y + selBounds.h) * z + 8}px" aria-hidden="true">
-              {#if dragging && drag?.mode === 'move'}{Math.round(selected.x)}, {Math.round(selected.y)}{:else}{Math.round(selected.w)} × {Math.round(selected.h)}{/if}
-            </div>
-          {/if}
+        {/if}
+        {#each many as l (l.id)}
+          <div class="sel multi" class:locked={l.locked} style={rectStyle(l)} data-selected={l.id}></div>
+        {/each}
+        {#if manyBounds}
+          <div class="group-box" style="left:{manyBounds.x * z}px;top:{manyBounds.y * z}px;width:{manyBounds.w * z}px;height:{manyBounds.h * z}px" aria-hidden="true"></div>
+        {/if}
+        {#if selBounds && (dragging || selBounds.w * z > 60)}
+          <div class="size mono" style="left:{(selBounds.x + selBounds.w / 2) * z}px;top:{(selBounds.y + selBounds.h) * z + 8}px" aria-hidden="true">{sizeText}</div>
+        {/if}
+        {#if boxRect}
+          <div class="marquee" style="left:{boxRect.x * z}px;top:{boxRect.y * z}px;width:{boxRect.w * z}px;height:{boxRect.h * z}px" aria-hidden="true"></div>
         {/if}
 
         {#each guides as g (g.axis + g.pos)}
@@ -372,6 +460,21 @@
     position: absolute;
     outline: 1.5px solid var(--accent);
     transform-origin: 50% 50%;
+    pointer-events: none;
+  }
+  .sel.multi {
+    outline-width: 1px;
+  }
+  .group-box {
+    position: absolute;
+    outline: 1px dashed color-mix(in srgb, var(--accent) 70%, transparent);
+    outline-offset: 3px;
+    pointer-events: none;
+  }
+  .marquee {
+    position: absolute;
+    border: 1px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
     pointer-events: none;
   }
   .sel.locked {

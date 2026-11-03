@@ -19,7 +19,7 @@ import { defaultSceneRule } from '$lib/overlay/scenes';
 
 export function defaultTextStyle(patch: Partial<TextStyle> = {}): TextStyle {
   return {
-    font_family: 'Inter',
+    font_family: 'Default',
     font_size: 28,
     font_weight: 600,
     color: '#ffffff',
@@ -479,4 +479,4 @@ export const LAYOUTS = [
   ['text_only', 'Text only']
 ] as const;
 
-export const FONTS = ['Inter', 'Poppins', 'Montserrat', 'Roboto', 'Lato', 'Oswald', 'Bebas Neue', 'Press Start 2P', 'Nunito', 'Rubik', 'Arial', 'Georgia'];
+export const FONTS = ['Default', 'Inter', 'Poppins', 'Montserrat', 'Roboto', 'Lato', 'Oswald', 'Bebas Neue', 'Press Start 2P', 'Nunito', 'Rubik', 'Arial', 'Georgia'];

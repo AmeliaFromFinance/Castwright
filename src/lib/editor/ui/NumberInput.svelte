@@ -10,11 +10,13 @@
     step?: number;
     id?: string;
     disabled?: boolean;
+    /** Shown while empty, e.g. "Mixed" when several layers differ. */
+    placeholder?: string;
     /** Called while typing with a valid number. */
     oninput?: (v: number) => void;
   }
 
-  let { value, label, prefix, unit, min, max, step = 1, id, disabled = false, oninput }: Props = $props();
+  let { value, label, prefix, unit, min, max, step = 1, id, disabled = false, placeholder, oninput }: Props = $props();
 
   // Keep what the person typed while focused (e.g. "1." or "-"), show the model value otherwise.
   let focused = $state(false);
@@ -51,6 +53,7 @@
     {max}
     {step}
     {disabled}
+    {placeholder}
     onfocus={() => {
       text = fmt(value);
       focused = true;

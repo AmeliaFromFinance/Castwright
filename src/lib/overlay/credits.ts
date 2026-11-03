@@ -91,14 +91,16 @@ export interface RollPlan {
 }
 
 /**
- * One pass of the roll. It starts just below the box. Repeating rolls end once
- * everything has left the top; others stop with the end in view (centred if it all fits).
+ * One pass of the roll. It starts just below the box (above it when scrolling down).
+ * Repeating rolls end once everything has left; others stop with the end in view
+ * (centred if it all fits).
  */
-export function rollPlan(boxH: number, contentH: number, o: { speed: number; fitS: number; repeat: boolean }): RollPlan {
-  const from = Math.max(0, boxH);
+export function rollPlan(boxH: number, contentH: number, o: { speed: number; fitS: number; repeat: boolean; down?: boolean }): RollPlan {
   const h = Math.max(0, contentH);
-  const to = o.repeat ? -h : h > boxH ? boxH - h : (boxH - h) / 2;
-  const distance = from - to;
+  const settle = h > boxH ? (o.down ? 0 : boxH - h) : (boxH - h) / 2;
+  const from = o.down ? -h : Math.max(0, boxH);
+  const to = o.repeat ? (o.down ? Math.max(0, boxH) : -h) : settle;
+  const distance = Math.abs(from - to);
   const ms = o.fitS > 0 ? o.fitS * 1000 : (distance / Math.max(1, o.speed)) * 1000;
   return { from, to, ms: Math.max(1, Math.round(ms)) };
 }

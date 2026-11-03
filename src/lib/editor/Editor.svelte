@@ -32,7 +32,12 @@
     Play,
     Plus,
     Redo2,
-    Undo2
+    RotateCcw,
+    Trash2,
+    Undo2,
+    Copy,
+    CopyPlus,
+    ClipboardPaste
   } from '@lucide/svelte';
   import Canvas from './Canvas.svelte';
   import Inspector from './inspector/Inspector.svelte';
@@ -43,6 +48,8 @@
   import { EditorStore } from './store.svelte';
   import TestMenu from './TestMenu.svelte';
   import Popover from './ui/Popover.svelte';
+  import ContextMenu, { type ContextItem } from '$lib/ui/ContextMenu.svelte';
+  import { controlTimer, timerButtons, timerState } from './timer-actions';
 
   interface Props {
     overlay: Overlay;
@@ -81,7 +88,7 @@
     if (hasMusic) return watchMusic();
   });
   const recent = $derived([...app.feed].reverse().slice(-40).concat(store.testEvents));
-  const chat = $derived(app.chat.slice(-60).concat(store.testChat));
+  const chat = $derived(app.liveChat.slice(-60).concat(store.testChat));
   const assetUrl = (p: string) => appAssetUrl(p, app.server?.base_url, app.server?.asset_key);
   const kinds = $derived(testableKinds(app.project?.alerts));
   const hasTestData = $derived(!!store.testAlert || store.testEvents.length > 0 || store.testChat.length > 0 || Object.keys(store.varOverrides).length > 0);
@@ -199,20 +206,49 @@
     else if (a.type === 'redo') store.redo();
     else {
       if (!canvasFocus(e.target)) return;
-      const sel = store.selected;
-      if (a.type === 'deselect') {
-        if (!sel) return;
+      // Leave copying selected page text alone.
+      if (a.type === 'copy' && window.getSelection()?.toString()) return;
+      const ids = store.selectedIds;
+      if (a.type === 'paste') {
+        if (!store.canPaste) return;
+        store.paste();
+      } else if (a.type === 'selectAll') store.selectAll();
+      else if (a.type === 'deselect') {
+        if (!ids.length) return;
         store.select(null);
-      } else if (!sel) {
+      } else if (!ids.length) {
         return;
-      } else if (a.type === 'duplicate') store.duplicate(sel.id);
-      else if (a.type === 'delete') store.remove(sel.id);
-      else if (a.type === 'nudge') {
-        if (sel.locked) return;
-        store.nudge(a.dx, a.dy);
-      }
+      } else if (a.type === 'copy') store.copy();
+      else if (a.type === 'duplicate') store.duplicateMany(ids);
+      else if (a.type === 'delete') store.removeMany(ids);
+      else if (a.type === 'nudge') store.nudge(a.dx, a.dy);
     }
     e.preventDefault();
+  }
+
+  let menuAt = $state<{ x: number; y: number } | null>(null);
+  let menuItems = $state<ContextItem[]>([]);
+  const TIMER_ICONS = { start: Play, resume: Play, pause: Pause, reset: RotateCcw, toggle: Play, add: Plus } as const;
+
+  function openMenu(e: MouseEvent, id: string) {
+    const l = store.layer(id);
+    if (!l) return;
+    if (!store.isSelected(id)) store.select(id);
+    const ids = store.selectedIds.slice();
+    const items: ContextItem[] = [];
+    const status = ids.length === 1 ? timerState(l, app.timers[id], Date.now()) : null;
+    if (status) {
+      for (const b of timerButtons(status)) {
+        if (!b.disabled) items.push({ label: `${b.label} timer`, icon: TIMER_ICONS[b.action], onselect: () => void controlTimer(store, id, b.action) });
+      }
+    }
+    const many = ids.length > 1 ? ` ${ids.length} layers` : '';
+    items.push({ label: `Copy${many}`, icon: Copy, onselect: () => store.copy() });
+    if (store.canPaste) items.push({ label: 'Paste', icon: ClipboardPaste, onselect: () => store.paste() });
+    items.push({ label: `Duplicate${many}`, icon: CopyPlus, onselect: () => store.duplicateMany(ids) });
+    items.push({ label: `Delete${many}`, icon: Trash2, danger: true, onselect: () => store.removeMany(ids) });
+    menuItems = items;
+    menuAt = { x: e.clientX, y: e.clientY };
   }
 
   const zoomPct = $derived(`${Math.round(store.zoom * 100)}%`);
@@ -308,13 +344,15 @@
   </header>
 
   <div class="body" style="grid-template-columns:{leftW}px auto minmax(0, 1fr) auto {rightShown}px">
-    <LayerPanel {store} />
+    <LayerPanel {store} onmenu={openMenu} />
     <ResizeHandle bind:size={leftW} id="editor.layers" min={180} max={480} initial={248} panel="before" label="Resize layers panel" />
-    <Canvas bind:this={canvas} bind:stage {store} {vars} {recent} {chat} {credits} {assetUrl} onedit={editContent} />
+    <Canvas bind:this={canvas} bind:stage {store} {vars} {recent} {chat} {credits} {assetUrl} onedit={editContent} onmenu={openMenu} />
     <ResizeHandle bind:size={rightW} id="editor.properties" min={280} max={760} initial={336} panel="after" label="Resize properties panel" />
     <Inspector {store} {vars} {wide} onpreview={preview} ontestalert={() => playAlert(kinds[0] ?? 'follow')} ontogglewide={() => (wide = !wide)} onroll={(id) => stage?.rollCredits(id)} />
   </div>
 </div>
+
+<ContextMenu at={menuAt} label="Layer" items={menuItems} onclose={() => (menuAt = null)} />
 
 <PreviewVarsDialog
   bind:open={varsOpen}

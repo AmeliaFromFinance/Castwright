@@ -76,6 +76,9 @@ import type { PlayState } from '$lib/bindings/PlayState';
 import type { QueueEntry } from '$lib/bindings/QueueEntry';
 import type { QueueSettings } from '$lib/bindings/QueueSettings';
 import type { ViewerQueue } from '$lib/bindings/ViewerQueue';
+import type { TimerAction } from '$lib/bindings/TimerAction';
+import type { TimerChange } from '$lib/bindings/TimerChange';
+import type { TimerRun } from '$lib/bindings/TimerRun';
 
 let backend: Backend | null = null;
 
@@ -130,7 +133,8 @@ export const events = {
   updateAsk: 'cw://update-ask',
   music: 'cw://music',
   sound: 'cw://sound',
-  soundboard: 'cw://soundboard'
+  soundboard: 'cw://soundboard',
+  timers: 'cw://timers'
 } as const;
 
 export interface PushPayloads {
@@ -159,6 +163,7 @@ export interface PushPayloads {
   'cw://sound': SoundCue;
   'cw://soundboard': SoundboardStatus;
   'cw://play': PlayState;
+  'cw://timers': TimerChange;
 }
 
 export function on<K extends keyof PushPayloads>(name: K, cb: (p: PushPayloads[K]) => void): Promise<Unlisten> {
@@ -367,6 +372,11 @@ export const api = {
   /** `id` null stops every sound. */
   soundStop: (id: string | null = null) => call<void>('sound_stop', { id }),
   soundboardMute: (muted: boolean) => call<SoundboardStatus>('soundboard_mute', { muted }),
+  // timer layers
+  timerStates: () => call<Record<string, TimerRun>>('timer_states'),
+  /** `seconds` is for add; below 0 takes time off. */
+  timerControl: (layerId: string, action: TimerAction, seconds = 0) => call<TimerRun>('timer_control', { layerId, action, seconds }),
+
   // giveaways and the viewer queue
   playState: () => call<PlayState>('play_state'),
   saveGiveawaySettings: (settings: GiveawaySettings) => call<GiveawaySettings>('save_giveaway_settings', { settings }),
@@ -393,6 +403,7 @@ export const api = {
 
   // chat rules
   saveChatRules: (rules: ChatRules) => call<ChatRules>('save_chat_rules', { rules }),
+  saveDefaultFont: (font: string) => call<string>('save_default_font', { font }),
 
   // obs
   obsSnapshot: () => call<ObsSnapshot>('obs_snapshot'),

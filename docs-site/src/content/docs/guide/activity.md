@@ -54,6 +54,7 @@ The options button in the chat panel has quick switches for bots, commands, firs
 | --- | --- | --- |
 | **Use filters** | On | Off shows every message, unmarked. Only for this panel. |
 | **Show hidden as a line** | Off | Hidden messages show as a short line, like **1 hidden · bot**. Click it to see them. |
+| **Show removed messages** | Off | Messages Twitch removed stay, crossed out. Handy for mods. |
 
 Filters only change what you see. Mod tools work on every message that shows, and hidden messages stay in chat on Twitch.
 
@@ -71,7 +72,9 @@ Hover a message and click **⋯**, or right-click it, to open its menu:
 | **Time out** | 1 minute, 10 minutes, 1 hour or 24 hours. **…** picks any length up to 14 days, with a reason. |
 | **Ban…** | Asks first, with an optional reason. Shows **Unban** once they're banned. |
 
-Deleted messages stay in the panel, crossed out and marked **deleted**. This also happens when another mod deletes a message, times someone out or clears chat. They disappear from overlay chat layers right away.
+When Twitch removes a message, it disappears from the panel and from overlay chat layers right away. That covers deletes, timeouts, bans and chat clears, whether you did it here or on Twitch. Overlays that reload don't bring them back.
+
+To see removed messages, turn on **Show removed messages** in the panel's options. They show crossed out and marked **removed**. The viewer card always shows them that way.
 
 **Keyboard:** click a message (or <kbd>Tab</kbd> into chat), then use <kbd>↑</kbd> and <kbd>↓</kbd> to move.
 

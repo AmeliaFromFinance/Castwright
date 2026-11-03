@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Overlay } from '$lib/bindings/Overlay';
-import { ensureFonts, fontsFor, googleFontsHref, isSystemFont } from './fonts';
+import { cleanDefaultFont, ensureFonts, fontsFor, googleFontsHref, isSystemFont, resolveFont } from './fonts';
 import { DEFAULT_TEXT } from './styles';
 import { layer } from './test/fixtures';
 
@@ -21,6 +21,27 @@ describe('fonts', () => {
     expect([...needs[0]!.weights]).toEqual([500]);
     expect(needs[0]!.italic).toBe(true);
     expect(isSystemFont('system-ui')).toBe(true);
+  });
+  it('falls back to the project default font', () => {
+    expect(resolveFont('Default', 'Poppins')).toBe('Poppins');
+    expect(resolveFont('', 'Poppins')).toBe('Poppins');
+    expect(resolveFont(' default ', 'Poppins')).toBe('Poppins');
+    expect(resolveFont('Bangers', 'Poppins')).toBe('Bangers');
+    expect(resolveFont('Inter', 'Poppins')).toBe('Inter');
+    expect(resolveFont('Default', '')).toBe('Inter');
+    expect(resolveFont('Default', 'Default')).toBe('Inter');
+    expect(resolveFont('Default', null)).toBe('Inter');
+  });
+  it('loads the project default for text that uses it', () => {
+    const o = ov([layer({ type: 'text', text: '', style: { ...DEFAULT_TEXT, font_family: 'Default', font_weight: 800 } })], ['Default']);
+    expect(fontsFor(o, [], 'Lexend').map((n) => [n.family, [...n.weights]])).toEqual([['Lexend', [800]]]);
+    expect(fontsFor(o).map((n) => n.family)).toEqual(['Inter']);
+  });
+  it('cleans the default font like the backend', () => {
+    expect(cleanDefaultFont('  Poppins ')).toBe('Poppins');
+    expect(cleanDefaultFont('Default')).toBe('Inter');
+    expect(cleanDefaultFont('')).toBe('Inter');
+    expect(cleanDefaultFont('Bad;}<x>')).toBe('Badx');
   });
   it('builds css2 URLs', () => {
     expect(googleFontsHref({ family: 'Bebas Neue', weights: new Set([700]), italic: false })).toBe(

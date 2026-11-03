@@ -50,6 +50,28 @@ const SYSTEM_FONTS = new Set(
   ].map((s) => s.toLowerCase())
 );
 
+/** Font name that means "the project's default font". Empty means the same. */
+export const DEFAULT_FONT = 'Default';
+/** Default font of projects that never picked one. */
+export const STARTER_FONT = 'Inter';
+
+export function isDefaultFont(family: string | null | undefined): boolean {
+  const f = primaryFamily(family ?? '');
+  return !f || f.toLowerCase() === 'default';
+}
+
+/** The font to use: the given one, or the project default for `Default` and empty. */
+export function resolveFont(family: string | null | undefined, projectDefault: string | null | undefined): string {
+  if (!isDefaultFont(family)) return family!.trim();
+  return isDefaultFont(projectDefault) ? STARTER_FONT : projectDefault!.trim();
+}
+
+/** Same rules as the backend: trimmed, no CSS punctuation, never `Default` or empty. */
+export function cleanDefaultFont(font: string): string {
+  const f = [...font.trim().replace(/[;{}<>"]/g, '')].slice(0, 100).join('').trim();
+  return !f || f.toLowerCase() === DEFAULT_FONT.toLowerCase() ? STARTER_FONT : f;
+}
+
 export interface FontNeed {
   family: string;
   weights: Set<number>;
@@ -91,11 +113,11 @@ function styles(overlay: Overlay): TextStyle[] {
 }
 
 /** Google Fonts to load for an overlay: the listed fonts plus every family its text uses. */
-export function fontsFor(overlay: Overlay | null, extra: readonly TextStyle[] = []): FontNeed[] {
+export function fontsFor(overlay: Overlay | null, extra: readonly TextStyle[] = [], defaultFont: string = STARTER_FONT): FontNeed[] {
   const map = new Map<string, FontNeed>();
   if (!overlay) return [];
-  for (const f of overlay.fonts ?? []) add(map, f);
-  for (const s of [...styles(overlay), ...extra]) add(map, s.font_family, s.font_weight, s.italic);
+  for (const f of overlay.fonts ?? []) if (!isDefaultFont(f)) add(map, f);
+  for (const s of [...styles(overlay), ...extra]) add(map, resolveFont(s.font_family, defaultFont), s.font_weight, s.italic);
   return [...map.values()];
 }
 

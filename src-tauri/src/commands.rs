@@ -919,6 +919,18 @@ pub fn save_chat_rules(core: Ctx, rules: ChatRules) -> AppResult<ChatRules> {
     Ok(rules)
 }
 
+// ---------- look ----------
+
+#[tauri::command]
+pub fn save_default_font(core: Ctx, font: String) -> AppResult<String> {
+    let font = crate::model::project::clean_default_font(&font);
+    core.project.update(|p| p.default_font = font.clone());
+    core.hub
+        .to_overlays(None, OverlayMsg::DefaultFont { font: font.clone() });
+    project_changed(&core);
+    Ok(font)
+}
+
 // ---------- soundboard ----------
 
 #[tauri::command]
@@ -955,6 +967,27 @@ pub fn soundboard_mute(core: Ctx, muted: bool) -> SoundboardStatus {
 use crate::model::play::{
     Giveaway, GiveawayRecord, GiveawaySettings, PlayState, QueueEntry, QueueSettings, ViewerQueue,
 };
+
+#[tauri::command]
+pub fn timer_states(core: Ctx) -> std::collections::HashMap<String, crate::timers::TimerRun> {
+    core.hub.timers.all()
+}
+
+#[tauri::command]
+pub fn timer_control(
+    core: Ctx,
+    layer_id: String,
+    action: crate::timers::TimerAction,
+    seconds: Option<f64>,
+) -> AppResult<crate::timers::TimerRun> {
+    crate::timers::control(
+        &core.hub,
+        &core.project,
+        &layer_id,
+        action,
+        seconds.unwrap_or(0.0),
+    )
+}
 
 #[tauri::command]
 pub fn play_state(core: Ctx) -> PlayState {

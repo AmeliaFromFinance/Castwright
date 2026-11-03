@@ -17,6 +17,7 @@
   }
 
   let { value = $bindable(), kind = 'any', label, id, onchange }: Props = $props();
+  let busy = $state(false);
 
   const EXT: Record<string, string[]> = {
     image: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg', 'apng'],
@@ -41,14 +42,22 @@
       toasts.show('Adding files needs the desktop app.');
       return;
     }
+    if (busy) return;
     const { open } = await import('@tauri-apps/plugin-dialog');
-    const extensions = kind === 'any' ? [...EXT.image!, ...EXT.video!, ...EXT.audio!] : EXT[kind]!;
-    const picked = await open({ multiple: false, filters: [{ name: label, extensions }] });
+    const lower = kind === 'any' ? [...EXT.image!, ...EXT.video!, ...EXT.audio!] : EXT[kind]!;
+    // Some file pickers match extensions case-sensitively.
+    const extensions = [...lower, ...lower.map((e) => e.toUpperCase())];
+    const picked = await attempt(() => open({ multiple: false, filters: [{ name: label, extensions }] }));
     if (typeof picked !== 'string') return;
-    const added = await attempt(() => api.importAssets([picked]));
-    if (added?.[0]) {
-      await assetStore.load(true);
-      set(added[0].path);
+    busy = true;
+    try {
+      const added = await attempt(() => api.importAssets([picked]));
+      if (added?.[0]) {
+        await assetStore.load(true);
+        set(added[0].path);
+      }
+    } finally {
+      busy = false;
     }
   }
 </script>
@@ -69,7 +78,7 @@
     {#if value && !isUrl && !options.some((a) => a.path === value)}<option value={value}>{value} (missing)</option>{/if}
     {#if isUrl}<option value="__url">Web address</option>{/if}
   </select>
-  <IconButton label="Add a file" onclick={browse}><FolderOpen /></IconButton>
+  <IconButton label={busy ? 'Adding file…' : 'Add a file'} disabled={busy} onclick={browse}><FolderOpen /></IconButton>
   {#if value}<IconButton label="Clear" onclick={() => set('')}><X /></IconButton>{/if}
 </div>
 

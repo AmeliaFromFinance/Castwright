@@ -27,7 +27,7 @@
   let bh = $state(0);
   const scale = $derived(bw && bh ? Math.min(bw / overlay.width, bh / overlay.height) : 0);
   const recent = $derived([...app.feed].reverse().slice(-20));
-  const chat = $derived(app.chat.slice(-20));
+  const chat = $derived(app.liveChat.slice(-20));
   const assetUrl = (p: string) => appAssetUrl(p, app.server?.base_url, app.server?.asset_key);
   const count = $derived(overlay.layers.length);
 </script>
@@ -37,7 +37,7 @@
     <div class="fit" bind:clientWidth={bw} bind:clientHeight={bh}>
       {#if scale > 0}
         <div class="stage" style="width:{overlay.width * scale}px;height:{overlay.height * scale}px" inert aria-hidden="true">
-          <OverlayStage {overlay} vars={app.vars} {recent} {chat} chatRules={app.project?.chat_rules ?? null} {assetUrl} mode="editor" {scale} paused muted />
+          <OverlayStage {overlay} vars={app.vars} {recent} {chat} chatRules={app.project?.chat_rules ?? null} defaultFont={app.project?.default_font} timers={app.timers} {assetUrl} mode="editor" {scale} paused muted />
         </div>
       {/if}
     </div>

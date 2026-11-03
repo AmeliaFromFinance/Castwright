@@ -1452,6 +1452,7 @@ async fn roll_credits_shows_the_layer_and_sends_names() {
             fit_s: 0,
             repeat: false,
             start: CreditStart::Trigger,
+            scroll: Default::default(),
             heading: String::new(),
             footer: String::new(),
             names: CreditNames::Plain,
@@ -1510,4 +1511,57 @@ async fn roll_credits_shows_the_layer_and_sends_names() {
             .await
             .ok
     );
+}
+
+#[tokio::test]
+async fn timer_steps_control_a_timer_layer() {
+    use crate::model::overlay::{LayerKind, TimerMode};
+    use crate::timers::TimerAction;
+    let r = rig(vec![]);
+    let overlay_id = r.project.read(|p| p.overlays[0].id.clone());
+    r.project.update(|p| {
+        let mut layer = p.overlays[0].layers[0].clone();
+        layer.id = "cd1".into();
+        layer.kind = LayerKind::Timer {
+            mode: TimerMode::Countdown,
+            duration_s: 120,
+            anchor_var: String::new(),
+            style: Default::default(),
+            prefix: String::new(),
+        };
+        p.overlays[0].layers.push(layer);
+    });
+    let step = |action: TimerAction, seconds: f64| Action {
+        steps: vec![Step::TimerControl {
+            overlay_id: overlay_id.clone(),
+            layer_id: "cd1".into(),
+            action,
+            seconds,
+        }],
+        ..Action::default()
+    };
+    let mut ov = r.hub.subscribe_overlays();
+    let run = |a: Action| {
+        let auto = r.auto.clone();
+        async move { auto.execute(&a, "test", Map::new(), None).await.ok }
+    };
+    assert!(run(step(TimerAction::Start, 0.0)).await);
+    assert!(r.hub.timers.get("cd1").unwrap().running);
+    let out = ov.recv().await.unwrap();
+    assert_eq!(out.target.as_deref(), Some(overlay_id.as_str()));
+    assert!(
+        matches!(&out.msg, OverlayMsg::Timer { layer_id, run } if layer_id == "cd1" && run.running)
+    );
+    assert!(run(step(TimerAction::Pause, 0.0)).await);
+    assert!(run(step(TimerAction::Add, 30.0)).await);
+    let t = r.hub.timers.get("cd1").unwrap();
+    assert!(!t.running && t.elapsed_ms <= -29_000, "{t:?}");
+    assert!(run(step(TimerAction::Reset, 0.0)).await);
+    assert_eq!(r.hub.timers.get("cd1").unwrap().elapsed_ms, 0);
+
+    let mut wrong = step(TimerAction::Start, 0.0);
+    if let Step::TimerControl { layer_id, .. } = &mut wrong.steps[0] {
+        *layer_id = "nope".into();
+    }
+    assert!(!run(wrong).await);
 }

@@ -41,6 +41,7 @@ pub mod ui {
     pub const SOUND: &str = "cw://sound";
     pub const SOUNDBOARD: &str = "cw://soundboard";
     pub const PLAY: &str = "cw://play";
+    pub const TIMERS: &str = "cw://timers";
 }
 
 /// Where window events go. The real app uses the Tauri handle; tests use a recorder.
@@ -114,6 +115,8 @@ pub struct Hub {
     pub vars: Arc<Vars>,
     pub db: Arc<Db>,
     pub sessions: Arc<Sessions>,
+    /// Started and paused timer layers.
+    pub timers: crate::timers::Timers,
     events: broadcast::Sender<Event>,
     overlay: broadcast::Sender<OverlayOut>,
     signals: broadcast::Sender<Signal>,
@@ -138,6 +141,7 @@ impl Hub {
             ui,
             vars,
             sessions: Arc::new(Sessions::load(db.clone())),
+            timers: Default::default(),
             db,
             events,
             overlay,

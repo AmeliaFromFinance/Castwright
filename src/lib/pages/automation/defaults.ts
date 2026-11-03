@@ -119,6 +119,8 @@ export function newStep(type: StepType): Step {
       return { type, overlay_id: '', layer_id: '', state: 'on' };
     case 'roll_credits':
       return { type, overlay_id: '', layer_id: '' };
+    case 'timer_control':
+      return { type, overlay_id: '', layer_id: '', action: 'start', seconds: 0 };
     case 'play_alert':
       return { type, title: '', message: '', image: '', sound: '', duration_ms: 6000 };
     case 'pause_alerts':
@@ -232,6 +234,7 @@ export const STEP_LABELS: Record<StepType, string> = {
   save_replay: 'Save replay',
   set_layer_visible: 'Show/hide overlay layer',
   roll_credits: 'Roll credits',
+  timer_control: 'Timer',
   play_alert: 'Play alert',
   pause_alerts: 'Pause alerts',
   skip_alert: 'Skip alert',
@@ -308,6 +311,7 @@ export const STEP_GROUPS: Array<{ label: string; items: Array<[StepType, string?
     items: [
       ['set_layer_visible'],
       ['roll_credits', 'Start a credits layer from the top'],
+      ['timer_control', 'Start, pause, reset or add time'],
       ['play_alert', 'Queue a custom alert'],
       ['pause_alerts', 'Pause or resume the queue'],
       ['skip_alert', 'End the alert on screen'],

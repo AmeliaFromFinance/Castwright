@@ -22,7 +22,12 @@ pub struct Project {
     /// What the chat panel and chat layers hide and highlight.
     pub chat_rules: ChatRules,
     pub soundboard: Soundboard,
+    /// Font for overlay text set to `Default`. Part of the look, so it travels with backups.
+    pub default_font: String,
 }
+
+/// The default font of new and older projects.
+pub const STARTER_FONT: &str = "Inter";
 
 impl Default for Project {
     fn default() -> Self {
@@ -34,6 +39,7 @@ impl Default for Project {
             actions: Vec::new(),
             chat_rules: ChatRules::default(),
             soundboard: Soundboard::default(),
+            default_font: STARTER_FONT.into(),
         }
     }
 }
@@ -53,7 +59,24 @@ impl Project {
         for a in &mut self.actions {
             a.normalize();
         }
+        self.default_font = clean_default_font(&self.default_font);
         self.format = PROJECT_FORMAT;
+    }
+}
+
+/// A usable default font name: trimmed, at most 100 characters, never `Default` or empty.
+pub fn clean_default_font(font: &str) -> String {
+    let f: String = font
+        .trim()
+        .chars()
+        .filter(|c| !matches!(c, ';' | '{' | '}' | '<' | '>' | '"'))
+        .take(100)
+        .collect();
+    let f = f.trim();
+    if f.is_empty() || f.eq_ignore_ascii_case(crate::model::overlay::DEFAULT_FONT) {
+        STARTER_FONT.into()
+    } else {
+        f.into()
     }
 }
 
@@ -67,6 +90,43 @@ mod tests {
         let back: Project =
             serde_json::from_str(&serde_json::to_string_pretty(&p).unwrap()).unwrap();
         assert_eq!(p, back);
+    }
+
+    #[test]
+    fn default_font() {
+        assert_eq!(Project::default().default_font, "Inter");
+        let old: Project = serde_json::from_str(include_str!(
+            "../../../src/lib/api/fixtures/starter-project.json"
+        ))
+        .unwrap();
+        assert_eq!(old.default_font, "Inter", "older projects keep Inter");
+        let fonts: Vec<_> = old
+            .alerts
+            .types
+            .iter()
+            .flat_map(|t| &t.variations)
+            .map(|v| v.title_style.font_family.as_str())
+            .collect();
+        assert!(fonts.iter().all(|f| *f == "Inter"), "{fonts:?}");
+        assert_eq!(
+            crate::model::overlay::TextStyle::default().font_family,
+            "Default",
+            "new text follows the project"
+        );
+        for (raw, want) in [
+            ("  Poppins ", "Poppins"),
+            ("", "Inter"),
+            ("default", "Inter"),
+            ("Bad;}<x>", "Badx"),
+        ] {
+            assert_eq!(clean_default_font(raw), want);
+        }
+        let mut p = Project {
+            default_font: " Default ".into(),
+            ..Project::default()
+        };
+        p.normalize();
+        assert_eq!(p.default_font, "Inter");
     }
 
     #[test]

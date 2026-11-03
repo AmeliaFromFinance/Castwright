@@ -8,9 +8,10 @@
   import { clock, useClock } from '../clock.svelte';
   import { getStageCtx } from '../context';
   import { timerText } from '../format';
+  import { controllable, timerStatus } from '../timer';
   import StyledText from '../StyledText.svelte';
 
-  let { kind }: { kind: Extract<LayerKind, { type: 'timer' }> } = $props();
+  let { kind, layerId }: { kind: Extract<LayerKind, { type: 'timer' }>; layerId: string } = $props();
   const ctx = getStageCtx();
 
   $effect(() => useClock());
@@ -24,13 +25,15 @@
       hasAnchor: !!anchorName,
       loadedAt: PAGE_LOADED,
       streamStartedAt: ctx.vars['stream.started_at'],
-      now: clock.now
+      now: clock.now,
+      run: ctx.timers[layerId]
     })
   );
   const text = $derived(value ? `${kind.prefix ?? ''}${value}` : '');
+  const state = $derived(controllable(kind.mode) ? timerStatus(ctx.timers[layerId], kind.mode, kind.duration_s ?? 0, clock.now) : undefined);
 </script>
 
-<div class="cw-single cw-timer" style:justify-content={kind.style?.align === 'center' ? 'center' : kind.style?.align === 'right' ? 'flex-end' : 'flex-start'}>
+<div class="cw-single cw-timer" data-state={state} style:justify-content={kind.style?.align === 'center' ? 'center' : kind.style?.align === 'right' ? 'flex-end' : 'flex-start'}>
   {#if text}<StyledText {text} style={kind.style} />{/if}
 </div>
 

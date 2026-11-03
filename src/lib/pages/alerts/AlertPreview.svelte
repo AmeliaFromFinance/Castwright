@@ -40,9 +40,18 @@
   const assetUrl = (p: string) =>
     /^(https?:|data:|blob:)/.test(p) ? p : app.demo ? '' : appAssetUrl(p, app.server?.base_url, app.server?.asset_key);
 
+  // A new id only for another variation or a replay. Edits and variable changes then
+  // update the card in place instead of restarting it and reloading its video.
+  const variationId = $derived(variation?.id ?? null);
+  const playId = $derived.by(() => {
+    void variationId;
+    void replayAt;
+    return newId();
+  });
+
   const alert = $derived.by((): ActiveAlert | null => {
     if (!variation) return null;
-    const play = renderPlay(variation, event, settings, newId(), app.vars);
+    const play = renderPlay(variation, event, settings, playId, app.vars);
     if (replayAt !== null) return { play, startedAt: replayAt, stoppedAt: null };
     // Join late so the enter animation is already done and edits show at once.
     const skip = durationOf(play.enter, 'enter') + (play.enter.delay_ms ?? 0) + 50;
@@ -76,7 +85,7 @@
   </header>
   <div class="screen" bind:clientWidth={width} style="aspect-ratio: {size.width} / {size.height}">
     {#if variation && scale > 0}
-      <OverlayStage {overlay} {alert} {scale} {assetUrl} {muted} mode="live" />
+      <OverlayStage {overlay} {alert} {scale} {assetUrl} {muted} defaultFont={app.project?.default_font} mode="live" />
     {:else if !variation}
       <p class="empty faint">Nothing to preview</p>
     {/if}

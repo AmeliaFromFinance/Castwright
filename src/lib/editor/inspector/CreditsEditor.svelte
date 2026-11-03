@@ -60,6 +60,18 @@
   </div>
 </Prop>
 
+<Prop label="Scroll">
+  <Segmented
+    label="Scroll direction"
+    value={kind.scroll ?? 'up'}
+    options={[
+      { value: 'up', label: 'Up' },
+      { value: 'down', label: 'Down' }
+    ]}
+    onchange={(v) => set((x) => (x.scroll = v), 'scroll')}
+  />
+</Prop>
+
 <Prop label="At the end">
   <Segmented
     label="At the end"

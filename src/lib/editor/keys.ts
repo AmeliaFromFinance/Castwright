@@ -4,6 +4,9 @@ export type ShortcutAction =
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'duplicate' }
+  | { type: 'copy' }
+  | { type: 'paste' }
+  | { type: 'selectAll' }
   | { type: 'delete' }
   | { type: 'deselect' }
   | { type: 'nudge'; dx: number; dy: number };
@@ -31,6 +34,9 @@ export function shortcutFor(e: KeyLike): ShortcutAction | null {
     if (key === 'z') return e.shiftKey ? { type: 'redo' } : { type: 'undo' };
     if (key === 'y') return { type: 'redo' };
     if (key === 'd') return { type: 'duplicate' };
+    if (key === 'c' && !e.shiftKey) return { type: 'copy' };
+    if (key === 'v' && !e.shiftKey) return { type: 'paste' };
+    if (key === 'a' && !e.shiftKey) return { type: 'selectAll' };
     return null;
   }
   if (e.altKey) return null;

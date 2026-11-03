@@ -10,6 +10,7 @@ import { loadPref, savePref } from '$lib/state/persist';
 import { withExtras } from './canvas';
 import { syncTriggers, type Clip } from './graph';
 import { ActionHistory } from './history';
+import { addRecent } from './search';
 import { addToHistory, applyProgress, finishTrace, type Trace } from './trace';
 import type { View } from './view';
 import { blocking, validateAction, type Issue } from './validate';
@@ -163,10 +164,17 @@ class FlowState {
   /** A test run that hasn't reported back yet. */
   testing = $state<{ actionId: string; after: number } | null>(null);
   views = new Map<string, View>();
+  /** Steps and triggers added lately, newest first, as `kind:type`. */
+  recent = $state<string[]>(loadPref('automation.recent', []));
 
   /** The node shown in the inspector. */
   get inspected(): string | null {
     return this.inspecting && this.selected.length === 1 ? this.selected[0]! : null;
+  }
+
+  used(key: string): void {
+    this.recent = addRecent(this.recent, key);
+    savePref('automation.recent', this.recent);
   }
 
   setSnap(on: boolean): void {

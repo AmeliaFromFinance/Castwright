@@ -1,6 +1,10 @@
 <script lang="ts">
   import { app } from '$lib/state/app.svelte';
-  import { toasts } from '$lib/state/toast.svelte';
+  import { attempt, toasts } from '$lib/state/toast.svelte';
+  import { api } from '$lib/api';
+  import type { AppFont } from '$lib/bindings/AppFont';
+  import FontInput from '$lib/editors/FontInput.svelte';
+  import { FONT_CHOICES } from '$lib/editor/fonts';
   import { BUILT_IN, generateTokens, parseSpec, checkTheme, type ThemeSpec } from '$lib/theme/themes';
   import { prefersDark } from '$lib/theme/apply';
   import type { WindowEffect } from '$lib/bindings/WindowEffect';
@@ -17,6 +21,17 @@
   import { Plus, Pencil, Upload, Copy } from '@lucide/svelte';
 
   const appearance = $derived(app.settings!.appearance);
+
+  const APP_FONTS: Array<{ value: AppFont; label: string }> = [
+    { value: 'theme', label: 'Theme' },
+    { value: 'inter', label: 'Inter' },
+    { value: 'system', label: 'System' }
+  ];
+
+  async function setDefaultFont(font: string) {
+    const saved = await attempt(() => api.saveDefaultFont(font));
+    if (saved !== undefined && app.project) app.project.default_font = saved;
+  }
   const custom = $derived(appearance.custom_themes.map(parseSpec).filter((s): s is ThemeSpec => s !== null));
 
   const d = swatches(BUILT_IN[0]!);
@@ -183,6 +198,14 @@
   </div>
 
   <div class="rows">
+    <Row label="Default font" hint="Overlay text with its font set to Default uses this: chat, alerts, event lists, credits and more. Saved in the project, so it's in backups.">
+      <div class="font">
+        <FontInput id="default-font" label="Default font" value={app.project?.default_font ?? 'Inter'} choices={FONT_CHOICES} allowDefault={false} onchange={setDefaultFont} />
+      </div>
+    </Row>
+    <Row label="App font" hint="The font of Castwright itself. Theme uses the theme's choice.">
+      <Segmented label="App font" value={appearance.app_font} options={APP_FONTS} onchange={(v) => updateAppearance({ app_font: v })} />
+    </Row>
     {#if effects.length > 1}
       <Row label="Window background" hint="See-through window effects. Auto picks the best one for your system.">
         <Segmented label="Window background" value={appearance.window_effect} options={effects} onchange={(v) => updateWindowEffect(v)} />
@@ -237,6 +260,9 @@
 </Dialog>
 
 <style>
+  .font {
+    width: 220px;
+  }
   .themes {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));

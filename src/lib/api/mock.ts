@@ -58,9 +58,13 @@ import { createHypeMock } from './mock-hype';
 import { createPlayMock, type CrowdPerson } from './mock-play';
 import { defaultGiveawaySettings, defaultQueueSettings } from '$lib/pages/interact/play-forms';
 import { defaultChatRules } from '$lib/overlay/chat-filters';
+import { cleanDefaultFont, STARTER_FONT } from '$lib/overlay/fonts';
 import { DEFAULT_END as DEFAULT_DISCORD_END } from '$lib/pages/settings/discord';
 import { credits, demoClip, demoMarker, listItem, liveActivity, pastSessions, summarize, type DemoPerson, type DemoSession, type MakeEvent } from './mock-sessions';
 import { createUpdatesMock } from './mock-updates';
+import { applyTimer } from '$lib/overlay/timer';
+import type { TimerAction } from '$lib/bindings/TimerAction';
+import type { TimerRun } from '$lib/bindings/TimerRun';
 
 type Listener = (payload: unknown) => void;
 
@@ -159,7 +163,8 @@ function defaultSettings(): Settings {
       custom_themes: [],
       window_effect: 'auto',
       ui_scale: 100,
-      reduce_motion: false
+      reduce_motion: false,
+      app_font: 'theme'
     },
     alerts_muted: false,
     golive: {
@@ -364,6 +369,7 @@ export function createDemoBackend(): Backend {
 
   let project = clone(starter as unknown as Project);
   project.chat_rules ??= defaultChatRules();
+  project.default_font ||= STARTER_FONT;
   let templates: Overlay[] = [];
   let settings = defaultSettings();
   const deaths = project.actions.find((a) => a.name === 'Count deaths');
@@ -909,7 +915,22 @@ export function createDemoBackend(): Backend {
     return clip.id;
   };
 
+  const timers: Record<string, TimerRun> = {};
+  function controlTimer(layerId: string, action: TimerAction, seconds: number): TimerRun {
+    const layer = project.overlays.flatMap((o) => o.layers).find((l) => l.id === layerId);
+    if (!layer) throw { code: 'user', message: 'That overlay layer no longer exists.' };
+    const k = layer.kind;
+    if (k.type !== 'timer') throw { code: 'user', message: "That layer isn't a timer." };
+    if (k.mode !== 'countdown' && k.mode !== 'stopwatch') throw { code: 'user', message: 'Only countdown and stopwatch timers can be started and paused.' };
+    const run = applyTimer(timers[layerId], action, Math.round((Number(seconds) || 0) * 1000), k.mode === 'countdown' ? k.duration_s * 1000 : null, Date.now());
+    timers[layerId] = run;
+    emit('cw://timers', { layer_id: layerId, run });
+    return run;
+  }
+
   const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
+    timer_states: () => timers,
+    timer_control: ({ layerId, action, seconds }) => controlTimer(String(layerId), action as TimerAction, Number(seconds) || 0),
     ...createUpdatesMock({ emit, live: streaming, settings: () => settings, query }),
     stream_add_marker: () => addMarker(),
     stream_marker_note: ({ id, note }) => {
@@ -1054,6 +1075,13 @@ export function createDemoBackend(): Backend {
           if (s.type === 'add_to_variable') setVars({ [s.key]: (Number(vars[s.key]) || 0) + s.amount });
           else if (s.type === 'set_variable') setVars({ [s.key]: s.value });
           else if (s.type === 'log') log('info', 'automation', render(s.message, vars));
+          else if (s.type === 'timer_control') {
+            try {
+              controlTimer(s.layer_id, s.action, s.seconds);
+            } catch (e) {
+              log('warn', 'automation', (e as { message: string }).message);
+            }
+          }
         }
       });
       // Report each node as it starts and finishes, like the engine; Wait nodes take a while.
@@ -1363,6 +1391,11 @@ export function createDemoBackend(): Backend {
     ...ads.handlers,
     ...music.handlers,
     ...soundboard.handlers,
+    save_default_font: ({ font }) => {
+      project.default_font = cleanDefaultFont(String(font ?? ''));
+      emit('cw://project', {});
+      return project.default_font;
+    },
     save_chat_rules: ({ rules }) => {
       project.chat_rules = clone(rules as Project['chat_rules']);
       emit('cw://project', {});

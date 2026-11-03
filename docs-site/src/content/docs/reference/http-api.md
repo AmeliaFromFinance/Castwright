@@ -56,6 +56,7 @@ A new secret also disconnects every open overlay page within a few seconds.
 | `POST` | `/api/alerts/{command}` | Controls the alert queue. See [Alert controls](#alert-controls). | `200` JSON, `404`, `409` |
 | `POST` | `/api/sounds/{id}/play` | Plays a soundboard sound. See [Soundboard](#soundboard). | `200` JSON, `404`, `409` |
 | `POST` | `/api/sounds/{id}/stop` | Stops a soundboard sound. `all` as the id stops every sound. | `200` JSON, `404` |
+| `POST` | `/api/layers/{id}/timer/{command}` | Starts, pauses or resets a timer layer. See [Timer controls](#timer-controls). | `200` JSON, `400`, `404`, `409` |
 | `GET` | `/ws?overlay={id}` | WebSocket used by overlay pages | See [WebSocket](#websocket) |
 
 Using the wrong method, for example `GET` on the run route, gets `405 Method Not Allowed`.
@@ -120,6 +121,30 @@ curl -X POST "http://127.0.0.1:7470/api/sounds/all/stop?token=YOUR_SECRET"
 
 `stop` answers `{ "result": "stopped" }`, or `404` for an unknown sound. Any other command after the id gets `404`.
 
+### Timer controls
+
+```bash
+curl -X POST "http://127.0.0.1:7470/api/layers/LAYER_ID/timer/toggle?token=YOUR_SECRET"
+curl -X POST "http://127.0.0.1:7470/api/layers/LAYER_ID/timer/add?seconds=60&token=YOUR_SECRET"
+```
+
+Works on countdown and stopwatch layers. `LAYER_ID` is under **Advanced → Layer id** in the editor, or use **Copy link** under **Content → Control**.
+
+| Command | What it does |
+| --- | --- |
+| `start` | Starts from the beginning, even while running. |
+| `pause`, `resume`, `toggle` | Pauses or resumes. |
+| `reset` | Back to the beginning, paused. |
+| `add` | Adds `?seconds=` (below 0 takes time off). Without `seconds` it gets `400`. |
+
+Every command answers with the timer's state:
+
+```json
+{ "running": true, "elapsed_ms": 42000, "at": 1767225600000 }
+```
+
+`elapsed_ms` is the time counted at `at` (ms since 1970). A countdown shows its length minus that. An unknown command or layer gets `404`. A layer that isn't a countdown or stopwatch gets `409`.
+
 ### Overlay JSON
 
 ```bash
@@ -140,7 +165,7 @@ Overlay pages connect to `/ws?token=YOUR_SECRET&overlay=OVERLAY_ID` for live dat
 
 | Direction | Messages |
 | --- | --- |
-| Castwright to page | `hello` (the overlay, variables, recent events, chat and widget storage), `overlay`, `vars`, `event`, `chat_delete`, `chat_clear_user`, `chat_clear`, `alert_play`, `alert_stop`, `play_sound`, `sound_play`, `sound_stop`, `layer_visible`, `credits_roll`, `chat_rules`, `reload` |
+| Castwright to page | `hello` (the overlay, variables, recent events, chat, widget storage and timers), `overlay`, `vars`, `event`, `chat_delete`, `chat_clear_user`, `chat_clear`, `alert_play`, `alert_stop`, `play_sound`, `sound_play`, `sound_stop`, `layer_visible`, `credits_roll`, `timer`, `chat_rules`, `reload` |
 | Page to Castwright | `store_set`, `store_delete`, `ping` (every 25 seconds) |
 
 Every message is JSON with a `type` field. Without an `overlay` parameter the server answers `400`. For an unknown overlay it closes the connection. Messages from the page can be up to 512 KB.

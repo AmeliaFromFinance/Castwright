@@ -15,7 +15,7 @@ const overlay = (id = 'o1'): Overlay => ({
   updated_at: 1
 });
 
-function hello(): OverlayMsg {
+function hello(): Extract<OverlayMsg, { type: 'hello' }> {
   return {
     type: 'hello',
     overlay: overlay(),
@@ -23,7 +23,9 @@ function hello(): OverlayMsg {
     recent: [ev('follow'), ev('chat')],
     chat: [ev('chat', { user: { id: 'u1', login: 'a', display_name: 'A' } }), ev('chat', { user: { id: 'u2', login: 'b', display_name: 'B' } })],
     widget_state: { l1: { count: 4 } },
-    chat_rules: defaultChatRules()
+    chat_rules: defaultChatRules(),
+    default_font: 'Poppins',
+    timers: { t1: { running: true, elapsed_ms: 0, at: 5 } }
   };
 }
 
@@ -38,7 +40,18 @@ describe('reduce', () => {
     expect(s.chat).toHaveLength(2);
     expect(s.widgetState).toEqual({ l1: { count: 4 } });
     expect(s.visibility).toEqual({});
+    expect(s.defaultFont).toBe('Poppins');
+    expect(reduce(s, { type: 'default_font', font: 'Bangers' }).defaultFont).toBe('Bangers');
     expect(s.alert).toBe(playing.alert);
+  });
+
+  it('timers come with hello and update one layer at a time', () => {
+    const s0 = reduce(emptyState(), hello());
+    expect(s0.timers).toEqual({ t1: { running: true, elapsed_ms: 0, at: 5 } });
+    const run = { running: false, elapsed_ms: 1500, at: 9 };
+    const s = reduce(s0, { type: 'timer', layer_id: 't2', run });
+    expect(s.timers).toEqual({ ...s0.timers, t2: run });
+    expect(reduce(s, { ...hello(), timers: {} }).timers).toEqual({});
   });
 
   it('overlay swaps the layout and drops visibility overrides', () => {

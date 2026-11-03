@@ -1,6 +1,7 @@
 use super::*;
 use crate::alerts::AlertEngine;
 use crate::model::event::{Event, EventKind};
+use crate::timers::TimerRun;
 use futures_util::{SinkExt, StreamExt};
 use tokio_tungstenite::tungstenite::Message as WsMsg;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
@@ -140,7 +141,14 @@ async fn websocket_flow() {
     assert!(connect(&r, &r.overlay_id, "bad").await.is_err());
     let mut ws = connect(&r, &r.overlay_id, TOKEN).await.unwrap();
     match next_msg(&mut ws).await {
-        OverlayMsg::Hello { overlay, .. } => assert_eq!(overlay.id, r.overlay_id),
+        OverlayMsg::Hello {
+            overlay,
+            default_font,
+            ..
+        } => {
+            assert_eq!(overlay.id, r.overlay_id);
+            assert_eq!(default_font, "Inter");
+        }
         other => panic!("expected hello, got {other:?}"),
     }
     // A message for another overlay is not delivered; one for everyone is.
@@ -642,4 +650,109 @@ async fn music_covers_and_spotify_callback() {
     let page = cb.text().await.unwrap();
     assert!(page.contains("Start again from Castwright"));
     assert!(!page.contains("<b>made-up"));
+}
+
+/// Adds a countdown and a clock layer to the first overlay.
+fn add_timers(r: &Rig) -> (String, String) {
+    use crate::model::overlay::{LayerKind, TimerMode};
+    r.project.update(|p| {
+        let base = p.overlays[0].layers[0].clone();
+        for (id, mode) in [("cd1", TimerMode::Countdown), ("clock1", TimerMode::Clock)] {
+            let mut l = base.clone();
+            l.id = id.into();
+            l.kind = LayerKind::Timer {
+                mode,
+                duration_s: 300,
+                anchor_var: String::new(),
+                style: Default::default(),
+                prefix: String::new(),
+            };
+            p.overlays[0].layers.push(l);
+        }
+    });
+    ("cd1".into(), "clock1".into())
+}
+
+#[tokio::test]
+async fn timer_endpoints() {
+    let r = rig().await;
+    let (cd, clock) = add_timers(&r);
+    let client = reqwest::Client::new();
+    let post = |path: String| {
+        client
+            .post(format!("{}{path}", r.base))
+            .header("x-castwright-token", TOKEN)
+            .send()
+    };
+    assert_eq!(
+        reqwest::Client::new()
+            .post(format!("{}/api/layers/{cd}/timer/start", r.base))
+            .send()
+            .await
+            .unwrap()
+            .status()
+            .as_u16(),
+        403,
+        "needs the secret"
+    );
+    let resp = post(format!("/api/layers/{cd}/timer/start")).await.unwrap();
+    assert_eq!(resp.status().as_u16(), 200);
+    let run: TimerRun = resp.json().await.unwrap();
+    assert!(run.running);
+    let run: TimerRun = post(format!("/api/layers/{cd}/timer/pause"))
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert!(!run.running);
+    let run: TimerRun = post(format!("/api/layers/{cd}/timer/add?seconds=60"))
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert!(run.elapsed_ms <= -59_000, "{run:?}");
+    let run: TimerRun = post(format!("/api/layers/{cd}/timer/reset"))
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!((run.running, run.elapsed_ms), (false, 0));
+    assert_eq!(r.hub.timers.get(&cd), Some(run));
+
+    let code = |path: String| async { post(path).await.unwrap().status().as_u16() };
+    assert_eq!(code(format!("/api/layers/{cd}/timer/add")).await, 400);
+    assert_eq!(code(format!("/api/layers/{cd}/timer/dance")).await, 404);
+    assert_eq!(code("/api/layers/nope/timer/start".into()).await, 404);
+    assert_eq!(code(format!("/api/layers/{clock}/timer/start")).await, 409);
+}
+
+#[tokio::test]
+async fn timers_reach_open_pages_and_new_ones() {
+    let r = rig().await;
+    let (cd, _) = add_timers(&r);
+    let mut ws = connect(&r, &r.overlay_id, TOKEN).await.unwrap();
+    assert!(matches!(next_msg(&mut ws).await, OverlayMsg::Hello { .. }));
+    let started = crate::timers::control(
+        &r.hub,
+        &r.project,
+        &cd,
+        crate::timers::TimerAction::Start,
+        0.0,
+    )
+    .unwrap();
+    loop {
+        if let OverlayMsg::Timer { layer_id, run } = next_msg(&mut ws).await {
+            assert_eq!((layer_id.as_str(), run), (cd.as_str(), started));
+            break;
+        }
+    }
+    // A page that opens (or reloads) later gets the same state.
+    let mut late = connect(&r, &r.overlay_id, TOKEN).await.unwrap();
+    match next_msg(&mut late).await {
+        OverlayMsg::Hello { timers, .. } => assert_eq!(timers.get(&cd), Some(&started)),
+        other => panic!("expected hello, got {other:?}"),
+    }
 }

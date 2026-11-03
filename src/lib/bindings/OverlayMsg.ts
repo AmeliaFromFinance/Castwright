@@ -4,8 +4,17 @@ import type { ChatRules } from "./ChatRules";
 import type { Credits } from "./Credits";
 import type { Event } from "./Event";
 import type { Overlay } from "./Overlay";
+import type { TimerRun } from "./TimerRun";
 
 /**
  * Messages from the app to an overlay page over the WebSocket.
  */
-export type OverlayMsg = { "type": "hello", overlay: Overlay, vars: Record<string, unknown>, recent: Array<Event>, chat: Array<Event>, widget_state: Record<string, Record<string, unknown>>, chat_rules: ChatRules, } | { "type": "overlay", overlay: Overlay, } | { "type": "vars", changes: Record<string, unknown>, } | { "type": "event", event: Event, } | { "type": "chat_delete", message_id: string, } | { "type": "chat_clear_user", user_id: string, } | { "type": "chat_clear" } | { "type": "alert_play", play: AlertPlay, } | { "type": "alert_stop", id: string, } | { "type": "play_sound", src: string, volume: number, } | { "type": "sound_play", play_id: number, sound_id: string, src: string, volume: number, } | { "type": "sound_stop", sound_id: string | null, } | { "type": "layer_visible", layer_id: string, visible: boolean, } | { "type": "credits_roll", layer_id: string, credits: Credits, } | { "type": "chat_rules", rules: ChatRules, } | { "type": "reload" };
+export type OverlayMsg = { "type": "hello", overlay: Overlay, vars: Record<string, unknown>, recent: Array<Event>, chat: Array<Event>, widget_state: Record<string, Record<string, unknown>>, chat_rules: ChatRules, 
+/**
+ * The project's default font.
+ */
+default_font: string, 
+/**
+ * Started or paused timer layers, by layer id.
+ */
+timers: { [key in string]?: TimerRun }, } | { "type": "overlay", overlay: Overlay, } | { "type": "vars", changes: Record<string, unknown>, } | { "type": "event", event: Event, } | { "type": "chat_delete", message_id: string, } | { "type": "chat_clear_user", user_id: string, } | { "type": "chat_clear" } | { "type": "alert_play", play: AlertPlay, } | { "type": "alert_stop", id: string, } | { "type": "play_sound", src: string, volume: number, } | { "type": "sound_play", play_id: number, sound_id: string, src: string, volume: number, } | { "type": "sound_stop", sound_id: string | null, } | { "type": "layer_visible", layer_id: string, visible: boolean, } | { "type": "credits_roll", layer_id: string, credits: Credits, } | { "type": "timer", layer_id: string, run: TimerRun, } | { "type": "chat_rules", rules: ChatRules, } | { "type": "default_font", font: string, } | { "type": "reload" };

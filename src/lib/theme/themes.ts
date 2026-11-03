@@ -271,9 +271,12 @@ export function cssVariables(theme: Theme): Record<string, string> {
   vars['--radius'] = `${theme.spec.radius}px`;
   vars['--radius-lg'] = `${Math.round(theme.spec.radius * 1.4)}px`;
   vars['--row-h'] = `${ROW_HEIGHT[theme.spec.density]}px`;
-  vars['--font-ui'] =
-    theme.spec.font === 'system'
-      ? 'system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", Cantarell, Ubuntu, sans-serif'
-      : '"Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", sans-serif';
+  vars['--font-ui'] = uiFontStack(theme.spec.font);
   return vars;
+}
+
+export function uiFontStack(font: ThemeSpec['font']): string {
+  return font === 'system'
+    ? 'system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", Cantarell, Ubuntu, sans-serif'
+    : '"Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", sans-serif';
 }

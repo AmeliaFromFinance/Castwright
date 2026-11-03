@@ -95,9 +95,25 @@ On Wayland, global hotkeys may not work. See the [Linux note](/guide/settings/#h
 | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> | Ungroup: remove the frame, keep its nodes |
 | <kbd>Shift</kbd> + double-click | Add a sticky note |
 | <kbd>Ctrl</kbd> + <kbd>A</kbd> | Select every node, note and frame |
+| <kbd>A</kbd> or <kbd>/</kbd> | Search steps and triggers, add one at the pointer |
+| <kbd>Shift</kbd> + <kbd>F10</kbd> or the menu key | Open the menu for the selection, or the canvas menu |
+| Right-click | Menu for the canvas, a node or a line |
+
+In a menu with a search: <kbd>↑</kbd> / <kbd>↓</kbd> to pick, <kbd>Enter</kbd> to add, <kbd>Esc</kbd> to close.
 
 The rest are in the [automation guide](/guide/automation/#working-in-the-flow).
 
 ## Overlay editor
 
-The overlay editor has its own shortcuts. They're listed in the [overlay editor guide](/guide/overlay-editor/).
+| Keys | Does |
+| --- | --- |
+| <kbd>Shift</kbd> or <kbd>Ctrl</kbd> + click | Pick several layers, on the canvas or in the Layers list |
+| Drag on empty canvas | Pick the layers the box touches |
+| <kbd>Ctrl</kbd> + <kbd>A</kbd> | Pick every layer |
+| <kbd>Ctrl</kbd> + <kbd>C</kbd> / <kbd>Ctrl</kbd> + <kbd>V</kbd> | Copy and paste the picked layers |
+| <kbd>Ctrl</kbd> + <kbd>D</kbd> | Duplicate the picked layers |
+| <kbd>Delete</kbd> | Remove the picked layers |
+| Arrows | Nudge 1 px (<kbd>Shift</kbd>: 10 px) |
+| Right-click a layer | Copy, paste, duplicate, delete, and start, pause or reset a timer |
+
+The rest are in the [overlay editor guide](/guide/overlay-editor/#shortcuts).

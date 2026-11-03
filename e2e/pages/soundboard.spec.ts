@@ -140,7 +140,7 @@ test('board settings, hotkeys and the automation step', async ({ page }) => {
   const box = (await canvas.boundingBox())!;
   await page.mouse.dblclick(box.x + 200, box.y + box.height - 200);
   const picker = page.getByRole('dialog', { name: 'Add a step' });
-  await picker.getByRole('textbox').fill('soundboard');
+  await picker.getByRole('combobox').fill('soundboard');
   await picker.getByRole('option', { name: /^Play soundboard sound/ }).click();
   const inspector = page.getByRole('complementary', { name: 'Inspector' });
   await inspector.getByRole('combobox', { name: 'Button' }).selectOption({ label: '👏 Applause' });

@@ -173,6 +173,14 @@ export function addNote(g: Graph, at: Point, patch: Partial<GraphNote> = {}): { 
   return { graph: updateMembership({ ...g, notes: [...notesOf(g), note] }, [note.id], {}), id: note.id };
 }
 
+export const FRAME_SIZE = { w: 480, h: 320 };
+
+/** An empty frame with its top-left at `at`. */
+export function addFrame(g: Graph, at: Point, label = 'Group'): { graph: Graph; id: string } {
+  const frame: GraphFrame = { id: newId(), x: at.x, y: at.y, ...FRAME_SIZE, label, color: 'blue', collapsed: false, members: [] };
+  return { graph: { ...g, frames: [...framesOf(g), frame] }, id: frame.id };
+}
+
 /** Wrap nodes and notes in a new frame. They leave any frame they were in. */
 export function groupItems(g: Graph, ids: Iterable<string>, sizes: Sizes, label = 'Group'): { graph: Graph; id: string } | null {
   const want = new Set(ids);

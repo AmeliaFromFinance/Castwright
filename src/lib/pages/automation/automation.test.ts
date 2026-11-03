@@ -43,6 +43,7 @@ const SERDE_DEFAULTS: Partial<Record<string, Record<string, unknown>>> = {
   set_input_mute: { state: 'on' },
   recording: { state: 'on' },
   set_layer_visible: { state: 'on' },
+  timer_control: { action: 'start', seconds: 0 },
   play_alert: { message: '', image: '', sound: '', duration_ms: 6000 },
   pause_alerts: { state: 'on' },
   play_sound: { volume: 70 },

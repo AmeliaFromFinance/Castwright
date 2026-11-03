@@ -1,4 +1,5 @@
 import { api, initBackend, on, type Vars } from '$lib/api';
+import type { TimerRun } from '$lib/bindings/TimerRun';
 import type { AppInfo } from '$lib/bindings/AppInfo';
 import type { Event } from '$lib/bindings/Event';
 import type { LogEntry } from '$lib/bindings/LogEntry';
@@ -75,7 +76,7 @@ export function emptyAds(): AdSchedule {
   };
 }
 
-/** Deleted chat stays in the panel, marked as deleted. */
+/** Marks chat Twitch removed (deleted, timed out, banned, cleared). The panel can still show it on request. */
 export function markDeleted(chat: Event[], d: { message_id?: string; user_id?: string; all?: boolean }): Event[] {
   const hit = (c: Event) => !!d.all || (!!d.message_id && c.id === d.message_id) || (!!d.user_id && c.user?.id === d.user_id);
   return chat.map((c) => (hit(c) && c.data.deleted !== true ? { ...c, data: { ...c.data, deleted: true } } : c));
@@ -101,10 +102,14 @@ class AppState {
   queue = $state<QueueState>({ paused: false, muted: false, playing: null, waiting: [], last: null });
   ads = $state<AdSchedule>(emptyAds());
   music = $state<MusicStatus | null>(null);
+  /** Started, paused or reset timer layers, by layer id. */
+  timers = $state<Record<string, TimerRun>>({});
   vars = $state<Vars>({});
   /** When each variable last changed while the app was open (ms). */
   varTimes = $state<Record<string, number>>({});
   chat = $state<Event[]>([]);
+  /** Chat without removed messages. */
+  liveChat = $derived(this.chat.filter((c) => c.data.deleted !== true));
   feed = $state<Event[]>([]);
   logs = $state<LogEntry[]>([]);
   theme = $state<Theme | null>(null);
@@ -131,6 +136,7 @@ class AppState {
       Object.assign(this, { project, settings, info, server, obs, twitch, queue, vars, chat, feed, logs });
       this.ads = await api.adSchedule().catch(() => emptyAds());
       this.music = await api.musicStatus().catch(() => null);
+      this.timers = await api.timerStates().catch(() => ({}));
       this.applyAppearance();
       watchSystemTheme(() => this.applyAppearance());
       await this.subscribe();
@@ -197,6 +203,7 @@ class AppState {
       }),
       on('cw://ads', (s) => (this.ads = s)),
       on('cw://music', (s) => (this.music = s)),
+      on('cw://timers', (c) => (this.timers = { ...this.timers, [c.layer_id]: c.run })),
       on('cw://ad-warning', (s) => this.adWarning(s)),
       on('cw://obs', (s) => (this.obs = s)),
       on('cw://obs-levels', (levels) => {

@@ -3,10 +3,12 @@
     value: string;
     label: string;
     id?: string;
+    /** Shown while empty, e.g. "Mixed" when several layers differ. */
+    placeholder?: string;
     onchange?: (v: string) => void;
   }
 
-  let { value = $bindable(), label, id, onchange }: Props = $props();
+  let { value = $bindable(), label, id, placeholder, onchange }: Props = $props();
 
   // The native picker only understands #rrggbb.
   const hex6 = $derived(/^#[0-9a-f]{6}$/i.test(value) ? value : /^#[0-9a-f]{3}$/i.test(value) ? `#${value.slice(1).replace(/./g, (c) => c + c)}` : '#000000');
@@ -27,6 +29,7 @@
     class="input mono"
     aria-label={label}
     spellcheck="false"
+    {placeholder}
     {value}
     onchange={(e) => set(e.currentTarget.value.trim())}
   />

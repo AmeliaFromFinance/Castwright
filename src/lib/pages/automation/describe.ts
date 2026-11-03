@@ -1,3 +1,4 @@
+import type { TimerAction } from '$lib/bindings/TimerAction';
 import type { Action } from '$lib/bindings/Action';
 import type { Step } from '$lib/bindings/Step';
 import type { Trigger } from '$lib/bindings/Trigger';
@@ -179,10 +180,13 @@ export function fieldsForAction(a: Action, vars: Record<string, unknown>): Array
       fields.push({ value: 'roles.moderator', label: 'Is a moderator' }, { value: 'roles.subscriber', label: 'Is a subscriber' });
     }
   }
-  for (const k of Object.keys(vars).sort()) if (!fields.some((f) => f.value === k)) fields.push({ value: k, label: 'Variable' });
-  return fields;
+  for (const k of Object.keys(vars).sort()) fields.push({ value: k, label: 'Variable' });
+  // Several command triggers, or tokens with a fallback, would list a field twice.
+  const seen = new Set<string>();
+  return fields.filter((f) => !seen.has(f.value) && !!seen.add(f.value));
 }
 
+const TIMER_VERBS: Record<Exclude<TimerAction, 'add'>, string> = { start: 'Start', pause: 'Pause', resume: 'Resume', toggle: 'Pause or resume', reset: 'Reset' };
 const TOGGLE: Record<Toggle, [string, string]> = { on: ['Show', 'Mute'], off: ['Hide', 'Unmute'], toggle: ['Toggle', 'Toggle mute'] };
 const quote = (s: string) => (s.trim() ? `“${s.trim()}”` : '');
 const seconds = (ms: number) => `${Math.round(ms / 100) / 10} s`;
@@ -236,6 +240,14 @@ export function describeStep(s: Step, ctx: { actions?: readonly Action[]; overla
       const ov = ctx.overlays?.find((o) => o.id === s.overlay_id);
       const layer = ov?.layers.find((l) => l.id === s.layer_id);
       return ov && layer ? `${TOGGLE[s.state][0]} ${quote(layer.name)} in ${ov.name}` : '';
+    }
+    case 'timer_control': {
+      const ov = ctx.overlays?.find((o) => o.id === s.overlay_id);
+      const layer = ov?.layers.find((l) => l.id === s.layer_id);
+      if (!ov || !layer) return '';
+      const name = quote(layer.name);
+      if (s.action === 'add') return s.seconds < 0 ? `Take ${Math.abs(s.seconds)}s off ${name}` : `Add ${s.seconds}s to ${name}`;
+      return `${TIMER_VERBS[s.action]} ${name} in ${ov.name}`;
     }
     case 'roll_credits': {
       const ov = ctx.overlays?.find((o) => o.id === s.overlay_id);

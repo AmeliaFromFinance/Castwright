@@ -4,7 +4,8 @@
   import type { LayerKind } from '$lib/bindings/LayerKind';
   import BoxStyleEditor from '$lib/editors/BoxStyleEditor.svelte';
   import StylePresets from '$lib/editors/StylePresets.svelte';
-  import { presetBox, presetCard, presetText, type BoxPreset } from '$lib/overlay/presets';
+  import type { BoxPreset } from '$lib/overlay/presets';
+  import { applyCardPreset } from '../multi';
   import { resolveItemCard } from '$lib/overlay/styles';
   import Collapse from '$lib/ui/Collapse.svelte';
   import Segmented from '$lib/ui/Segmented.svelte';
@@ -44,22 +45,7 @@
     }, `cardbox:${key}`);
   }
 
-  function apply(p: BoxPreset) {
-    set((x) => {
-      if (x.type === 'chat') x.bubble = presetBox(p, 'chat');
-      else if (x.type === 'event_list' || x.type === 'ad_break' || x.type === 'queue') x.item_box = presetBox(p, 'events');
-      else if (x.type === 'giveaway') {
-        x.item_box = presetBox(p, 'events');
-        if (p.accent) x.accent_color = p.accent;
-      }
-      else if (x.type === 'poll' || x.type === 'now_playing' || x.type === 'hype_train') {
-        x.item_box = presetBox(p, 'events');
-        if (p.accent) x.bar_color = p.accent;
-      } else return;
-      x.item_card = x.type === 'ad_break' || x.type === 'now_playing' || x.type === 'hype_train' || x.type === 'giveaway' ? { ...presetCard(p), width: resolveItemCard(x.item_card).width } : presetCard(p);
-      x.style = presetText(x.style, p.text);
-    }, `preset:${p.id}`);
-  }
+  const apply = (p: BoxPreset) => set((x) => applyCardPreset(x, p), `preset:${p.id}`);
 </script>
 
 <Collapse id="insp.cards.styles" title="Styles">

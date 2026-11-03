@@ -16,6 +16,7 @@ import {
   copyNodes,
   curve,
   defaultBranch,
+  disconnect,
   dropTarget,
   duplicateNodes,
   edgeCurve,
@@ -24,6 +25,7 @@ import {
   hitHandle,
   hitNode,
   inBox,
+  insertOnEdge,
   nearestSide,
   nextBranch,
   outgoing,
@@ -348,5 +350,33 @@ describe('history', () => {
     expect(back.graph.nodes[0]!.x).toBe(30);
     expect(h.undo(back)!.graph.nodes[0]!.x).toBe(0);
     expect(h.canUndo('a')).toBe(false);
+  });
+});
+
+describe('inserting on a line', () => {
+  const base = (): Graph => ({ nodes: [step('if', 0, 0, iff()), step('yes', 0, 200), step('no', 300, 200)], edges: [line('if', 'yes', 'then'), line('if', 'no', 'otherwise')], notes: [], frames: [] });
+
+  it('splits a line and keeps its branch', () => {
+    const r = insertOnEdge(base(), 'if>no', step('mid', 300, 100))!;
+    expect(shape(r.graph)).toEqual(['if -then-> yes', 'if -otherwise-> mid', 'mid -next-> no'].sort());
+    const [into, out] = r.edges;
+    expect(into).toMatchObject({ from: 'if', from_side: 'bottom', to: 'mid', to_side: 'top', branch: 'otherwise' });
+    expect(out).toMatchObject({ from: 'mid', from_side: 'bottom', to: 'no', to_side: 'top', branch: 'next' });
+    expect(r.graph.edges.some((e) => e.id === 'if>no')).toBe(false);
+  });
+
+  it('a new If leads on with Then', () => {
+    const r = insertOnEdge(base(), 'if>yes', step('check', 0, 100, iff()))!;
+    expect(shape(r.graph)).toContain('if -then-> if');
+    expect(r.edges[1].branch).toBe('then');
+  });
+
+  it('needs a real line and a new node', () => {
+    expect(insertOnEdge(base(), 'nope', step('x', 0, 0))).toBeNull();
+    expect(insertOnEdge(base(), 'if>yes', step('no', 0, 0))).toBeNull();
+  });
+
+  it('disconnects nodes', () => {
+    expect(disconnect(base(), ['no']).edges.map((e) => e.id)).toEqual(['if>yes']);
   });
 });

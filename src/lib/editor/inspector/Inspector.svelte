@@ -38,10 +38,12 @@
   import CssHelp from './CssHelp.svelte';
   import ContentEditor from './ContentEditor.svelte';
   import SceneRuleEditor from './SceneRuleEditor.svelte';
+  import MultiInspector from './MultiInspector.svelte';
   import type { SceneRule } from '$lib/bindings/SceneRule';
   import { hasAnimation } from '$lib/overlay/anim';
   import { defaultSceneRule, hasSceneRule, knownScenes, sceneBadge } from '$lib/overlay/scenes';
   import { app } from '$lib/state/app.svelte';
+  import { controlTimer } from '../timer-actions';
 
   interface Props {
     store: EditorStore;
@@ -119,7 +121,9 @@
 </script>
 
 <aside class="inspector" aria-label="Properties">
-  {#if layer}
+  {#if store.multi}
+    <MultiInspector {store} />
+  {:else if layer}
     {@const uid = `p-${layer.id}`}
     <header class="head">
       <span class="icon"><LayerIcon type={layer.kind.type} size={16} /></span>
@@ -174,7 +178,7 @@
 
       <Section title={layer.kind.type === 'custom' ? 'Widget' : 'Content'} bind:open={open.content}>
         {#key layer.id}
-          <ContentEditor {layer} {uid} {varNames} {wide} {ontogglewide} {ontestalert} onroll={() => onroll(layer.id)} set={setKind} />
+          <ContentEditor {layer} {uid} {varNames} {wide} {ontogglewide} {ontestalert} onroll={() => onroll(layer.id)} ontimer={(a) => controlTimer(store, layer.id, a)} set={setKind} />
         {/key}
       </Section>
 
@@ -328,7 +332,10 @@
           <dt>Handles</dt><dd>Resize. Hold <kbd>Shift</kbd> to keep the shape</dd>
           <dt><kbd>Alt</kbd> + click</dt><dd>Pick the layer underneath</dd>
           <dt>Arrows</dt><dd>Nudge 1 px, with <kbd>Shift</kbd> 10 px</dd>
+          <dt><kbd>Shift</kbd> or <kbd>Ctrl</kbd> + click</dt><dd>Pick several layers</dd>
+          <dt>Drag on empty space</dt><dd>Pick layers with a box</dd>
           <dt><kbd>Ctrl</kbd> + <kbd>D</kbd></dt><dd>Duplicate</dd>
+          <dt><kbd>Ctrl</kbd> + <kbd>C</kbd> / <kbd>V</kbd></dt><dd>Copy and paste layers</dd>
           <dt><kbd>Ctrl</kbd> + <kbd>Z</kbd></dt><dd>Undo, add <kbd>Shift</kbd> to redo</dd>
           <dt><kbd>Delete</kbd></dt><dd>Remove the layer</dd>
         </dl>

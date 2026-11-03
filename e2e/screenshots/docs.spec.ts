@@ -181,6 +181,19 @@ test('overlay editor', async ({ page }) => {
   await shot(page, 'overlay-editor');
 });
 
+test('overlay editor multi-select', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Overlays');
+  await page.locator('[data-overlay-card]').first().getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.locator('[data-layer-row]').filter({ hasText: 'Chat' }).locator('.pick').click();
+  await page.locator('[data-layer-row]').filter({ hasText: 'Sub goal' }).locator('.pick').click({ modifiers: ['ControlOrMeta'] });
+  const size = page.locator('[data-multi-inspector]').getByLabel('Font size');
+  if (!(await size.isVisible())) await page.getByRole('button', { name: 'Text style', exact: true }).click();
+  await size.fill('26');
+  await page.getByRole('status').filter({ hasText: 'Saved' }).waitFor();
+  await shot(page, 'editor-multi-select');
+});
+
 test('overlay editor alert test', async ({ page }) => {
   await open(page);
   await nav(page, 'Overlays');
@@ -221,6 +234,28 @@ test('automation', async ({ page }) => {
   await page.getByText('Big raid welcome', { exact: true }).first().click();
   await page.waitForTimeout(600);
   await shot(page, 'automation');
+});
+
+test('automation canvas menu', async ({ page }) => {
+  await open(page);
+  await nav(page, 'Automation');
+  await page.getByText('Count deaths', { exact: true }).first().click();
+  await page.waitForTimeout(400);
+  const box = (await page.getByRole('region', { name: 'Flow of Count deaths' }).boundingBox())!;
+  // Move the flow right so the menu opens on empty canvas.
+  await page.mouse.move(box.x + 60, box.y + 420);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 140, box.y + 410, { steps: 6 });
+  await page.mouse.move(box.x + 220, box.y + 410, { steps: 6 });
+  await page.mouse.up();
+  const at = { x: box.x + 40, y: box.y + 70 };
+  await page.mouse.click(at.x, at.y, { button: 'right' });
+  await page.getByRole('dialog', { name: 'Canvas' }).getByRole('combobox').pressSequentially('chat', { delay: 30 });
+  await page.waitForTimeout(400);
+  // The menu stays open; keep the pointer off it.
+  await page.mouse.move(box.x + 10, box.y + box.height - 10);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: out('automation-menu') });
 });
 
 test('variable details', async ({ page }) => {

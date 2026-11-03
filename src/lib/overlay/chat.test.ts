@@ -27,6 +27,10 @@ describe('visibleChat', () => {
     expect(visibleChat(chat, { ...f, fadeAfterS: 5, now: 10_000 })).toHaveLength(1);
     expect(visibleChat(chat, { ...f, fadeAfterS: 0, now: 10_000 })).toHaveLength(2);
   });
+  it('leaves out messages Twitch removed', () => {
+    const chat = [ev('chat', { message: 'a' }), ev('chat', { message: 'b', data: { deleted: true } }), ev('chat', { message: 'c' })];
+    expect(visibleChat(chat, f).map((e) => e.message)).toEqual(['a', 'c']);
+  });
   it('fills the limit after filtering', () => {
     const chat = [ev('chat', { message: 'a' }), ev('chat', { message: 'b' }), ev('chat', { message: '!c' })];
     expect(visibleChat(chat, { ...f, maxMessages: 2 }).map((e) => e.message)).toEqual(['a', 'b']);

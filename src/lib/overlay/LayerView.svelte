@@ -250,7 +250,7 @@
           {:else if kind.type === 'counter'}
             <CounterLayer {kind} />
           {:else if kind.type === 'timer'}
-            <TimerLayer {kind} />
+            <TimerLayer {kind} layerId={layer.id} />
           {:else if kind.type === 'event_list'}
             <EventListLayer {kind} />
           {:else if kind.type === 'poll'}

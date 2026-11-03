@@ -19,6 +19,7 @@
   import Switch from '$lib/ui/Switch.svelte';
   import AssetPicker from '$lib/widgets/AssetPicker.svelte';
   import ConditionEditor from '$lib/widgets/ConditionEditor.svelte';
+  import FontInput from '$lib/editors/FontInput.svelte';
   import { ArrowDown, ArrowUp, ChevronRight, Copy, Trash2 } from '@lucide/svelte';
   import { ANIM_PRESETS, EASINGS, FONTS, LAYOUTS, fieldsFor, tokensFor } from './alerts';
   import { alertsEditor as ed } from './store.svelte';
@@ -83,15 +84,7 @@
     <div class="grid4">
       <div class="f wide">
         <label for="{uid}-{key}-font">Font</label>
-        <input
-          id="{uid}-{key}-font"
-          class="input"
-          list="{uid}-fonts"
-          value={s.font_family}
-          onchange={(e) => {
-            style(key, { font_family: e.currentTarget.value.trim() || 'Inter' });
-          }}
-        />
+        <FontInput id="{uid}-{key}-font" value={s.font_family} choices={FONTS} onchange={(f) => style(key, { font_family: f })} />
       </div>
       <div class="f">
         <label for="{uid}-{key}-size">Size</label>
@@ -466,10 +459,6 @@
     </div>
   {/if}
 </article>
-
-<datalist id="{uid}-fonts">
-  {#each FONTS as f (f)}<option value={f}></option>{/each}
-</datalist>
 
 <style>
   .card {

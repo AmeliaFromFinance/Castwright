@@ -13,6 +13,7 @@
     recent={s.recent}
     chat={s.chat}
     chatRules={s.chatRules}
+    defaultFont={s.defaultFont}
     alert={s.alert}
     widgetState={s.widgetState}
     visibility={s.visibility}
@@ -22,6 +23,7 @@
     credits={s.credits}
     rolls={s.rolls}
     onLoadCredits={runtime.loadCredits}
+    timers={s.timers}
     mode="live"
   />
 {/if}

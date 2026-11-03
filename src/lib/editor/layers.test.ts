@@ -78,6 +78,7 @@ const KIND_KEYS: Record<LayerType, string[]> = {
     'style',
     'bubble',
     'newest_on_top',
+    'stack',
     'seventv_emotes',
     'bttv_emotes',
     'ffz_emotes',
@@ -91,7 +92,7 @@ const KIND_KEYS: Record<LayerType, string[]> = {
   goal: ['title', 'current_var', 'target', 'bar_color', 'track_color', 'style', 'show_numbers'],
   counter: ['var', 'format', 'style'],
   timer: ['mode', 'duration_s', 'anchor_var', 'style', 'prefix'],
-  event_list: ['kinds', 'max_items', 'direction', 'item_format', 'style', 'item_box', 'item_card'],
+  event_list: ['kinds', 'max_items', 'direction', 'newest_on_top', 'ticker_dir', 'item_format', 'style', 'item_box', 'item_card'],
   poll: ['show', 'result_s', 'show_title', 'show_timer', 'show_totals', 'bar_color', 'track_color', 'style', 'item_box', 'item_card'],
   credits: [
     'sections',
@@ -99,6 +100,7 @@ const KIND_KEYS: Record<LayerType, string[]> = {
     'fit_s',
     'repeat',
     'start',
+    'scroll',
     'heading',
     'footer',
     'names',
@@ -143,7 +145,7 @@ const KIND_KEYS: Record<LayerType, string[]> = {
     'item_card'
   ],
   giveaway: ['hide_idle', 'open_text', 'show_entries', 'spin_s', 'show_badges', 'seventv_paints', 'accent_color', 'style', 'item_box', 'item_card'],
-  queue: ['show_playing', 'next_count', 'show_positions', 'show_notes', 'hide_empty', 'playing_label', 'next_label', 'style', 'item_box', 'item_card'],
+  queue: ['show_playing', 'next_count', 'first_on_top', 'show_positions', 'show_notes', 'hide_empty', 'playing_label', 'next_label', 'style', 'item_box', 'item_card'],
   custom: ['html', 'css', 'js', 'fields', 'values']
 };
 
@@ -177,7 +179,7 @@ describe('defaults match the backend', () => {
         type: 'text',
         text: 'Text',
         style: {
-          font_family: 'Inter',
+          font_family: 'Default',
           font_size: 28,
           font_weight: 600,
           color: '#ffffff',

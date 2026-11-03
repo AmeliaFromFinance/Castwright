@@ -93,6 +93,8 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `:scope` | This layer’s box |
 | `.cw-chat` | The message list |
 | `.cw-top` | The list when newest is on top |
+| `.cw-chat[data-order="top"]` | Where new messages appear: top or bottom |
+| `.cw-chat[data-stack="bottom"]` | The edge the messages sit against: top or bottom |
 | `.cw-chat-line` | Each message card |
 | `.cw-chat-line[data-user-id]` | Messages from one chatter (by Twitch user id) |
 | `.cw-hl` | A highlighted message (any reason) |
@@ -172,6 +174,7 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `.cw-text` | A piece of styled text |
 | `.cw-stroked` | Text with an outline |
 | `.cw-timer` | The timer row |
+| `.cw-timer[data-state="paused"]` | Countdowns and stopwatches: idle, running, paused or done |
 
 | Variable | What it is |
 | --- | --- |
@@ -187,8 +190,10 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `.cw-stroked` | Text with an outline |
 | `.cw-event-row` | Each event card, in list and ticker |
 | `.cw-list` | The list |
+| `.cw-list[data-order="bottom"]` | Where new events appear: top or bottom |
 | `.cw-list-item` | A row in list mode |
 | `.cw-ticker` | The ticker |
+| `.cw-ticker[data-direction="right"]` | Which way the ticker moves: left or right |
 | `.cw-ticker-item` | An item in ticker mode |
 | `.cw-ticker-sep` | The dot between ticker items |
 
@@ -250,6 +255,7 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `.cw-badge-role` | A built-in role icon, used when a badge image is missing |
 | `.cw-paint` | A name with a 7TV paint |
 | `.cw-credits` | The whole roll, clipped to the layer |
+| `.cw-credits[data-scroll="down"]` | Which way it scrolls: up or down |
 | `.cw-rolling` | Added to .cw-credits while it moves |
 | `.cw-done` | Added to .cw-credits once it has stopped at the end |
 | `.cw-paged` | Added to .cw-credits when reduced motion shows pages |
@@ -421,6 +427,7 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `.cw-stroked` | Text with an outline |
 | `.cw-q` | The whole layer |
 | `.cw-q[data-open="true"]` | While the queue takes people |
+| `.cw-q[data-order="bottom"]` | Where the first in line is: top or bottom |
 | `.cw-q-section` | Each group: playing now or up next |
 | `.cw-q-playing` | The playing now group |
 | `.cw-q-next` | The up next group |

@@ -19,6 +19,7 @@
   let { group = $bindable(), fields = [], emptyText = 'Always', onchange }: Props = $props();
 
   const uid = `cond-${Math.random().toString(36).slice(2, 8)}`;
+  const suggestions = $derived([...new Map(fields.map((f) => [f.value, f])).values()]);
 
   export const OPS: Array<{ value: Op; label: string; needsValue: boolean }> = [
     { value: 'eq', label: 'is', needsValue: true },
@@ -124,7 +125,7 @@
     </Button>
   </div>
   <datalist id="{uid}-fields">
-    {#each fields as f (f.value)}<option value={f.value}>{f.label}</option>{/each}
+    {#each suggestions as f (f.value)}<option value={f.value}>{f.label}</option>{/each}
   </datalist>
 </div>
 

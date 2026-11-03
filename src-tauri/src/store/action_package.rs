@@ -309,6 +309,11 @@ pub fn build(
                 | Step::RollCredits {
                     overlay_id,
                     layer_id,
+                }
+                | Step::TimerControl {
+                    overlay_id,
+                    layer_id,
+                    ..
                 } => {
                     let found = project
                         .overlays
@@ -565,6 +570,11 @@ pub fn apply(
             | Step::RollCredits {
                 overlay_id,
                 layer_id,
+            }
+            | Step::TimerControl {
+                overlay_id,
+                layer_id,
+                ..
             } if !layer_id.is_empty() => {
                 let to = resolve(
                     project,

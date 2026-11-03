@@ -38,18 +38,29 @@ test('time out from a message, then delete with the keyboard', async ({ page }) 
 
   await menu.getByRole('menuitem', { name: 'Time out 10m' }).click();
   await expect(page.getByText('pixelbyte timed out')).toBeVisible();
-  // A timeout clears their messages: shown as deleted, not removed.
-  await expect(pixel.first().getByText('deleted')).toBeVisible();
-  expect(await pixel.count()).toBeGreaterThan(0);
+  // A timeout removes their messages.
+  await expect(pixel).toHaveCount(0);
 
   // Right-click opens the same menu; D deletes a focused message.
-  const nova = chat(page).getByRole('option', { name: /^nova_kat:/ }).last();
+  const novas = chat(page).getByRole('option', { name: /^nova_kat:/ });
+  const before = await novas.count();
+  const nova = novas.last();
+  const novaId = await nova.getAttribute('data-id');
   await nova.click({ button: 'right' });
   await expect(page.getByRole('menu', { name: 'Message actions for nova_kat' })).toBeVisible();
   await page.keyboard.press('Escape');
   await nova.focus();
   await page.keyboard.press('d');
-  await expect(nova.getByText('deleted')).toBeVisible();
+  await expect(chat(page).locator(`[data-id="${novaId}"]`)).toHaveCount(0);
+  await expect(novas).toHaveCount(before - 1);
+
+  // Mods can still see them, crossed out.
+  await page.getByRole('button', { name: 'Chat display options' }).click();
+  await page.getByRole('switch', { name: 'Show removed messages' }).click();
+  await page.keyboard.press('Escape');
+  await expect(chat(page).locator(`[data-id="${novaId}"]`).getByText('removed')).toBeVisible();
+  expect(await pixel.count()).toBeGreaterThan(0);
+  await expect(pixel.first().getByText('removed')).toBeVisible();
 
   // B asks before banning.
   const fox = chat(page).getByRole('option', { name: /^quietfox:/ }).last();
@@ -59,6 +70,7 @@ test('time out from a message, then delete with the keyboard', async ({ page }) 
   await ask.getByLabel('Reason (optional)').fill('spam links');
   await ask.getByRole('button', { name: 'Ban', exact: true }).click();
   await expect(page.getByText('quietfox banned')).toBeVisible();
+  await expect(fox.getByText('removed')).toBeVisible();
   expect(errors).toEqual([]);
 });
 

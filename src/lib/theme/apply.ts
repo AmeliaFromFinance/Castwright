@@ -1,7 +1,7 @@
 import type { AppearanceSettings } from '$lib/bindings/AppearanceSettings';
 import type { WindowEffect } from '$lib/bindings/WindowEffect';
 import { parseHex } from './color';
-import { cssVariables, resolveTheme, type Theme } from './themes';
+import { cssVariables, resolveTheme, uiFontStack, type Theme } from './themes';
 import { applyZoom } from '$lib/state/zoom';
 
 export function prefersDark(): boolean {
@@ -18,6 +18,7 @@ export function applyTheme(appearance: AppearanceSettings, effect: WindowEffect 
   const theme = resolveTheme(appearance.theme, appearance.custom_themes, prefersDark());
   const root = document.documentElement;
   for (const [k, v] of Object.entries(cssVariables(theme))) root.style.setProperty(k, v);
+  if (appearance.app_font === 'inter' || appearance.app_font === 'system') root.style.setProperty('--font-ui', uiFontStack(appearance.app_font));
   const translucent = effect === 'mica' || effect === 'acrylic';
   root.style.setProperty('--app-bg', translucent ? withAlpha(theme.tokens['bg-0'], 0.55) : theme.tokens['bg-0']);
   root.style.colorScheme = theme.spec.base;

@@ -23,7 +23,7 @@ The editor shows your overlay exactly as OBS will, with live chat, events and va
 | **Chat** | Live chat with Twitch and 7TV badges, 7TV name paints and 7TV, BetterTTV and FrankerFaceZ emotes. Hides bots and commands, and highlights messages. See [Chat layer filters](#chat-layer-filters). |
 | **Goal** | A progress bar towards a target, such as follows or bits this stream. |
 | **Counter** | A number from a [variable](/reference/variables/), like a death counter. |
-| **Timer** | Countdown, stopwatch, clock or stream uptime. |
+| **Timer** | Countdown, stopwatch, clock or stream uptime. See [Timer controls](#timer-controls). |
 | **Events** | Recent follows, subs, cheers and more, as a list or ticker. |
 | **Music** | The song playing now, with cover and progress. See [Music and now playing](/guide/music/#now-playing-layer). |
 | **Hype** | The running hype train: level, progress, time left and top contributors. See [Hype train layer](#hype-train-layer). |
@@ -54,6 +54,31 @@ After picking one, change any part of it:
 - Layers snap to the canvas edges, its centre and other layers. Hold **Ctrl** (**⌘** on Mac) to place freely, or turn snapping off in the top bar.
 - **Alt**-click picks the layer underneath.
 - Type exact numbers under **Layout**: position, size, rotation and opacity. The align buttons line a layer up with the canvas.
+- Right-click a layer on the canvas or in the Layers list to copy, paste, duplicate or delete it.
+
+## Editing several layers
+
+Pick more than one layer to change them together:
+
+- **Shift** or **Ctrl** + click layers on the canvas or in the Layers list. Click a picked one again (with **Shift** or **Ctrl**) to drop it.
+- Drag on an empty part of the canvas to pick every layer the box touches.
+- **Ctrl + A** picks every layer.
+
+![Two layers picked, with the shared settings on the right](../../../assets/screens/editor-multi-select.png)
+
+Drag any picked layer to move them all. Arrows, **Delete**, **Ctrl + D**, **Ctrl + C** and **Ctrl + V** work on all of them. Pasting works in another overlay too.
+
+The right side then shows what they share:
+
+| Section | What it does |
+| --- | --- |
+| **Layout** | Line them up with each other or the canvas, space three or more evenly, and set the opacity. |
+| **Text style** | Font, size, weight, colour and the rest, for every picked layer with text. In credits, the titles and heading keep their size next to the names. |
+| **Cards** | Card styles for chat, events and other card layers. |
+| **Style** | Box styles and the box settings. |
+| **Visibility** and **Scenes** | Show or hide them, and their scene rules. |
+
+Fields where the layers differ show **Mixed**. Typing a value sets it on all of them. Every change is one undo step. Alert text is styled on the [Alerts](/guide/alerts/) page, so Alerts layers aren't changed by **Text style**.
 
 ## Layer settings
 
@@ -69,6 +94,34 @@ Each layer has these sections on the right:
 | **Advanced** | Custom CSS for the layer, and its ID for automation. The list under the CSS box shows which classes this layer has; click one to insert a rule. See [Custom CSS](/reference/styling/). |
 
 Hide a layer with the eye in the Layers list. The **Show/hide overlay layer** automation step can show it at certain moments, like after a raid.
+
+## Timer controls
+
+Countdown and stopwatch layers can be started, paused, resumed and reset:
+
+- In the layer settings, under **Content → Control**.
+- Right-click the layer on the canvas or in the Layers list.
+- With the **Timer** [automation step](/reference/automation-steps/#overlays-and-alerts), which can also add or take off time.
+- From a Stream Deck: **Copy link** under **Control** gives a link that pauses or resumes. See [Timer controls](/reference/http-api/#timer-controls) for the rest.
+
+The app keeps the time, so every copy of the overlay shows the same, also after a reload. **Start** always starts from the beginning. **Reset** goes back to the beginning and waits. A countdown stops at `00:00`.
+
+Until you start it, a timer works as before: it counts from when the overlay loads, or from its **Start from** variable. The time is kept while the app runs; after a restart, timers count from page load again until started.
+
+## List order
+
+Lists can grow from either end. Old layers keep how they looked.
+
+| Layer | Setting | Options |
+| --- | --- | --- |
+| **Chat** | **New messages** | **At the bottom** (default) or **At the top**. |
+| **Chat** | **Stack from** | The edge the messages sit against: **Bottom** or **Top**. Follows **New messages** until you change it. |
+| **Events** (list) | **Newest** | **At the top** (default) or **At the bottom**. |
+| **Events** (ticker) | **Moves** | **Left** (default) or **Right**. |
+| **Credits** | **Scroll** | **Up** (default) or **Down**. Scrolling down, the heading still comes in first. |
+| **Viewer queue** | **First in line** | **At the top** (default) or **At the bottom**. At the bottom, the layer reads bottom up. |
+
+New messages and events slide in from the edge they appear at. To style each order, use `data-order` and the other attributes in the [styling reference](/reference/styling/).
 
 ## Chat layer filters
 
@@ -125,7 +178,8 @@ A movie-style roll of the people who made this stream. Names come from the live 
 | --- | --- |
 | **Starts** | **When shown**: rolls as soon as the layer appears. **From an action**: stays empty until the **Roll credits** step runs. |
 | **Speed** | Pixels per second. Or set **Fit to seconds** to make one pass take that long. |
-| **At the end** | **Stop** keeps the last names on screen. **Loop** starts again from the bottom. |
+| **Scroll** | **Up** or **Down**. See [List order](#list-order). |
+| **At the end** | **Stop** keeps the last names on screen. **Loop** starts again. |
 | **Heading** and **Footer** | Text above and below the names. Live values work, like `{{session.follows}}`. |
 | **Names** | **Plain** uses the name text style. **Like chat** adds chat colours and badges (for people who chatted recently) and 7TV paints. |
 | **Columns**, **Fade edges**, **Amounts** | Names in 1 or 2 columns, a soft fade at the top and bottom, and months, gifts, bits and so on next to names. |
@@ -174,6 +228,8 @@ Pick a scene in **Preview as scene** in the top bar to see the canvas as it look
 
 Pick from the font list or type any [Google Fonts](https://fonts.google.com) name. With no layer selected, **Extra fonts** loads more fonts for custom widgets.
 
+**Default** uses the project's [default font](/guide/settings/#default-font), set in **Settings → Appearance**. New layers start on it. The ↺ button next to a font switches it back to **Default**.
+
 ## Testing
 
 **Test** in the top bar:
@@ -203,10 +259,15 @@ The play button in the top bar starts and stops layer animations on the canvas.
 | Keys | Action |
 | --- | --- |
 | Arrows | Nudge 1 px (**Shift**: 10 px) |
+| **Shift** or **Ctrl** + click | Pick several layers |
+| Drag on empty canvas | Pick layers with a box |
+| **Ctrl + A** | Pick every layer |
+| **Ctrl + C** / **Ctrl + V** | Copy and paste layers |
 | **Ctrl + D** | Duplicate layer |
 | **Ctrl + Z** | Undo |
 | **Ctrl + Shift + Z** or **Ctrl + Y** | Redo |
 | **Delete** / **Backspace** | Remove layer |
 | **Esc** | Deselect |
+| Right-click a layer | Copy, paste, duplicate, delete, and start or pause timers |
 
 On Mac, use **⌘** instead of **Ctrl**. Shortcuts don't fire while you're typing in a field.

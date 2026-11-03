@@ -65,6 +65,16 @@ http://127.0.0.1:7470/api/sounds/SOUND_ID/play?token=YOUR_SECRET
 
 Use `all` as the sound ID with `/stop` to stop every sound. See [Soundboard routes](/reference/http-api/#soundboard).
 
+## Timer buttons
+
+Start, pause or reset a countdown or stopwatch layer. In the editor, select the layer and click **Copy link** under **Content → Control**. It pauses or resumes. Send it as a **POST**:
+
+```
+http://127.0.0.1:7470/api/layers/LAYER_ID/timer/toggle?token=YOUR_SECRET
+```
+
+Swap `toggle` for `start`, `reset` or `add?seconds=60`. See [Timer controls](/reference/http-api/#timer-controls).
+
 ## From another device
 
 Turn on **Settings → Overlay server → Allow other devices**. Links then use your computer's network address (for example `192.168.1.20`) instead of `127.0.0.1`. Copy them again after turning it on.

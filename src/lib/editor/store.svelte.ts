@@ -7,7 +7,7 @@ import { Feed } from '$lib/overlay/feed';
 import type { ActiveAlert, WidgetState } from '$lib/overlay/state';
 import { roundRect, type Rect } from './geometry';
 import { History } from './history';
-import { createLayer, duplicateLayer, moveLayer, reorderFromList, type LayerType } from './layers';
+import { createLayer, duplicateLayer, moveLayer, reorderFromList, uniqueName, type LayerType } from './layers';
 
 export type SaveState = 'saved' | 'pending' | 'saving' | 'error';
 
@@ -18,12 +18,16 @@ export interface ChangeOptions {
 }
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+
+/** Copied layers, shared by every editor in this window so they paste into other overlays too. */
+let clipboard: Layer[] = [];
 /** Compares content only; the backend sets `updated_at`. */
 const contentKey = (o: Overlay) => JSON.stringify({ ...o, updated_at: 0 });
 
 export class EditorStore {
   doc: Overlay = $state() as Overlay;
-  selectedId = $state<string | null>(null);
+  /** Selected layers in the order they were picked; the last one is the main one. */
+  selectedIds = $state<string[]>([]);
   saveState = $state<SaveState>('saved');
   saveError = $state<string | null>(null);
   canUndo = $state(false);
@@ -67,8 +71,30 @@ export class EditorStore {
     this.rememberVisible(overlay);
   }
 
+  /** The main selected layer: the only one, or the last one picked. */
+  get selectedId(): string | null {
+    return this.selectedIds[this.selectedIds.length - 1] ?? null;
+  }
+
+  set selectedId(id: string | null) {
+    this.selectedIds = id ? [id] : [];
+  }
+
   get selected(): Layer | null {
     return this.doc.layers.find((l) => l.id === this.selectedId) ?? null;
+  }
+
+  /** Selected layers in paint order (back first). */
+  get selection(): Layer[] {
+    return this.doc.layers.filter((l) => this.selectedIds.includes(l.id));
+  }
+
+  get multi(): boolean {
+    return this.selectedIds.length > 1;
+  }
+
+  isSelected(id: string): boolean {
+    return this.selectedIds.includes(id);
   }
 
   layer(id: string): Layer | undefined {
@@ -97,11 +123,29 @@ export class EditorStore {
     }, opts);
   }
 
+  /** Change several layers as one undo step. `fn` gets them in paint order. */
+  changeLayers(ids: readonly string[], fn: (ls: Layer[]) => void, opts?: ChangeOptions): void {
+    this.change((d) => {
+      const ls = d.layers.filter((l) => ids.includes(l.id));
+      if (ls.length) fn(ls);
+    }, opts);
+  }
+
+  /** Change each selected layer. */
+  changeSelected(fn: (l: Layer) => void, opts?: ChangeOptions): void {
+    this.changeLayers(this.selectedIds, (ls) => ls.forEach(fn), opts);
+  }
+
   private afterChange() {
     this.canUndo = this.history.canUndo;
     this.canRedo = this.history.canRedo;
-    if (this.selectedId && !this.layer(this.selectedId)) this.selectedId = null;
+    this.pruneSelection();
     this.schedule();
+  }
+
+  private pruneSelection() {
+    const kept = this.selectedIds.filter((id) => this.layer(id));
+    if (kept.length !== this.selectedIds.length) this.selectedIds = kept;
   }
 
   undo(): void {
@@ -132,6 +176,18 @@ export class EditorStore {
     this.history.seal();
   }
 
+  /** Moves layers to `start` plus the offset, during a drag of several. */
+  moveGroup(starts: ReadonlyMap<string, { x: number; y: number }>, dx: number, dy: number): void {
+    const opts = this.gesture ? { key: this.gesture, windowMs: Infinity } : { key: 'group-move' };
+    this.changeLayers([...starts.keys()], (ls) => {
+      for (const l of ls) {
+        const s = starts.get(l.id)!;
+        l.x = Math.round(s.x + dx);
+        l.y = Math.round(s.y + dy);
+      }
+    }, opts);
+  }
+
   setRect(id: string, r: Partial<Rect>): void {
     const opts = this.gesture ? { key: this.gesture, windowMs: Infinity } : { key: `rect:${id}` };
     this.changeLayer(id, (l) => Object.assign(l, r), opts);
@@ -142,18 +198,44 @@ export class EditorStore {
   }
 
   nudge(dx: number, dy: number): void {
-    const l = this.selected;
-    if (!l || l.locked) return;
-    this.changeLayer(l.id, (x) => {
-      x.x = Math.round(x.x + dx);
-      x.y = Math.round(x.y + dy);
-    }, { key: `nudge:${l.id}` });
+    const ids = this.selection.filter((l) => !l.locked).map((l) => l.id);
+    if (!ids.length) return;
+    this.changeLayers(ids, (ls) => {
+      for (const x of ls) {
+        x.x = Math.round(x.x + dx);
+        x.y = Math.round(x.y + dy);
+      }
+    }, { key: `nudge:${ids.join(',')}` });
   }
 
   // --- layers --------------------------------------------------------------
 
   select(id: string | null): void {
     this.selectedId = id && this.layer(id) ? id : null;
+  }
+
+  /** Ctrl-click: adds or takes out one layer. */
+  toggleSelect(id: string): void {
+    if (!this.layer(id)) return;
+    this.selectedIds = this.isSelected(id) ? this.selectedIds.filter((x) => x !== id) : [...this.selectedIds, id];
+  }
+
+  /** Shift-click: everything between the main selected layer and `id` in `order`, which is how a list shows them. */
+  selectRange(id: string, order: readonly string[]): void {
+    const from = order.indexOf(this.selectedId ?? id);
+    const to = order.indexOf(id);
+    if (to < 0) return;
+    const range = order.slice(Math.min(from < 0 ? to : from, to), Math.max(from, to) + 1);
+    // Keep the clicked one last so it becomes the main one.
+    this.selectedIds = [...range.filter((x) => x !== id), id];
+  }
+
+  selectMany(ids: readonly string[]): void {
+    this.selectedIds = ids.filter((id, i) => this.layer(id) && ids.indexOf(id) === i);
+  }
+
+  selectAll(): void {
+    this.selectedIds = this.doc.layers.map((l) => l.id);
   }
 
   addLayer(type: LayerType): Layer {
@@ -166,20 +248,61 @@ export class EditorStore {
   }
 
   remove(id: string): void {
+    this.removeMany([id]);
+  }
+
+  removeMany(ids: readonly string[]): void {
     this.change((d) => {
-      d.layers = d.layers.filter((l) => l.id !== id);
+      d.layers = d.layers.filter((l) => !ids.includes(l.id));
     });
   }
 
   duplicate(id: string): void {
-    const src = this.layer(id);
-    if (!src) return;
-    const copy = duplicateLayer($state.snapshot(src) as Layer, this.doc.layers.map((l) => l.name));
+    this.duplicateMany([id]);
+  }
+
+  /** Copies sit right above their originals; the copies end up selected. */
+  duplicateMany(ids: readonly string[]): void {
+    const names = this.doc.layers.map((l) => l.name);
+    const copies: Layer[] = [];
     this.change((d) => {
-      const i = d.layers.findIndex((l) => l.id === id);
-      d.layers.splice(i + 1, 0, copy);
+      for (const src of d.layers.filter((l) => ids.includes(l.id))) {
+        const copy = duplicateLayer($state.snapshot(src) as Layer, names);
+        names.push(copy.name);
+        copies.push(copy);
+        d.layers.splice(d.layers.findIndex((l) => l.id === src.id) + 1, 0, copy);
+      }
     });
-    this.selectedId = copy.id;
+    if (copies.length) this.selectedIds = copies.map((c) => c.id);
+  }
+
+  /** Copies the selected layers for `paste`. Returns how many. */
+  copy(): number {
+    clipboard = this.selection.map((l) => $state.snapshot(l) as Layer);
+    return clipboard.length;
+  }
+
+  get canPaste(): boolean {
+    return clipboard.length > 0;
+  }
+
+  /** Adds the copied layers on top, a little offset when they'd land on their originals. */
+  paste(): void {
+    if (!clipboard.length) return;
+    const names = this.doc.layers.map((l) => l.name);
+    const here = clipboard.some((c) => this.doc.layers.some((l) => l.id === c.id || (l.x === c.x && l.y === c.y && l.name === c.name)));
+    const copies = clipboard.map((c) => {
+      const copy = duplicateLayer(structuredClone(c), names, here ? 24 : 0);
+      copy.name = here ? copy.name : uniqueName(c.name, names);
+      names.push(copy.name);
+      return copy;
+    });
+    this.change((d) => {
+      d.layers.push(...copies);
+    });
+    // The next paste lands a step further along.
+    if (here) clipboard = copies.map((c) => structuredClone(c));
+    this.selectedIds = copies.map((c) => c.id);
   }
 
   /** +1 brings forward, -1 sends backward. */
@@ -290,7 +413,7 @@ export class EditorStore {
     this.rememberVisible(remote);
     this.canUndo = this.history.canUndo;
     this.canRedo = this.history.canRedo;
-    if (this.selectedId && !this.layer(this.selectedId)) this.selectedId = null;
+    this.pruneSelection();
     return true;
   }
 

@@ -25,10 +25,13 @@
   import { GIVEAWAY_TOKENS } from '$lib/overlay/play';
   import { giveawayPreview } from '$lib/overlay/play-preview.svelte';
   import TextStyleEditor from './TextStyleEditor.svelte';
+  import TimerControls from './TimerControls.svelte';
+  import type { TimerAction } from '$lib/bindings/TimerAction';
   import ChatRulesForm from '$lib/widgets/chat/ChatRulesForm.svelte';
   import type { ChatFilterSource } from '$lib/bindings/ChatFilterSource';
   import { resolveRules } from '$lib/overlay/chat-filters';
   import { openPlace } from '$lib/state/golive.svelte';
+  import { newEdge, stackEdge } from '$lib/overlay/order';
 
   interface Props {
     layer: Layer;
@@ -41,9 +44,11 @@
     ontogglewide: () => void;
     /** Credits layers: start the roll on the canvas. */
     onroll: () => void;
+    /** Countdown and stopwatch layers: start, pause, reset. */
+    ontimer: (action: TimerAction) => void;
   }
 
-  let { layer, uid, varNames, wide, set, ontestalert, ontogglewide, onroll }: Props = $props();
+  let { layer, uid, varNames, wide, set, ontestalert, ontogglewide, onroll, ontimer }: Props = $props();
 
   const k = $derived(layer.kind);
   const fit = [
@@ -183,8 +188,27 @@
       <Switch label="FrankerFaceZ" showLabel checked={k.ffz_emotes !== false} onchange={(v) => set((x) => x.type === 'chat' && (x.ffz_emotes = v), 'ffz')} />
     </div>
   </Prop>
-  <Prop label="Newest on top">
-    <Switch label="Newest on top" checked={k.newest_on_top} onchange={(v) => set((x) => x.type === 'chat' && (x.newest_on_top = v), 'top')} />
+  <Prop label="New messages">
+    <Segmented
+      label="New messages"
+      value={k.newest_on_top ? 'top' : 'bottom'}
+      options={[
+        { value: 'bottom', label: 'At the bottom' },
+        { value: 'top', label: 'At the top' }
+      ]}
+      onchange={(v) => set((x) => x.type === 'chat' && (x.newest_on_top = v === 'top'), 'top')}
+    />
+  </Prop>
+  <Prop label="Stack from" hint="The edge of the box the messages sit against.">
+    <Segmented
+      label="Stack from"
+      value={stackEdge(k.newest_on_top, k.stack)}
+      options={[
+        { value: 'bottom', label: 'Bottom' },
+        { value: 'top', label: 'Top' }
+      ]}
+      onchange={(v) => set((x) => x.type === 'chat' && (x.stack = v === newEdge(x.newest_on_top) ? 'auto' : v), 'stack')}
+    />
   </Prop>
   <Collapse id="insp.chat.filters" title="Filters">
     <div class="filters">
@@ -300,7 +324,8 @@
     </Prop>
   {/if}
   {#if k.mode === 'countdown' || k.mode === 'stopwatch'}
-    <Prop label="Start from" for="{uid}-anchor" hint="Optional variable with a start or end time.">
+    <TimerControls {layer} {ontimer} />
+    <Prop label="Start from" for="{uid}-anchor" hint="Optional variable with a start or end time. Start, Pause and Reset win over it.">
       <input id="{uid}-anchor" class="input mono" list="{uid}-vars" spellcheck="false" placeholder="When the overlay loads" value={k.anchor_var} oninput={(e) => {
         const v = e.currentTarget.value.trim();
         set((x) => x.type === 'timer' && (x.anchor_var = v), 'anchor');
@@ -336,6 +361,31 @@
       onchange={(v) => set((x) => x.type === 'event_list' && (x.direction = v), 'dir')}
     />
   </Prop>
+  {#if k.direction === 'ticker'}
+    <Prop label="Moves">
+      <Segmented
+        label="Ticker moves"
+        value={k.ticker_dir ?? 'left'}
+        options={[
+          { value: 'left', label: 'Left' },
+          { value: 'right', label: 'Right' }
+        ]}
+        onchange={(v) => set((x) => x.type === 'event_list' && (x.ticker_dir = v), 'tdir')}
+      />
+    </Prop>
+  {:else}
+    <Prop label="Newest">
+      <Segmented
+        label="Newest events"
+        value={k.newest_on_top === false ? 'bottom' : 'top'}
+        options={[
+          { value: 'top', label: 'At the top' },
+          { value: 'bottom', label: 'At the bottom' }
+        ]}
+        onchange={(v) => set((x) => x.type === 'event_list' && (x.newest_on_top = v === 'top'), 'order')}
+      />
+    </Prop>
+  {/if}
   <Prop label="Items">
     <NumberInput label="Maximum items" min={1} max={50} value={k.max_items} oninput={(v) => set((x) => x.type === 'event_list' && (x.max_items = Math.round(v)), 'max')} />
   </Prop>
@@ -549,6 +599,17 @@
   </Prop>
   <Prop label="Up next" hint="People in line to list. 0 hides the line.">
     <NumberInput label="People in line to show" min={0} max={20} value={k.next_count} oninput={(v) => set((x) => x.type === 'queue' && (x.next_count = Math.min(20, Math.max(0, Math.round(v)))), 'next')} />
+  </Prop>
+  <Prop label="First in line" hint="At the bottom, the whole layer reads bottom up, with who's playing last.">
+    <Segmented
+      label="First in line"
+      value={k.first_on_top === false ? 'bottom' : 'top'}
+      options={[
+        { value: 'top', label: 'At the top' },
+        { value: 'bottom', label: 'At the bottom' }
+      ]}
+      onchange={(v) => set((x) => x.type === 'queue' && (x.first_on_top = v === 'top'), 'qorder')}
+    />
   </Prop>
   <Prop label="Show">
     <div class="switches">

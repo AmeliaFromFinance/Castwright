@@ -8,6 +8,7 @@ use crate::model::soundboard::PlayOutcome;
 use crate::music::MusicService;
 use crate::soundboard::{SoundboardService, Source as SoundSource};
 use crate::store::project::ProjectStore;
+use crate::timers::TimerAction;
 use crate::util::secure_eq;
 use axum::Router;
 use axum::body::Body;
@@ -388,6 +389,7 @@ fn router(ctx: Ctx) -> Router {
         .route("/api/alerts", get(alerts_status))
         .route("/api/alerts/{command}", post(alerts_command))
         .route("/api/sounds/{id}/{command}", post(sound_command))
+        .route("/api/layers/{id}/timer/{action}", post(timer_command))
         .route("/spotify/callback", get(spotify_callback))
         .route("/music/art/{version}", get(music_art))
         .route("/_app/{*path}", get(static_file))
@@ -790,6 +792,51 @@ async fn sound_command(
     }
 }
 
+#[derive(Deserialize)]
+struct TimerQuery {
+    token: Option<String>,
+    seconds: Option<f64>,
+}
+
+/// `start`, `pause`, `resume`, `toggle`, `reset` or `add` (with `?seconds=`) on a timer layer.
+async fn timer_command(
+    State(ctx): State<Ctx>,
+    Path((id, action)): Path<(String, String)>,
+    Query(q): Query<TimerQuery>,
+    headers: HeaderMap,
+) -> Response {
+    if !origin_ok(&headers) {
+        return wrong_origin();
+    }
+    if !authorized(&ctx, q.token.as_deref(), &headers) {
+        return forbidden();
+    }
+    let Ok(action) = serde_json::from_value::<TimerAction>(serde_json::Value::String(action))
+    else {
+        return (StatusCode::NOT_FOUND, "Unknown timer command.").into_response();
+    };
+    if action == TimerAction::Add && q.seconds.is_none_or(|s| !s.is_finite()) {
+        return (
+            StatusCode::BAD_REQUEST,
+            "Add needs ?seconds=, like ?seconds=60.",
+        )
+            .into_response();
+    }
+    match crate::timers::control(
+        &ctx.hub,
+        &ctx.project,
+        &id,
+        action,
+        q.seconds.unwrap_or(0.0),
+    ) {
+        Ok(run) => axum::Json(run).into_response(),
+        Err(crate::error::AppError::User(msg)) if msg.contains("no longer exists") => {
+            (StatusCode::NOT_FOUND, msg).into_response()
+        }
+        Err(e) => (StatusCode::CONFLICT, e.to_string()).into_response(),
+    }
+}
+
 async fn ws_upgrade(
     State(ctx): State<Ctx>,
     Query(q): Query<WsQuery>,
@@ -831,12 +878,17 @@ fn hello(ctx: &Ctx, overlay_id: &str) -> Option<OverlayMsg> {
     let mut widget_state = ctx.hub.db.widget_state().unwrap_or_default();
     widget_state.retain(|layer_id, _| overlay.layers.iter().any(|l| &l.id == layer_id));
     Some(OverlayMsg::Hello {
-        overlay,
         vars: ctx.hub.vars.snapshot(),
         recent: ctx.hub.recent_events(),
         chat: ctx.hub.recent_chat(),
-        widget_state,
         chat_rules: ctx.project.read(|p| p.chat_rules.clone()),
+        default_font: ctx.project.read(|p| p.default_font.clone()),
+        timers: ctx
+            .hub
+            .timers
+            .for_layers(overlay.layers.iter().map(|l| l.id.as_str())),
+        widget_state,
+        overlay,
     })
 }
 

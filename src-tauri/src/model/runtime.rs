@@ -243,6 +243,12 @@ pub enum OverlayMsg {
         widget_state: serde_json::Map<String, serde_json::Value>,
         #[serde(default)]
         chat_rules: ChatRules,
+        /// The project's default font.
+        #[serde(default)]
+        default_font: String,
+        /// Started or paused timer layers, by layer id.
+        #[serde(default)]
+        timers: std::collections::HashMap<String, TimerRun>,
     },
     Overlay {
         overlay: Overlay,
@@ -292,9 +298,18 @@ pub enum OverlayMsg {
         layer_id: String,
         credits: Credits,
     },
+    /// A timer layer was started, paused, reset or given more time.
+    Timer {
+        layer_id: String,
+        run: TimerRun,
+    },
     /// The app's chat rules changed.
     ChatRules {
         rules: ChatRules,
+    },
+    /// The project's default font changed.
+    DefaultFont {
+        font: String,
     },
     Reload,
 }
@@ -317,4 +332,52 @@ pub enum OverlayClientMsg {
     },
     /// Keep-alive sent by the page every 25 seconds.
     Ping,
+}
+
+/// Where a timer layer stands. Countdowns show their length minus the elapsed time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct TimerRun {
+    pub running: bool,
+    /// Time counted at `at`. Below 0 when time was added to a countdown.
+    #[ts(type = "number")]
+    pub elapsed_ms: i64,
+    /// When `elapsed_ms` was taken (ms since epoch).
+    #[ts(type = "number")]
+    pub at: i64,
+}
+
+impl TimerRun {
+    pub fn elapsed(&self, now: i64) -> i64 {
+        if self.running {
+            self.elapsed_ms + (now - self.at).max(0)
+        } else {
+            self.elapsed_ms
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum TimerAction {
+    /// From the beginning.
+    #[default]
+    Start,
+    Pause,
+    Resume,
+    /// Pause or resume.
+    Toggle,
+    /// Back to the beginning, paused.
+    Reset,
+    /// Add (or with a negative amount, take off) time.
+    Add,
+}
+
+/// Sent to the app window when a timer changes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct TimerChange {
+    pub layer_id: String,
+    pub run: TimerRun,
 }

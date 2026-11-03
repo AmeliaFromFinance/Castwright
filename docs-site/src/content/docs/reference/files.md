@@ -58,7 +58,7 @@ In [portable mode](#portable-mode) everything is in one `data` folder next to th
 ### Assets
 
 - Up to 512 MB per file.
-- Odd characters in names become `-`. If the name is taken, `-2`, `-3` and so on is added.
+- Odd characters in names become `-`, and extensions become lowercase. Long names are shortened. If the name is taken, `-2`, `-3` and so on is added.
 - Layers and alerts refer to files as `assets/<name>`.
 
 | Type | Extensions |

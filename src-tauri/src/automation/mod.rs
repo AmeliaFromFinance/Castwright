@@ -1166,6 +1166,14 @@ impl Automation {
                 overlay_id,
                 layer_id,
             } => self.roll_credits(overlay_id, layer_id)?,
+            Step::TimerControl {
+                layer_id,
+                action,
+                seconds,
+                ..
+            } => {
+                crate::timers::control(&self.hub, &self.project, layer_id, *action, *seconds)?;
+            }
             Step::PlayAlert {
                 title,
                 message,
@@ -1518,6 +1526,7 @@ pub fn step_label(step: &Step) -> &'static str {
         Step::SaveReplay => "Save replay",
         Step::SetLayerVisible { .. } => "Show/hide overlay layer",
         Step::RollCredits { .. } => "Roll credits",
+        Step::TimerControl { .. } => "Timer",
         Step::PlayAlert { .. } => "Play alert",
         Step::PauseAlerts { .. } => "Pause alerts",
         Step::SkipAlert => "Skip alert",

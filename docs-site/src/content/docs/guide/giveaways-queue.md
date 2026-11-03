@@ -104,7 +104,7 @@ Castwright never replies to its own messages or to bots. When many people join t
 | Layer | Shows |
 | --- | --- |
 | **Giveaway** | The prize, how to enter and the entry count. On a draw, names spin and land on the winner, with their 7TV paint and badges. With reduced motion, the winner fades in. Hidden while no giveaway runs (turn off **Hide when idle** to keep it). |
-| **Viewer queue** | **Playing now** and the next people in line, with places and notes. Hidden while the queue is empty. |
+| **Viewer queue** | **Playing now** and the next people in line, with places and notes. Hidden while the queue is empty. **First in line** puts the line at the top or the bottom. |
 
 Both use [style presets](/guide/overlay-editor/#styles) under **Cards**. In the editor, they show a sample. **Spin the sample** plays the spin. Custom CSS selectors are in the [styling reference](/reference/styling/#giveaway).
 

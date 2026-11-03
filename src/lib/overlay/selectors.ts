@@ -42,6 +42,8 @@ export const SELECTORS: readonly SelectorInfo[] = [
 
   { selector: '.cw-chat', kinds: ['chat'], description: 'The message list' },
   { selector: '.cw-top', kinds: ['chat'], description: 'The list when newest is on top' },
+  { selector: '.cw-chat[data-order="top"]', kinds: ['chat'], description: 'Where new messages appear: top or bottom' },
+  { selector: '.cw-chat[data-stack="bottom"]', kinds: ['chat'], description: 'The edge the messages sit against: top or bottom' },
   { selector: '.cw-chat-line', kinds: ['chat'], description: 'Each message card' },
   { selector: '.cw-chat-line[data-user-id]', kinds: ['chat'], description: 'Messages from one chatter (by Twitch user id)' },
   { selector: '.cw-hl', kinds: ['chat'], description: 'A highlighted message (any reason)' },
@@ -83,11 +85,14 @@ export const SELECTORS: readonly SelectorInfo[] = [
 
   { selector: '.cw-counter', kinds: ['counter'], description: 'The counter row' },
   { selector: '.cw-timer', kinds: ['timer'], description: 'The timer row' },
+  { selector: '.cw-timer[data-state="paused"]', kinds: ['timer'], description: 'Countdowns and stopwatches: idle, running, paused or done' },
 
   { selector: '.cw-event-row', kinds: ['event_list'], description: 'Each event card, in list and ticker' },
   { selector: '.cw-list', kinds: ['event_list'], description: 'The list' },
+  { selector: '.cw-list[data-order="bottom"]', kinds: ['event_list'], description: 'Where new events appear: top or bottom' },
   { selector: '.cw-list-item', kinds: ['event_list'], description: 'A row in list mode' },
   { selector: '.cw-ticker', kinds: ['event_list'], description: 'The ticker' },
+  { selector: '.cw-ticker[data-direction="right"]', kinds: ['event_list'], description: 'Which way the ticker moves: left or right' },
   { selector: '.cw-ticker-item', kinds: ['event_list'], description: 'An item in ticker mode' },
   { selector: '.cw-ticker-sep', kinds: ['event_list'], description: 'The dot between ticker items' },
 
@@ -113,6 +118,7 @@ export const SELECTORS: readonly SelectorInfo[] = [
   { selector: '.cw-poll-total', kinds: ['poll'], description: 'Votes or points in total' },
 
   { selector: '.cw-credits', kinds: ['credits'], description: 'The whole roll, clipped to the layer' },
+  { selector: '.cw-credits[data-scroll="down"]', kinds: ['credits'], description: 'Which way it scrolls: up or down' },
   { selector: '.cw-rolling', kinds: ['credits'], description: 'Added to .cw-credits while it moves' },
   { selector: '.cw-done', kinds: ['credits'], description: 'Added to .cw-credits once it has stopped at the end' },
   { selector: '.cw-paged', kinds: ['credits'], description: 'Added to .cw-credits when reduced motion shows pages' },
@@ -213,6 +219,7 @@ export const SELECTORS: readonly SelectorInfo[] = [
 
   { selector: '.cw-q', kinds: ['queue'], description: 'The whole layer' },
   { selector: '.cw-q[data-open="true"]', kinds: ['queue'], description: 'While the queue takes people' },
+  { selector: '.cw-q[data-order="bottom"]', kinds: ['queue'], description: 'Where the first in line is: top or bottom' },
   { selector: '.cw-q-section', kinds: ['queue'], description: 'Each group: playing now or up next' },
   { selector: '.cw-q-playing', kinds: ['queue'], description: 'The playing now group' },
   { selector: '.cw-q-next', kinds: ['queue'], description: 'The up next group' },

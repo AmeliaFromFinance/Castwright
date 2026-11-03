@@ -69,10 +69,14 @@ pub enum TextAlign {
     Right,
 }
 
+/// `font_family` value that means "the project's default font". Empty means the same.
+pub const DEFAULT_FONT: &str = "Default";
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(default)]
 #[ts(export)]
 pub struct TextStyle {
+    /// A font name, or `Default` for the project's default font.
     pub font_family: String,
     pub font_size: f64,
     pub font_weight: u16,
@@ -92,7 +96,7 @@ pub struct TextStyle {
 impl Default for TextStyle {
     fn default() -> Self {
         TextStyle {
-            font_family: "Inter".into(),
+            font_family: DEFAULT_FONT.into(),
             font_size: 28.0,
             font_weight: 600,
             color: "#ffffff".into(),
@@ -398,6 +402,38 @@ pub enum ListDirection {
     Ticker,
 }
 
+/// Which edge of the box a list sits against.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum ListStack {
+    /// The edge new items come in at.
+    #[default]
+    Auto,
+    Top,
+    Bottom,
+}
+
+/// Which way a ticker moves.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum TickerDirection {
+    #[default]
+    Left,
+    Right,
+}
+
+/// Which way credits move.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum CreditScroll {
+    #[default]
+    Up,
+    Down,
+}
+
 /// What a poll layer shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
 #[serde(rename_all = "snake_case")]
@@ -577,6 +613,8 @@ pub enum LayerKind {
         bubble: BoxStyle,
         #[serde(default)]
         newest_on_top: bool,
+        #[serde(default)]
+        stack: ListStack,
         #[serde(default = "yes")]
         seventv_emotes: bool,
         #[serde(default = "yes")]
@@ -645,6 +683,10 @@ pub enum LayerKind {
         max_items: u32,
         #[serde(default)]
         direction: ListDirection,
+        #[serde(default = "yes")]
+        newest_on_top: bool,
+        #[serde(default)]
+        ticker_dir: TickerDirection,
         /// Template per item, e.g. `{{name}} · {{kind}}`.
         #[serde(default)]
         item_format: String,
@@ -698,6 +740,8 @@ pub enum LayerKind {
         repeat: bool,
         #[serde(default)]
         start: CreditStart,
+        #[serde(default)]
+        scroll: CreditScroll,
         /// Template text above the names.
         #[serde(default)]
         heading: String,
@@ -854,6 +898,9 @@ pub enum LayerKind {
         /// People in line to list.
         #[serde(default = "default_list_max")]
         next_count: u32,
+        /// First in line at the top; otherwise at the bottom.
+        #[serde(default = "yes")]
+        first_on_top: bool,
         #[serde(default = "yes")]
         show_positions: bool,
         /// Notes like in-game names.
@@ -1178,6 +1225,7 @@ impl Overlay {
                         style: small.clone(),
                         bubble: BoxStyle::default(),
                         newest_on_top: false,
+                        stack: ListStack::Auto,
                         seventv_emotes: true,
                         bttv_emotes: true,
                         ffz_emotes: true,
@@ -1209,6 +1257,8 @@ impl Overlay {
                         ],
                         max_items: 6,
                         direction: ListDirection::Ticker,
+                        newest_on_top: true,
+                        ticker_dir: TickerDirection::Left,
                         item_format: "{{name}} · {{label}}".into(),
                         style: small,
                         item_box: BoxStyle::default(),
@@ -1277,6 +1327,53 @@ mod tests {
         assert!(o.layers[0].visible);
         assert_eq!(o.layers[0].opacity, 1.0);
         assert_eq!(o.layers[0].scenes, SceneRule::default());
+    }
+
+    #[test]
+    fn list_order_defaults_keep_old_layers_as_they_were() {
+        let kinds = [
+            r#"{"type":"chat"}"#,
+            r#"{"type":"event_list"}"#,
+            r#"{"type":"credits"}"#,
+            r#"{"type":"queue"}"#,
+        ];
+        let parsed: Vec<LayerKind> = kinds
+            .iter()
+            .map(|k| serde_json::from_str(k).unwrap())
+            .collect();
+        assert!(matches!(
+            parsed[0],
+            LayerKind::Chat {
+                newest_on_top: false,
+                stack: ListStack::Auto,
+                ..
+            }
+        ));
+        assert!(matches!(
+            parsed[1],
+            LayerKind::EventList {
+                newest_on_top: true,
+                ticker_dir: TickerDirection::Left,
+                ..
+            }
+        ));
+        assert!(matches!(
+            parsed[2],
+            LayerKind::Credits {
+                scroll: CreditScroll::Up,
+                ..
+            }
+        ));
+        assert!(matches!(
+            parsed[3],
+            LayerKind::Queue {
+                first_on_top: true,
+                ..
+            }
+        ));
+        let json = serde_json::to_value(&parsed[1]).unwrap();
+        assert_eq!(json["ticker_dir"], "left");
+        assert_eq!(json["newest_on_top"], true);
     }
 
     #[test]

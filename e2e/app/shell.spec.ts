@@ -38,6 +38,34 @@ test('zoom keys change and save the interface size', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test('nav labels fit their boxes at every interface size', async ({ page }) => {
+  const errors = await openApp(page);
+  const nav = page.getByRole('navigation', { name: 'Main sections' });
+  const zoom = () => page.evaluate(() => document.documentElement.style.zoom || '1');
+  const overflow = () =>
+    nav.locator('button').evaluateAll((buttons) =>
+      buttons.flatMap((b) => {
+        const label = b.querySelector<HTMLElement>('.nav-label');
+        if (!label) return [];
+        const box = b.getBoundingClientRect();
+        const text = label.getBoundingClientRect();
+        const fits = label.scrollWidth <= b.clientWidth && text.left >= box.left - 0.5 && text.right <= box.right + 0.5;
+        return fits ? [] : [`${label.textContent}: ${label.scrollWidth} > ${b.clientWidth}`];
+      })
+    );
+  for (let i = 0; i < 8; i++) await page.keyboard.press('Control+-');
+  await expect.poll(zoom).toBe('0.5');
+  for (const font of ['', '"DejaVu Sans", Verdana, sans-serif']) {
+    if (font) await page.addStyleTag({ content: `body { font-family: ${font} !important; }` });
+    for (let step = 0; step < 12; step++) {
+      await goTo(page, ['Overlays', 'Alerts', 'Automation', 'Activity', 'Interact', 'Settings'][step % 6]!);
+      expect(await overflow(), `zoom ${await zoom()}, font ${font || 'default'}`).toEqual([]);
+      await page.keyboard.press(font ? 'Control+-' : 'Control+=');
+    }
+  }
+  expect(errors).toEqual([]);
+});
+
 test('panel sizes can be changed and are remembered', async ({ page }) => {
   const errors = await openApp(page);
   await goTo(page, 'Activity');

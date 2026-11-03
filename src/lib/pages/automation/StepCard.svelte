@@ -3,6 +3,8 @@
   import type { HttpMethod } from '$lib/bindings/HttpMethod';
   import type { Step } from '$lib/bindings/Step';
   import type { Toggle } from '$lib/bindings/Toggle';
+  import type { Layer } from '$lib/bindings/Layer';
+  import type { TimerAction } from '$lib/bindings/TimerAction';
   import TemplateField from '$lib/editors/TemplateField.svelte';
   import type { Token } from '$lib/editors/tokens';
   import { app } from '$lib/state/app.svelte';
@@ -303,6 +305,54 @@
         </div>
       </div>
       {#if !withCredits.length}<p class="hint">Add a Credits layer to an overlay first.</p>{:else}<p class="hint">Starts the roll from the top with this stream's names. Shows the layer if it's hidden.</p>{/if}
+    {:else if step.type === 'timer_control'}
+      {@const isTimer = (l: Layer) => l.kind.type === 'timer' && (l.kind.mode === 'countdown' || l.kind.mode === 'stopwatch')}
+      {@const withTimers = overlays.filter((o) => o.layers.some(isTimer))}
+      {@const ov = overlays.find((o) => o.id === step.overlay_id)}
+      <div class="grid3">
+        <div class="f">
+          <label for="{uid}-ov">Overlay</label>
+          <select
+            id="{uid}-ov"
+            class="input"
+            value={step.overlay_id}
+            onchange={(e) => {
+              const o = overlays.find((x) => x.id === e.currentTarget.value);
+              onpatch({ overlay_id: e.currentTarget.value, layer_id: o?.layers.find(isTimer)?.id ?? '' });
+            }}
+          >
+            <option value="">Pick an overlay</option>
+            {#each withTimers as o (o.id)}<option value={o.id}>{o.name}</option>{/each}
+          </select>
+        </div>
+        <div class="f">
+          <label for="{uid}-layer">Timer layer</label>
+          <select id="{uid}-layer" class="input" value={step.layer_id} disabled={!ov} onchange={(e) => set('layer_id', e.currentTarget.value)}>
+            <option value="">Pick a layer</option>
+            {#each ov?.layers.filter(isTimer) ?? [] as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
+          </select>
+        </div>
+        <div class="f">
+          <label for="{uid}-tact">Do</label>
+          <select id="{uid}-tact" class="input" value={step.action} onchange={(e) => onpatch({ action: e.currentTarget.value as TimerAction, seconds: e.currentTarget.value === 'add' ? step.seconds || 60 : 0 })}>
+            <option value="start">Start from the beginning</option>
+            <option value="pause">Pause</option>
+            <option value="resume">Resume</option>
+            <option value="toggle">Pause or resume</option>
+            <option value="reset">Reset</option>
+            <option value="add">Add time</option>
+          </select>
+        </div>
+      </div>
+      {#if step.action === 'add'}
+        <div class="grid3">
+          <div class="f">
+            <label for="{uid}-tsec">Seconds</label>
+            <input id="{uid}-tsec" class="input" type="number" step="1" value={step.seconds} onchange={(e) => set('seconds', Number(e.currentTarget.value) || 0)} />
+          </div>
+        </div>
+      {/if}
+      {#if !withTimers.length}<p class="hint">Add a countdown or stopwatch Timer layer to an overlay first.</p>{:else}<p class="hint">Every open copy of the overlay follows. Below 0 seconds takes time off.</p>{/if}
     {:else if step.type === 'play_alert'}
       <div class="grid2">
         {@render text('Title', 'title', step.title)}

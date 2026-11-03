@@ -184,9 +184,9 @@
     "item": { "pixel": 4, "border_width": 4, "padding": 8, "padding_x": 12, "shadow_x": 4, "shadow_y": 4 },
     "alert": { "pixel": 6, "border_width": 6, "background": "#2b2660", "padding": 22, "padding_x": 30, "shadow_x": 6, "shadow_y": 6 },
     "card": { "gap": 12 },
-    "text": { "font_family": "Press Start 2P", "font_weight": 400, "font_size": 15, "line_height": 1.6, "color": "#f4f0dc", "uppercase": false, "italic": false, "letter_spacing": 0, "stroke_width": 0, "shadow": "2px 2px 0 #000000" },
-    "title": { "font_family": "Press Start 2P", "font_weight": 400, "font_size": 26, "line_height": 1.5, "color": "#ffe066", "uppercase": false, "letter_spacing": 0, "stroke_width": 0, "shadow": "3px 3px 0 #000000" },
-    "message": { "font_family": "Press Start 2P", "font_weight": 400, "font_size": 14, "line_height": 1.6, "color": "#f4f0dc", "stroke_width": 0, "shadow": "2px 2px 0 #000000" },
+    "text": { "font_family": "Press Start 2P", "font_weight": 400, "color": "#f4f0dc", "uppercase": false, "italic": false, "letter_spacing": 0, "stroke_width": 0, "shadow": "2px 2px 0 #000000" },
+    "title": { "font_family": "Press Start 2P", "font_weight": 400, "color": "#ffe066", "uppercase": false, "letter_spacing": 0, "stroke_width": 0, "shadow": "3px 3px 0 #000000" },
+    "message": { "font_family": "Press Start 2P", "font_weight": 400, "color": "#f4f0dc", "stroke_width": 0, "shadow": "2px 2px 0 #000000" },
     "accent": "#ffe066"
   },
   {

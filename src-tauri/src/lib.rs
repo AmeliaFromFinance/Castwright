@@ -21,6 +21,7 @@ pub mod sessions;
 pub mod soundboard;
 pub mod store;
 pub mod template;
+pub mod timers;
 pub mod twitch;
 pub mod updates;
 pub mod util;
@@ -237,11 +238,14 @@ pub fn run() {
             commands::spotify_cancel_login,
             commands::spotify_logout,
             commands::save_chat_rules,
+            commands::save_default_font,
             commands::soundboard_status,
             commands::save_soundboard,
             commands::sound_play,
             commands::sound_stop,
             commands::soundboard_mute,
+            commands::timer_states,
+            commands::timer_control,
             commands::play_state,
             commands::save_giveaway_settings,
             commands::giveaway_open,
@@ -297,4 +301,26 @@ pub fn run() {
             updates::install_on_exit(handle, auto_install);
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::{Value, json};
+
+    /// Without a scope, `opener:allow-open-url` refuses every link.
+    #[test]
+    fn web_links_may_open_in_the_browser() {
+        let caps: Value =
+            serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
+        let opener = caps["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["identifier"] == "opener:allow-open-url")
+            .expect("open-url permission with a scope");
+        assert_eq!(
+            opener["allow"],
+            json!([{ "url": "https://*" }, { "url": "http://*" }])
+        );
+    }
 }

@@ -14,6 +14,7 @@
   import { chatExtras } from '../emotes/store.svelte';
   import { chatPieces } from '../emotes/tokenize';
   import { displayName } from '../labels';
+  import { enterY, newEdge, stackEdge } from '../order';
   import { alternator, DEFAULT_TEXT, fillColorOf, itemVars, textStyleCss } from '../styles';
 
   interface Props {
@@ -47,6 +48,8 @@
     })
   );
   const ordered = $derived(kind.newest_on_top ? lines.slice().reverse() : lines);
+  const order = $derived(newEdge(kind.newest_on_top));
+  const stack = $derived(stackEdge(kind.newest_on_top, kind.stack));
   const style = $derived({ ...DEFAULT_TEXT, ...(kind.style ?? {}) });
   const textCss = $derived(textStyleCss(style, 'inline'));
   const flipOf = alternator();
@@ -81,7 +84,7 @@
   }
 </script>
 
-<div class="cw-chat" class:cw-top={kind.newest_on_top} style={textCss}>
+<div class="cw-chat" class:cw-top={kind.newest_on_top} data-order={order} data-stack={stack} style={textCss}>
   {#each ordered as m (m.id)}
     {@const extra = paints || badges7tv ? chatExtras.cosmetics(m.user?.id) : undefined}
     {@const v = judge(m)}
@@ -99,7 +102,7 @@
       data-msg-id={m.id}
       data-user-id={m.user?.id ?? ''}
       animate:flip={{ duration: live ? 260 : 0 }}
-      in:fly={{ y: kind.newest_on_top ? -14 : 14, duration: live ? 320 : 0, opacity: 0 }}
+      in:fly={{ y: enterY(order, 14), duration: live ? 320 : 0, opacity: 0 }}
       out:fade={{ duration: live ? 260 : 0 }}
     >
       <ChatBadges twitch={kind.show_badges ? twitchBadges(m) : []} seventv={badges7tv ? extra?.badge : null} size={badgeSize} /><span
@@ -125,7 +128,7 @@
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
   }
-  .cw-chat.cw-top {
+  .cw-chat[data-stack='top'] {
     justify-content: flex-start;
   }
   .cw-chat-line {

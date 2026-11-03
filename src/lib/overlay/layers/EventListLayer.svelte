@@ -6,6 +6,7 @@
   import { render } from '$lib/logic/template';
   import { getStageCtx } from '../context';
   import { ALERTABLE_KINDS, eventContext } from '../labels';
+  import { enterY, newEdge, ordered, tickerCopies, tickerX } from '../order';
   import { alternator, DEFAULT_TEXT, itemVars } from '../styles';
   import StyledText from '../StyledText.svelte';
 
@@ -41,7 +42,11 @@
   let copyWidth = $state(0);
   let viewWidth = $state(0);
   let strip = $state<HTMLDivElement>();
-  const copies = $derived(copyWidth > 0 ? Math.max(2, Math.ceil(viewWidth / copyWidth) + 1) : 1);
+  const right = $derived(kind.ticker_dir === 'right');
+  const copies = $derived(tickerCopies(viewWidth, copyWidth, right));
+  // Older layers have no order yet: newest on top.
+  const order = $derived(newEdge(kind.newest_on_top !== false));
+  const rows = $derived(ordered(items, order === 'top'));
 
   $effect(() => {
     if (kind.direction !== 'ticker') return;
@@ -61,6 +66,7 @@
     if (kind.direction !== 'ticker') return;
     const el = strip;
     const w = copyWidth;
+    const toRight = right;
     if (!el || w <= 0) return;
     let offset = Number(el.dataset.offset ?? 0) % w;
     let last = performance.now();
@@ -69,7 +75,7 @@
       const dt = Math.min(100, t - last);
       last = t;
       if (!ctx.paused) offset = (offset + (SPEED * dt) / 1000) % w;
-      el.style.transform = `translate3d(${(-offset).toFixed(2)}px,0,0)`;
+      el.style.transform = `translate3d(${tickerX(offset, w, toRight).toFixed(2)}px,0,0)`;
       el.dataset.offset = String(offset);
       raf = requestAnimationFrame(step);
     };
@@ -86,7 +92,7 @@
 {/snippet}
 
 {#if kind.direction === 'ticker'}
-  <div class="cw-ticker" bind:this={viewport} style:justify-content={style.align === 'center' && copyWidth === 0 ? 'center' : undefined}>
+  <div class="cw-ticker" data-direction={right ? 'right' : 'left'} bind:this={viewport} style:justify-content={style.align === 'center' && copyWidth === 0 ? 'center' : undefined}>
     <div class="cw-ticker-strip" bind:this={strip}>
       {#each Array.from({ length: items.length ? copies : 0 }, (_, i) => i) as c (c)}
         {#if c === 0}
@@ -102,14 +108,14 @@
     </div>
   </div>
 {:else}
-  <div class="cw-list">
-    {#each items as it (it.id)}
+  <div class="cw-list" data-order={order}>
+    {#each rows as it (it.id)}
       <div
         class="cw-list-item cw-event-row"
         style={it.vars || undefined}
         data-event-id={it.id}
         animate:flip={{ duration: live ? 300 : 0 }}
-        in:fly={{ x: -24, duration: live ? 360 : 0, opacity: 0 }}
+        in:fly={{ y: enterY(order, 24), duration: live ? 360 : 0, opacity: 0 }}
         out:fade={{ duration: live ? 220 : 0 }}
       >
         <StyledText text={it.text} {style} block />
@@ -126,6 +132,9 @@
     flex-direction: column;
     gap: 6px;
     overflow: hidden;
+  }
+  .cw-list[data-order='bottom'] {
+    justify-content: flex-end;
   }
   .cw-list-item {
     flex: 0 0 auto;

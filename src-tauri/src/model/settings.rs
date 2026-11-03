@@ -70,6 +70,18 @@ pub enum WindowEffect {
     Solid,
 }
 
+/// Font for the app itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum AppFont {
+    /// The theme's font.
+    #[default]
+    Theme,
+    Inter,
+    System,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(default)]
 #[ts(export)]
@@ -83,6 +95,7 @@ pub struct AppearanceSettings {
     /// 50 to 250 (percent).
     pub ui_scale: u16,
     pub reduce_motion: bool,
+    pub app_font: AppFont,
 }
 
 impl Default for AppearanceSettings {
@@ -93,6 +106,7 @@ impl Default for AppearanceSettings {
             window_effect: WindowEffect::Auto,
             ui_scale: 100,
             reduce_motion: false,
+            app_font: AppFont::Theme,
         }
     }
 }

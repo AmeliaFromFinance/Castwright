@@ -28,7 +28,7 @@ export function visibleChat(chat: readonly Event[], f: ChatFilter): Event[] {
   const out: Event[] = [];
   for (let i = chat.length - 1; i >= 0 && out.length < max; i--) {
     const e = chat[i];
-    if (!e || e.kind !== 'chat') continue;
+    if (!e || e.kind !== 'chat' || e.data.deleted === true) continue;
     if (e.ts < cutoff) continue;
     if (f.hideCommands && isCommand(e)) continue;
     const login = normLogin(e.user?.login ?? '');

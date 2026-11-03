@@ -145,7 +145,9 @@
   });
 
   const repeat = $derived(!!kind.repeat);
-  const plan = $derived(rollPlan(boxH, contentH, { speed: kind.speed || 60, fitS: kind.fit_s || 0, repeat }));
+  // Scrolling down, the order is flipped so the heading still comes in first.
+  const down = $derived(kind.scroll === 'down' && !reduced);
+  const plan = $derived(rollPlan(boxH, contentH, { speed: kind.speed || 60, fitS: kind.fit_s || 0, repeat, down }));
   const pageMs = $derived(Math.max(1, kind.page_s || 6) * 1000);
   const elapsed = $derived(startedAt === null ? 0 : now - startedAt);
   const done = $derived(startedAt !== null && !repeat && elapsed >= (reduced ? pageMs * pages.length : plan.ms));
@@ -186,6 +188,7 @@
   class:cw-done={done}
   class:cw-paged={reduced}
   class:cw-waiting={waiting}
+  data-scroll={down ? 'down' : 'up'}
   bind:this={view}
 >
   <div class="cw-credits-roll" bind:this={roll} style="transform:{transform};{clip}">
@@ -237,6 +240,9 @@
     flex-direction: column;
     gap: 1.6em;
     will-change: transform;
+  }
+  [data-scroll='down'] > .cw-credits-roll {
+    flex-direction: column-reverse;
   }
   .cw-credits-section {
     display: flex;

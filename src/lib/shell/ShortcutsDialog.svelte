@@ -22,12 +22,17 @@
       title: 'Overlay editor',
       keys: [
         ['Arrows', 'Nudge 1 px (Shift: 10 px)'],
+        [`Shift or ${mod} click`, 'Pick several layers'],
+        ['Drag on empty canvas', 'Pick layers with a box'],
+        [`${mod} A`, 'Pick every layer'],
+        [`${mod} C  /  ${mod} V`, 'Copy and paste layers'],
         [`${mod} D`, 'Duplicate layer'],
         [`${mod} Z  /  ${mod} Shift Z`, 'Undo and redo'],
         ['Delete', 'Remove layer'],
         ['Esc', 'Deselect'],
         [`Hold ${mod} while dragging`, 'Skip snapping'],
-        ['Alt click', 'Pick the layer underneath']
+        ['Alt click', 'Pick the layer underneath'],
+        ['Right-click a layer', 'Copy, paste, duplicate, delete and timer controls']
       ]
     },
     {

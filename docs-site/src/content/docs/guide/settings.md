@@ -161,10 +161,20 @@ Share a theme with **Export** (copies JSON) and **Import** (paste JSON or pick a
 
 Also here:
 
+- **Default font**: the font for overlay text set to **Default**. See [Default font](#default-font).
+- **App font**: the font of Castwright itself. **Theme** uses the theme's font, or pick **Inter** or **System**.
 - **Window background** (Windows only): Mica, Acrylic or Solid. Auto uses Mica on Windows 11.
 - **Interface size**: 50% to 250%. <kbd>Ctrl</kbd> + <kbd>+</kbd> and <kbd>Ctrl</kbd> + <kbd>-</kbd> change it from anywhere, <kbd>Ctrl</kbd> + <kbd>0</kbd> resets it. On large screens (like 2560 × 1440) Castwright starts at 125%.
 - **Reduce motion**: turns off animations in the app. Overlays keep theirs.
 - **Status bar**: pick which extras show at the bottom: CPU, FPS, Bitrate, Dropped frames, Overlay server and Version.
+
+### Default font
+
+Every font picker has a **Default** choice: chat, alerts, text, event lists, credits and the rest. Text set to **Default** uses the font you pick here, so one change restyles all of it, in the app and in OBS.
+
+- Type any [Google Fonts](https://fonts.google.com) name or a font on your computer.
+- It's saved in the project, so backups and project copies keep it.
+- New layers and alerts start on **Default**. Text that names a font, like older layers set to **Inter**, keeps it.
 
 ### Status bar
 

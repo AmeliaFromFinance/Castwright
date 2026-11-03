@@ -1,5 +1,6 @@
-/** Google Fonts that suit overlays. Any other family name can be typed in. */
+/** `Default` (the project's default font), then Google Fonts that suit overlays. Any other family name can be typed in. */
 export const FONT_CHOICES: readonly string[] = [
+  'Default',
   'Inter',
   'Poppins',
   'Montserrat',

@@ -3,17 +3,20 @@ import type { BoxStyle } from "./BoxStyle";
 import type { ChatFilterSource } from "./ChatFilterSource";
 import type { ChatRules } from "./ChatRules";
 import type { CreditNames } from "./CreditNames";
+import type { CreditScroll } from "./CreditScroll";
 import type { CreditSection } from "./CreditSection";
 import type { CreditStart } from "./CreditStart";
 import type { EventKind } from "./EventKind";
 import type { HypeTrainLayout } from "./HypeTrainLayout";
 import type { ItemCard } from "./ItemCard";
 import type { ListDirection } from "./ListDirection";
+import type { ListStack } from "./ListStack";
 import type { MediaFit } from "./MediaFit";
 import type { NowPlayingLayout } from "./NowPlayingLayout";
 import type { PollSource } from "./PollSource";
 import type { ShapeKind } from "./ShapeKind";
 import type { TextStyle } from "./TextStyle";
+import type { TickerDirection } from "./TickerDirection";
 import type { TimerMode } from "./TimerMode";
 
 export type LayerKind = { "type": "text", text: string, style: TextStyle, } | { "type": "shape", shape: ShapeKind, fill: string, stroke: string, stroke_width: number, } | { "type": "image", src: string, fit: MediaFit, } | { "type": "video", src: string, fit: MediaFit, looped: boolean, muted: boolean, volume: number, } | { "type": "alerts", } | { "type": "chat", max_messages: number, 
@@ -28,7 +31,7 @@ show_badges: boolean, hide_commands: boolean, hide_users: Array<string>, style: 
 /**
  * The card around each message.
  */
-bubble: BoxStyle, newest_on_top: boolean, seventv_emotes: boolean, bttv_emotes: boolean, ffz_emotes: boolean, seventv_paints: boolean, seventv_badges: boolean, item_card: ItemCard, 
+bubble: BoxStyle, newest_on_top: boolean, stack: ListStack, seventv_emotes: boolean, bttv_emotes: boolean, ffz_emotes: boolean, seventv_paints: boolean, seventv_badges: boolean, item_card: ItemCard, 
 /**
  * Which hide and highlight rules apply.
  */
@@ -52,7 +55,7 @@ duration_s: number,
 /**
  * Variable with a start/end timestamp in ms (optional).
  */
-anchor_var: string, style: TextStyle, prefix: string, } | { "type": "event_list", kinds: Array<EventKind>, max_items: number, direction: ListDirection, 
+anchor_var: string, style: TextStyle, prefix: string, } | { "type": "event_list", kinds: Array<EventKind>, max_items: number, direction: ListDirection, newest_on_top: boolean, ticker_dir: TickerDirection, 
 /**
  * Template per item, e.g. `{{name}} · {{kind}}`.
  */
@@ -88,7 +91,7 @@ fit_s: number,
 /**
  * Start again after the end; otherwise stop with the last names on screen.
  */
-repeat: boolean, start: CreditStart, 
+repeat: boolean, start: CreditStart, scroll: CreditScroll, 
 /**
  * Template text above the names.
  */
@@ -212,7 +215,11 @@ item_box: BoxStyle, item_card: ItemCard, } | { "type": "queue", show_playing: bo
 /**
  * People in line to list.
  */
-next_count: number, show_positions: boolean, 
+next_count: number, 
+/**
+ * First in line at the top; otherwise at the bottom.
+ */
+first_on_top: boolean, show_positions: boolean, 
 /**
  * Notes like in-game names.
  */

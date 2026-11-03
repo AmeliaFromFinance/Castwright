@@ -118,6 +118,15 @@ export function validateAction(a: Action, all: readonly Action[], overlays: read
         else if (overlays.length && (!o || !o.layers.some((l) => l.id === s.layer_id))) add('That layer no longer exists.');
         break;
       }
+      case 'timer_control': {
+        const o = overlays.find((x) => x.id === s.overlay_id);
+        const l = o?.layers.find((x) => x.id === s.layer_id);
+        if (!s.overlay_id || !s.layer_id) add('Pick an overlay and a timer layer.');
+        else if (overlays.length && !l) add('That layer no longer exists.');
+        else if (l && (l.kind.type !== 'timer' || (l.kind.mode !== 'countdown' && l.kind.mode !== 'stopwatch'))) add("That layer isn't a countdown or stopwatch.");
+        else if (s.action === 'add' && !s.seconds) add('Set how many seconds to add.');
+        break;
+      }
       case 'roll_credits': {
         const o = overlays.find((x) => x.id === s.overlay_id);
         const l = o?.layers.find((x) => x.id === s.layer_id);

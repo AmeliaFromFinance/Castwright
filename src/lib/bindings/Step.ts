@@ -4,6 +4,7 @@ import type { ConditionGroup } from "./ConditionGroup";
 import type { HttpMethod } from "./HttpMethod";
 import type { PredictionAction } from "./PredictionAction";
 import type { RewardState } from "./RewardState";
+import type { TimerAction } from "./TimerAction";
 import type { Toggle } from "./Toggle";
 
 export type Step = { "type": "chat_send", message: string, 
@@ -38,7 +39,11 @@ value: number, } | { "type": "delay", ms: number, } | { "type": "set_variable", 
 /**
  * Empty = current program scene.
  */
-scene: string, source: string, state: Toggle, } | { "type": "set_input_mute", input: string, state: Toggle, } | { "type": "recording", state: Toggle, } | { "type": "save_replay" } | { "type": "set_layer_visible", overlay_id: string, layer_id: string, state: Toggle, } | { "type": "roll_credits", overlay_id: string, layer_id: string, } | { "type": "play_alert", title: string, message: string, image: string, sound: string, duration_ms: number, } | { "type": "pause_alerts", state: Toggle, } | { "type": "skip_alert" } | { "type": "play_sound", src: string, volume: number, } | { "type": "play_soundboard_sound", sound_id: string, } | { "type": "http_request", method: HttpMethod, url: string, body: string, 
+scene: string, source: string, state: Toggle, } | { "type": "set_input_mute", input: string, state: Toggle, } | { "type": "recording", state: Toggle, } | { "type": "save_replay" } | { "type": "set_layer_visible", overlay_id: string, layer_id: string, state: Toggle, } | { "type": "roll_credits", overlay_id: string, layer_id: string, } | { "type": "timer_control", overlay_id: string, layer_id: string, action: TimerAction, 
+/**
+ * For add. Below 0 takes time off.
+ */
+seconds: number, } | { "type": "play_alert", title: string, message: string, image: string, sound: string, duration_ms: number, } | { "type": "pause_alerts", state: Toggle, } | { "type": "skip_alert" } | { "type": "play_sound", src: string, volume: number, } | { "type": "play_soundboard_sound", sound_id: string, } | { "type": "http_request", method: HttpMethod, url: string, body: string, 
 /**
  * Store the response text in this variable (optional).
  */

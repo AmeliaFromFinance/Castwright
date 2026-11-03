@@ -2,6 +2,25 @@
 
 What changed in each version of Castwright. The newest version is at the top.
 
+## 0.10.0 (2026-11-03)
+
+### New
+
+- **Right-click menus in Automation.** Search every step and trigger from the canvas, and insert steps after a node or in the middle of a line. Press **A** or **/** to search at the pointer.
+- **Edit several layers at once.** Shift or Ctrl+click, or drag a box, then change fonts, colours, styles or alignment for all of them.
+- **Timer controls.** Start, pause, resume and reset timers from the layer settings, the right-click menu, automation or Stream Deck. Every overlay stays in sync.
+- **List order.** Chat can show new messages at the top, event lists newest at the bottom, tickers and credits in either direction.
+- **Default font.** Set one font in Settings → Appearance for all chat, alerts and layers that don't pick their own.
+
+### Fixed
+
+- Messages Twitch removes (deleted, timed out, banned or cleared) now disappear from chat everywhere. **Show removed messages** brings them back crossed out.
+- Clicking **Logic → If** could leave the menu stuck and the page frozen.
+- Clicking through styles no longer shrinks text. Presets keep your font size.
+- Adding a video to an alert could crash the app.
+- Links (Full changelog, Guide, Source code, Report a problem) now open in your browser.
+- Navigation labels no longer spill out of the highlighted box.
+
 ## 0.9.0 (2026-11-03)
 
 ### New

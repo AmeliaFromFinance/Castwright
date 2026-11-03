@@ -44,4 +44,12 @@ describe('describe', () => {
     expect(fields).toContain('arg_count');
     expect(fields).toContain('counter.deaths');
   });
+
+  it('lists each condition field once', () => {
+    // Duplicates broke the If inspector (keyed list).
+    const a = newAction({ triggers: [newTrigger('command'), newTrigger('command')] });
+    const fields = fieldsForAction(a, { arg_count: 1, user: 'x' }).map((f) => f.value);
+    expect(fields).toContain('arg_count');
+    expect(new Set(fields).size).toBe(fields.length);
+  });
 });

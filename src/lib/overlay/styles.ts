@@ -4,9 +4,10 @@ import type { Layer } from '$lib/bindings/Layer';
 import type { LayerKind } from '$lib/bindings/LayerKind';
 import type { TextStyle } from '$lib/bindings/TextStyle';
 import { parseColor } from './color';
+import { DEFAULT_FONT, isDefaultFont } from './fonts';
 
 export const DEFAULT_TEXT: TextStyle = {
-  font_family: 'Inter',
+  font_family: DEFAULT_FONT,
   font_size: 28,
   font_weight: 600,
   color: '#ffffff',
@@ -31,9 +32,12 @@ function num(v: unknown, fallback: number): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
 }
 
+/** Set on the stage to the project's default font stack. */
+export const DEFAULT_FONT_VAR = '--cw-default-font';
+
 export function fontStack(family: string): string {
   const f = cssValue(family).replace(/["']/g, '').trim();
-  if (!f) return FALLBACK_STACK;
+  if (isDefaultFont(f)) return `var(${DEFAULT_FONT_VAR}, "Inter", ${FALLBACK_STACK})`;
   if (f.includes(',')) {
     return f
       .split(',')

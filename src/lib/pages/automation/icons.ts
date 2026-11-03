@@ -86,6 +86,7 @@ export const STEP_ICONS: Record<StepType, Icon> = {
   save_replay: Repeat,
   set_layer_visible: Layers,
   roll_credits: Film,
+  timer_control: Timer,
   play_alert: Bell,
   pause_alerts: BellOff,
   skip_alert: SkipForward,

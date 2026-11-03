@@ -6,6 +6,7 @@
   import { flushAll } from '$lib/state/flush';
   import { stepZoom } from '$lib/state/zoom';
   import { toasts } from '$lib/state/toast.svelte';
+  import { handleExternalLinks } from '$lib/util/os';
   import { updateAppearance } from '$lib/pages/settings/theme-settings.svelte';
   import Toasts from '$lib/ui/Toasts.svelte';
   import StatusBar from '$lib/shell/StatusBar.svelte';
@@ -127,8 +128,10 @@
       }
     };
     window.addEventListener('keydown', onKey);
+    const stopLinks = handleExternalLinks();
     return () => {
       window.removeEventListener('keydown', onKey);
+      stopLinks();
       unlistenClose?.();
     };
   });
@@ -261,7 +264,8 @@
   }
   .shell {
     display: grid;
-    grid-template-columns: var(--rail-w) minmax(0, 1fr);
+    /* The rail grows to fit its longest label, whatever the font. */
+    grid-template-columns: minmax(var(--rail-w), max-content) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) auto;
     height: calc(100vh / var(--css-zoom, 1));
   }
@@ -280,15 +284,16 @@
   .rail {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     gap: 4px;
-    padding: 10px 0;
+    padding: 10px 7px;
+    overflow: hidden auto;
+    scrollbar-width: none;
     border-right: 1px solid var(--border);
     background: color-mix(in srgb, var(--bg-1) 70%, transparent);
     grid-row: span 1;
   }
   .logo {
-    width: 44px;
     height: 36px;
     display: grid;
     place-items: center;
@@ -297,8 +302,9 @@
   }
   .nav {
     position: relative;
-    width: 46px;
-    height: 46px;
+    min-width: 46px;
+    min-height: 46px;
+    padding: 5px 4px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -345,6 +351,8 @@
     font-size: 9.5px;
     font-weight: 600;
     letter-spacing: 0.01em;
+    line-height: 1.2;
+    white-space: nowrap;
   }
   .page {
     min-width: 0;

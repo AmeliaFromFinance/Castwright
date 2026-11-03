@@ -35,7 +35,7 @@
 </script>
 
 {#if shown}
-  <div class="cw-q" data-open={shown.open ? 'true' : 'false'}>
+  <div class="cw-q" data-open={shown.open ? 'true' : 'false'} data-order={kind.first_on_top === false ? 'bottom' : 'top'}>
     {#if playing.length}
       <div class="cw-q-section cw-q-playing">
         {#if kind.playing_label.trim()}<StyledText class="cw-q-label" text={kind.playing_label} style={small} block />{/if}
@@ -92,6 +92,11 @@
     flex-direction: column;
     gap: 14px;
     overflow: hidden;
+  }
+  /* First in line at the bottom: the whole layer reads bottom up. */
+  .cw-q[data-order='bottom'],
+  .cw-q[data-order='bottom'] .cw-q-list {
+    flex-direction: column-reverse;
   }
   .cw-q-section {
     display: flex;

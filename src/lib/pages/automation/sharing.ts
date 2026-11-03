@@ -208,7 +208,7 @@ export function buildPackage(all: readonly Action[], ids: readonly string[], ove
       if (s.type === 'run_action' && !inside.has(s.action_id)) {
         const t = all.find((x) => x.id === s.action_id);
         if (t) add({ kind: 'action', id: t.id, name: t.name, overlay_id: '', overlay_name: '' });
-      } else if (s.type === 'set_layer_visible' || s.type === 'roll_credits') {
+      } else if (s.type === 'set_layer_visible' || s.type === 'roll_credits' || s.type === 'timer_control') {
         const o = overlays.find((x) => x.id === s.overlay_id);
         const l = o?.layers.find((x) => x.id === s.layer_id);
         if (o && l) add({ kind: 'layer', id: l.id, name: l.name, overlay_id: o.id, overlay_name: o.name });
@@ -324,7 +324,7 @@ export function applyImport(
           if (!to) unlinked.add(refKey('action', '', s.action_id));
           s.action_id = to ?? '';
         }
-      } else if ((s.type === 'set_layer_visible' || s.type === 'roll_credits') && s.layer_id) {
+      } else if ((s.type === 'set_layer_visible' || s.type === 'roll_credits' || s.type === 'timer_control') && s.layer_id) {
         const to = resolve('layer', s.overlay_id, s.layer_id)?.split('/');
         if (to?.length === 2) [s.overlay_id, s.layer_id] = to as [string, string];
         else {

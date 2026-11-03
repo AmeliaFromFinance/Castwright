@@ -237,29 +237,25 @@ impl ProjectStore {
     }
 
     /// Copy a file into `assets/`, renaming it if the name is taken. Returns the new asset.
+    /// The copy streams through a hidden temp file, so a failed or oversized copy leaves nothing behind.
     pub fn import_asset(&self, source: &Path) -> AppResult<AssetInfo> {
+        self.import_asset_capped(source, MAX_ASSET_BYTES)
+    }
+
+    fn import_asset_capped(&self, source: &Path, max: u64) -> AppResult<AssetInfo> {
+        use std::io::{Read, Write};
         let meta = std::fs::metadata(source)?;
         if !meta.is_file() {
             return user_err("That isn't a file.");
-        }
-        if meta.len() > MAX_ASSET_BYTES {
-            return user_err("Files over 512 MB can't be added.");
         }
         let original = source
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
-        let cleaned: String = original
-            .chars()
-            .map(|c| {
-                if c.is_alphanumeric() || matches!(c, '.' | '-' | '_') {
-                    c
-                } else {
-                    '-'
-                }
-            })
-            .collect();
-        let Some(cleaned) = safe_file_name(cleaned.trim_start_matches('.')) else {
+        if meta.len() > max {
+            return too_big(&original, meta.len(), max);
+        }
+        let Some(cleaned) = clean_asset_name(&original) else {
             return user_err("That file name can't be used.");
         };
         let (stem, ext) = match cleaned.rsplit_once('.') {
@@ -268,17 +264,40 @@ impl ProjectStore {
         };
         let dir = self.assets_dir();
         std::fs::create_dir_all(&dir)?;
-        let mut name = cleaned.clone();
+        let tmp = dir.join(format!(".import-{}", crate::util::new_id()));
+        let copied = (|| -> std::io::Result<u64> {
+            let mut from = std::io::BufReader::new(std::fs::File::open(source)?);
+            let mut to = std::io::BufWriter::new(std::fs::File::create(&tmp)?);
+            // The file may grow while it's copied; stop one byte past the cap.
+            let n = std::io::copy(&mut (&mut from).take(max + 1), &mut to)?;
+            to.flush()?;
+            Ok(n)
+        })();
+        let bytes = match copied {
+            Ok(n) if n <= max => n,
+            Ok(n) => {
+                let _ = std::fs::remove_file(&tmp);
+                return too_big(&original, n, max);
+            }
+            Err(e) => {
+                let _ = std::fs::remove_file(&tmp);
+                return Err(e.into());
+            }
+        };
+        let mut name = cleaned;
         let mut n = 2;
         while dir.join(&name).exists() {
             name = format!("{stem}-{n}{ext}");
             n += 1;
         }
-        std::fs::copy(source, dir.join(&name))?;
+        if let Err(e) = std::fs::rename(&tmp, dir.join(&name)) {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(e.into());
+        }
         Ok(AssetInfo {
             path: format!("assets/{name}"),
             kind: asset_kind(&name).into(),
-            bytes: meta.len(),
+            bytes,
             name,
         })
     }
@@ -339,6 +358,39 @@ fn newest_old_snapshot(dir: &Path) -> Option<(Project, String)> {
         let bytes = std::fs::read(dir.join("snapshots").join(&f)).ok()?;
         parse_project(&bytes).ok().map(|p| (p, f))
     })
+}
+
+/// Longest asset name kept, in characters (before a "-2" suffix).
+const MAX_NAME_CHARS: usize = 120;
+
+/// A safe asset name: letters, digits, `.`, `-` and `_`, with a lowercase extension.
+fn clean_asset_name(original: &str) -> Option<String> {
+    let cleaned: String = original
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || matches!(c, '.' | '-' | '_') {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let cleaned = cleaned.trim_start_matches('.');
+    let (stem, ext) = match cleaned.rsplit_once('.') {
+        Some((s, e)) if !s.is_empty() && !e.is_empty() => (s, format!(".{}", e.to_lowercase())),
+        _ => (cleaned, String::new()),
+    };
+    let stem: String = stem.chars().take(MAX_NAME_CHARS).collect();
+    safe_file_name(&format!("{stem}{ext}"))
+}
+
+fn too_big<T>(name: &str, bytes: u64, max: u64) -> AppResult<T> {
+    const MB: u64 = 1024 * 1024;
+    user_err(format!(
+        "\"{name}\" is {} MB. Files can be up to {} MB.",
+        bytes.div_ceil(MB),
+        max / MB
+    ))
 }
 
 pub fn asset_kind(name: &str) -> &'static str {
@@ -467,6 +519,58 @@ mod tests {
         assert!(s.asset_path("../project.json").is_none());
         s.delete_asset(&a.name).unwrap();
         assert_eq!(s.assets().len(), 1);
+    }
+
+    #[test]
+    fn imports_odd_named_videos() {
+        let dir = tempfile::tempdir().unwrap();
+        let (s, _) = ProjectStore::open(dir.path()).unwrap();
+        let src_dir = dir.path().join("my clips (2026)");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        let body: Vec<u8> = (0..3 * 1024 * 1024).map(|i| (i % 251) as u8).collect();
+        for (file, want) in [
+            (
+                "Follow Alert ünï 🎉 final.MP4",
+                "Follow-Alert-ünï---final.mp4",
+            ),
+            ("..hidden.webm", "hidden.webm"),
+            (
+                &format!("{}.webm", "x".repeat(200)),
+                &format!("{}.webm", "x".repeat(120)),
+            ),
+        ] {
+            let src = src_dir.join(file);
+            std::fs::write(&src, &body).unwrap();
+            let a = s.import_asset(&src).unwrap();
+            assert_eq!(a.name, want);
+            assert_eq!(a.kind, "video");
+            assert_eq!(a.bytes, body.len() as u64);
+            assert_eq!(std::fs::read(s.asset_path(&a.name).unwrap()).unwrap(), body);
+        }
+        assert_eq!(s.assets().len(), 3, "no temp files listed");
+    }
+
+    #[test]
+    fn refuses_files_over_the_limit_and_leaves_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let (s, _) = ProjectStore::open(dir.path()).unwrap();
+        let src = dir.path().join("huge stream.mp4");
+        // Sparse, so it takes no real disk space.
+        std::fs::File::create(&src)
+            .unwrap()
+            .set_len(MAX_ASSET_BYTES + 1)
+            .unwrap();
+        let err = s.import_asset(&src).unwrap_err().to_string();
+        assert!(err.contains("up to 512 MB"), "{err}");
+
+        let small = dir.path().join("clip.webm");
+        std::fs::write(&small, vec![7u8; 4096]).unwrap();
+        let err = s.import_asset_capped(&small, 1000).unwrap_err().to_string();
+        assert!(err.contains("\"clip.webm\" is 1 MB"), "{err}");
+        let left: Vec<_> = std::fs::read_dir(s.assets_dir())
+            .map(|rd| rd.flatten().map(|e| e.file_name()).collect())
+            .unwrap_or_default();
+        assert!(left.is_empty(), "{left:?}");
     }
 
     #[tokio::test(start_paused = true)]

@@ -130,7 +130,7 @@ test('automation flow: free canvas editing, undo, tidy, test', async ({ page }) 
   const spot = { x: box.x + 200, y: box.y + box.height - 240 };
   await page.mouse.dblclick(spot.x, spot.y);
   const picker = page.getByRole('dialog', { name: 'Add a step' });
-  await picker.getByRole('textbox').fill('log');
+  await picker.getByRole('combobox').fill('log');
   await picker.getByRole('option', { name: /^Log/ }).click();
   const inspector = page.getByRole('complementary', { name: 'Inspector' });
   await inspector.getByRole('textbox', { name: 'Text', exact: true }).fill('Another one');
@@ -161,7 +161,7 @@ test('automation flow: free canvas editing, undo, tidy, test', async ({ page }) 
   await chatNow.hover();
   const below = await center(chatNow.locator('[data-handle="bottom"]'));
   await drag(page, below, { x: below.x, y: below.y + 110 });
-  await picker.getByRole('textbox').fill('if');
+  await picker.getByRole('combobox').fill('if');
   await picker.getByRole('option', { name: /^If/ }).click();
   const iff = ifNode(page);
   await expect(iff).toBeVisible();

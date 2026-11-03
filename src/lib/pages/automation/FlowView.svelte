@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
   import type { Action } from '$lib/bindings/Action';
+  import type { EdgeBranch } from '$lib/bindings/EdgeBranch';
   import type { EdgeSide } from '$lib/bindings/EdgeSide';
   import type { GraphNode } from '$lib/bindings/GraphNode';
   import type { NodeKind } from '$lib/bindings/NodeKind';
@@ -8,16 +9,40 @@
   import type { Trigger } from '$lib/bindings/Trigger';
   import { describeConditions } from '$lib/editors/conditions';
   import { newId } from '$lib/editors/ids';
-  import type { MenuGroup } from '$lib/editors/menu';
   import { isTypingTarget } from '$lib/editor/keys';
   import { app } from '$lib/state/app.svelte';
   import { toasts } from '$lib/state/toast.svelte';
   import IconButton from '$lib/ui/IconButton.svelte';
   import ResizeHandle from '$lib/ui/ResizeHandle.svelte';
-  import { ChevronLeft, ChevronRight, Grid3x3, Group, History, Maximize, Minus, Plus, Sparkles, StickyNote, Zap } from '@lucide/svelte';
+  import ContextMenu, { type CloseReason, type ContextItem, type SearchGroup, type SearchOption } from '$lib/ui/ContextMenu.svelte';
+  import {
+    ChevronLeft,
+    ChevronRight,
+    ClipboardPaste,
+    Copy,
+    CopyPlus,
+    CornerDownRight,
+    Frame,
+    Grid3x3,
+    Group,
+    History,
+    Maximize,
+    Minus,
+    PanelRight,
+    Plus,
+    Sparkles,
+    Split,
+    SquareDashedMousePointer,
+    StickyNote,
+    Trash2,
+    Ungroup,
+    Unlink,
+    Zap
+  } from '@lucide/svelte';
+  import { fuzzyFilter } from '$lib/shell/fuzzy';
   import Menu from '$lib/editors/Menu.svelte';
   import { clock } from '$lib/format';
-  import { STEP_GROUPS, STEP_LABELS, STEP_MENU, TRIGGER_LABELS, TRIGGER_MENU, newStep, newTrigger, type StepType, type TriggerType } from './defaults';
+  import { STEP_GROUPS, STEP_LABELS, TRIGGER_LABELS, newStep, newTrigger } from './defaults';
   import { describeStep, describeTrigger, every, tokensForAction } from './describe';
   import {
     DEFAULT_H,
@@ -29,10 +54,12 @@
     arrowHead,
     copyNodes,
     curve,
+    disconnect,
     dropTarget,
     duplicateNodes,
     edgeCurve,
     freeSpot,
+    insertOnEdge,
     isIf,
     nextBranch,
     nodeById,
@@ -56,6 +83,8 @@
     FRAME_MIN,
     NOTE_MIN,
     NOTE_SIZE,
+    FRAME_SIZE,
+    addFrame,
     addNote,
     allBounds,
     allIds,
@@ -87,7 +116,7 @@
   import Inspector from './Inspector.svelte';
   import Minimap from './Minimap.svelte';
   import type { NodeStatus } from './runstatus';
-  import StepPicker from './StepPicker.svelte';
+  import { ENTRIES, entryKey, recentEntries, searchEntries, type Entry } from './search';
   import { actionsEditor as ed, flow, runLog } from './store.svelte';
   import { traceView } from './trace';
   import { centerOn, edgePan, fitView, toScreen, toWorld, visibleRect, zoomAt, type View } from './view';
@@ -234,7 +263,10 @@
   const world = (e: { clientX: number; clientY: number }) => toWorld(view, local(e));
 
   function down(e: PointerEvent) {
-    if (picker) return;
+    if (swallow) {
+      swallow = false;
+      return;
+    }
     const t = e.target as Element;
     downOn = t;
     if (t.closest('[data-chip], textarea, input, a')) return;
@@ -402,7 +434,7 @@
       const p = world(e);
       if (gs.target) connect(gs.from, gs.side, gs.target.id, gs.target.side);
       else if (!shown.nodes.some((n) => rects.get(n.id) && contains(rects.get(n.id)!, p))) {
-        openPicker({ kind: 'step', at: p, link: { from: gs.from, side: gs.side }, anchor: new DOMRect(e.clientX, e.clientY, 0, 0) });
+        openAdd({ scope: 'step', place: { at: p, links: [{ from: gs.from, side: gs.side }] }, screen: { x: e.clientX, y: e.clientY } });
       }
     }
   }
@@ -472,7 +504,7 @@
       newNote({ x: p.x - NOTE_SIZE.w / 2, y: p.y - 24 });
       return;
     }
-    openPicker({ kind: 'step', at: world(e), anchor: new DOMRect(e.clientX, e.clientY, 0, 0) });
+    openAdd({ scope: 'all', place: { at: world(e) }, screen: { x: e.clientX, y: e.clientY } });
   }
 
   // View
@@ -533,7 +565,6 @@
   onMount(() => {
     const el = viewport!;
     const wheel = (e: WheelEvent) => {
-      if (picker) return;
       e.preventDefault();
       if (e.ctrlKey || e.metaKey) {
         zoomBy(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0018)), local(e));
@@ -573,14 +604,26 @@
 
   // Editing
 
-  function addNode(kind: NodeKind, topLeft: Point, link?: { from: string; side: EdgeSide }) {
+  function addNode(kind: NodeKind, topLeft: Point, links: Link[] = []) {
     const id = newId();
     const at = flow.snap ? { x: snap(topLeft.x), y: snap(topLeft.y) } : topLeft;
     ed.updateGraph(action.id, (gr) => {
       gr.nodes.push({ id, x: at.x, y: at.y, kind });
-      if (!link) return gr;
-      return addEdge(gr, { from: link.from, from_side: link.side, to: id, to_side: OPPOSITE[link.side] })?.graph ?? gr;
+      for (const l of links) gr = addEdge(gr, { from: l.from, from_side: l.side, to: id, to_side: OPPOSITE[l.side] })?.graph ?? gr;
+      return gr;
     });
+    flow.select([id], true);
+    focusNode(id);
+  }
+
+  /** Split a line with a new node at its middle. */
+  function insertOn(edgeId: string, kind: NodeKind) {
+    const mid = lines.find((l) => l.e.id === edgeId)?.mid;
+    if (!mid) return;
+    const id = newId();
+    const p = { x: mid.x - NODE_W / 2, y: mid.y - DEFAULT_H / 2 };
+    const at = flow.snap ? { x: snap(p.x), y: snap(p.y) } : p;
+    if (!ed.updateGraph(action.id, (gr) => insertOnEdge(gr, edgeId, { id, x: at.x, y: at.y, kind })?.graph ?? null)) return;
     flow.select([id], true);
     focusNode(id);
   }
@@ -696,51 +739,287 @@
   const single = $derived(flow.selected.length === 1 ? flow.selected[0]! : null);
   const nodesIn = (id: string) => frameById(g, id)?.members.filter((m) => nodeById(g, m)).length ?? 0;
 
-  function setBranch(edgeId: string) {
+  /** Set a line's branch, or move it on to the next one. */
+  function setBranch(edgeId: string, to?: EdgeBranch) {
     ed.updateGraph(action.id, (gr) => {
       const e = gr.edges.find((x) => x.id === edgeId);
-      if (e) e.branch = nextBranch(e.branch);
+      if (e) e.branch = to ?? nextBranch(e.branch);
       return gr;
     });
   }
 
-  // Picker for new steps and triggers
+  // Menus: the add search, and right-click menus for the canvas, items and lines
 
-  type Pick = { kind: 'step' | 'trigger'; group?: string; anchor: DOMRect; at?: Point; link?: { from: string; side: EdgeSide } };
-  let picker = $state<Pick | null>(null);
+  type Link = { from: string; side: EdgeSide };
+  /** Where a new node goes: at a point (by the side that links to it, or centred), or on a line. */
+  type Place = { at?: Point; links?: Link[]; center?: boolean; edge?: string };
+  type AddMenu = {
+    kind: 'add';
+    scope: 'all' | 'step' | 'trigger';
+    /** Only this group from the bottom bar. */
+    group?: string;
+    title?: string;
+    place: Place;
+    /** Also list Paste, Add note and the other canvas commands. */
+    canvas?: boolean;
+    screen: Point | null;
+    anchor?: DOMRect | null;
+  };
+  type MenuState = AddMenu | { kind: 'item' | 'edge'; id: string; screen: Point };
 
-  function openPicker(p: Pick) {
-    picker = p;
+  let menu = $state.raw<MenuState | null>(null);
+  /** Bumped on every open, so a menu opened from another one starts fresh. */
+  let menuSeq = $state(0);
+  /** The press that closed a menu doesn't also act on the canvas. */
+  let swallow = false;
+  /** When a key opened a menu; the browser's own contextmenu event follows. */
+  let keyMenuAt = 0;
+
+  function openMenu(m: MenuState) {
+    menu = m;
+    menuSeq++;
   }
 
-  const stepGroups = $derived(picker?.kind === 'step' && picker.group ? STEP_MENU.filter((x) => x.label === picker!.group) : STEP_MENU);
+  function openAdd(m: Omit<AddMenu, 'kind'>) {
+    openMenu({ kind: 'add', ...m });
+  }
 
-  /** Where a node added from the bottom bar goes: under the one selected node, else the middle of the view. */
+  function closeMenu(reason: CloseReason) {
+    menu = null;
+    if (reason === 'outside') {
+      swallow = true;
+      setTimeout(() => (swallow = false));
+    }
+  }
+
+  const hasTrigger = $derived(g.nodes.some((n) => n.kind.type === 'trigger'));
+  const titleOf = (id: string) => {
+    const n = nodeById(g, id);
+    return n ? nodeProps(n).title : '';
+  };
+  /** Canvas pixels to window pixels. */
+  function client(p: Point): Point {
+    const r = viewport!.getBoundingClientRect();
+    return { x: r.left + p.x, y: r.top + p.y };
+  }
+  const middle = () => toWorld(view, { x: vw / 2, y: vh / 2 });
+
+  function addGroups(m: AddMenu, query: string): SearchGroup[] {
+    const pool = ENTRIES.filter((e) => (m.scope === 'all' || e.kind === m.scope) && (!m.group || e.group === m.group));
+    const opt = (e: Entry): SearchOption => ({
+      id: entryKey(e),
+      label: e.label,
+      hint: e.hint,
+      icon: e.kind === 'step' ? STEP_ICONS[e.type] : TRIGGER_ICONS[e.type],
+      onselect: () => addEntry(e, m.place)
+    });
+    const cmds = m.canvas ? canvasCommands(m) : [];
+    const grouped = (list: Entry[]) => {
+      const by = new Map<string, Entry[]>();
+      for (const e of list) by.set(e.group, [...(by.get(e.group) ?? []), e]);
+      return [...by].map(([label, items]) => ({ label, options: items.map(opt) }));
+    };
+    if (query.trim()) {
+      const out = grouped(searchEntries(pool, query, hasTrigger || m.scope === 'step' ? 'step' : 'trigger'));
+      const c = fuzzyFilter(cmds, query, (o) => o.label);
+      return c.length ? [...out, { label: 'Canvas', options: c }] : out;
+    }
+    const recent = m.group ? [] : recentEntries(pool, flow.recent);
+    let groups = grouped(pool);
+    // An empty flow needs a trigger first.
+    if (!hasTrigger) groups = [...groups.filter((x) => x.label === 'Triggers'), ...groups.filter((x) => x.label !== 'Triggers')];
+    return [
+      ...(recent.length ? [{ label: 'Recent', options: recent.map(opt) }] : []),
+      ...(cmds.length ? [{ label: 'Canvas', options: cmds }] : []),
+      ...groups
+    ];
+  }
+
+  function canvasCommands(m: AddMenu): SearchOption[] {
+    const at = m.place.at ?? middle();
+    const picked = flow.selected.filter((id) => nodeById(g, id));
+    const out: SearchOption[] = [];
+    if (picked.length) {
+      out.push({
+        id: 'after',
+        label: 'Add after selected',
+        hint: picked.length === 1 ? titleOf(picked[0]!) : `${picked.length} nodes`,
+        icon: CornerDownRight,
+        onselect: () =>
+          openAdd({
+            scope: 'step',
+            title: picked.length === 1 ? `After ${titleOf(picked[0]!)}` : `After ${picked.length} nodes`,
+            place: { at, links: picked.map((from) => ({ from, side: 'bottom' })), center: true },
+            screen: m.screen,
+            anchor: m.anchor
+          })
+      });
+    }
+    if (flow.clipboard)
+      out.push({
+        id: 'paste',
+        label: 'Paste',
+        icon: ClipboardPaste,
+        keys: 'Ctrl+V',
+        onselect: () => {
+          pointer = at;
+          paste();
+        }
+      });
+    out.push(
+      { id: 'note', label: 'Add note', icon: StickyNote, onselect: () => newNote({ x: at.x - NOTE_SIZE.w / 2, y: at.y - 24 }) },
+      { id: 'frame', label: 'Add frame', icon: Frame, onselect: () => newFrame({ x: at.x - FRAME_SIZE.w / 2, y: at.y - 24 }) },
+      { id: 'all', label: 'Select all', icon: SquareDashedMousePointer, keys: 'Ctrl+A', onselect: () => flow.select(allIds(g), false) },
+      { id: 'tidy', label: 'Tidy up', icon: Sparkles, onselect: () => void tidyUp() },
+      { id: 'fit', label: 'Fit to view', icon: Maximize, keys: 'F', onselect: fit }
+    );
+    return out;
+  }
+
+  function addEntry(e: Entry, place: Place) {
+    flow.used(entryKey(e));
+    const kind: NodeKind = e.kind === 'step' ? { type: 'step', step: newStep(e.type) } : { type: 'trigger', trigger: newTrigger(e.type) };
+    if (place.edge && e.kind === 'step') return insertOn(place.edge, kind);
+    // Nothing leads into a trigger.
+    const links = e.kind === 'step' ? (place.links ?? []) : [];
+    addNode(kind, placeNew(place, links, e.kind === 'trigger'), links);
+  }
+
+  function placeNew(p: Place, links: Link[], trigger: boolean): Point {
+    if (p.at && links.length === 1 && !p.center) return placeBySide(p.at, OPPOSITE[links[0]!.side]);
+    if (p.at) return { x: p.at.x - NODE_W / 2, y: p.at.y - DEFAULT_H / 2 };
+    const c = middle();
+    return freeSpot(g, { x: c.x - NODE_W / 2, y: c.y - DEFAULT_H / 2 - (trigger ? 80 : 0) });
+  }
+
+  /** The bottom bar: a step goes under the one selected node, else in the middle of the view. */
   function fromBar(e: MouseEvent, kind: 'step' | 'trigger', group?: string) {
     const anchorRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const one = flow.selected.length === 1 ? nodeById(g, flow.selected[0]!) : undefined;
+    let place: Place = {};
     if (kind === 'step' && one) {
       const r = nodeRect(one, sizes);
-      openPicker({ kind, group, anchor: anchorRect, at: { x: r.x + r.w / 2, y: r.y + r.h + 64 }, link: { from: one.id, side: 'bottom' } });
+      place = { at: { x: r.x + r.w / 2, y: r.y + r.h + 64 }, links: [{ from: one.id, side: 'bottom' }] };
+    }
+    openAdd({ scope: kind, group, place, screen: null, anchor: anchorRect });
+  }
+
+  function insertAfter(id: string, screen: Point) {
+    const r = rects.get(id);
+    if (!r) return;
+    openAdd({
+      scope: 'step',
+      title: `After ${titleOf(id)}`,
+      place: { at: { x: r.x + r.w / 2, y: r.y + r.h + 64 }, links: [{ from: id, side: 'bottom' }] },
+      screen
+    });
+  }
+
+  function itemMenu(id: string, screen: Point): ContextItem[] {
+    const isNode = !!nodeById(g, id);
+    const n = flow.selected.length;
+    const many = n > 1;
+    const linked = g.edges.some((e) => selected.has(e.from) || selected.has(e.to));
+    const out: ContextItem[] = [];
+    if (isNode) {
+      out.push(
+        { label: 'Open in inspector', icon: PanelRight, keys: 'Enter', onselect: () => flow.select([id], true) },
+        { label: 'Insert step after…', icon: CornerDownRight, separator: true, onselect: () => insertAfter(id, screen) }
+      );
+    }
+    out.push(
+      { label: many ? `Duplicate ${n} items` : 'Duplicate', icon: CopyPlus, keys: 'Ctrl+D', separator: isNode, onselect: duplicateSelected },
+      { label: many ? `Copy ${n} items` : 'Copy', icon: Copy, keys: 'Ctrl+C', onselect: () => copySelected(false) }
+    );
+    if (framesToUngroup(g, flow.selected).length && !many) out.push({ label: 'Ungroup', icon: Ungroup, keys: 'Ctrl+Shift+G', onselect: ungroupSelected });
+    else out.push({ label: 'Group in frame', icon: Group, keys: 'Ctrl+G', onselect: group });
+    if (isNode) out.push({ label: 'Disconnect all', icon: Unlink, disabled: !linked, onselect: () => disconnectSelected() });
+    out.push({ label: many ? `Delete ${n} items` : 'Delete', icon: Trash2, keys: 'Del', danger: true, separator: true, onselect: removeSelected });
+    return out;
+  }
+
+  function edgeMenu(id: string, screen: Point): ContextItem[] {
+    const e = g.edges.find((x) => x.id === id);
+    if (!e) return [];
+    const out: ContextItem[] = [
+      { label: 'Insert step here…', icon: Split, onselect: () => openAdd({ scope: 'step', title: 'Insert on this line', place: { edge: id }, screen }) }
+    ];
+    if (isIf(nodeById(g, e.from))) {
+      for (const b of ['then', 'otherwise', 'next'] as const) {
+        out.push({ label: BRANCH_TEXT[b], heading: b === 'then' ? 'Branch' : undefined, separator: b === 'then', checked: e.branch === b, onselect: () => setBranch(id, b) });
+      }
+    }
+    out.push({ label: 'Delete line', icon: Trash2, keys: 'Del', danger: true, separator: true, onselect: () => removeLine(id) });
+    return out;
+  }
+
+  function removeLine(id: string) {
+    ed.updateGraph(action.id, (gr) => removeEdges(gr, [id]));
+    flow.selectEdge(null);
+  }
+
+  function disconnectSelected() {
+    ed.updateGraph(action.id, (gr) => disconnect(gr, flow.selected));
+  }
+
+  function newFrame(at: Point) {
+    let id = '';
+    const p = flow.snap ? { x: snap(at.x), y: snap(at.y) } : at;
+    ed.updateGraph(action.id, (gr) => {
+      const r = addFrame(gr, p);
+      id = r.id;
+      return r.graph;
+    });
+    flow.select([id], false);
+    renamingFrame = id;
+  }
+
+  function contextmenu(e: MouseEvent) {
+    const t = e.target as Element;
+    // Text fields keep the browser's menu.
+    if (t.closest('textarea, input')) return;
+    e.preventDefault();
+    if (gesture || performance.now() - keyMenuAt < 500) return;
+    const screen = { x: e.clientX, y: e.clientY };
+    const wrap = t.closest<HTMLElement>('[data-node-wrap]')?.dataset.nodeWrap;
+    const item = wrap ?? t.closest<HTMLElement>('[data-item]')?.dataset.item;
+    if (item) {
+      if (!selected.has(item)) flow.select([item], !!wrap && flow.inspecting);
+      openMenu({ kind: 'item', id: item, screen });
       return;
     }
-    openPicker({ kind, group, anchor: anchorRect });
+    const edge = t.closest<HTMLElement>('[data-edge]')?.dataset.edge ?? t.closest<HTMLElement>('[data-chip-edge]')?.dataset.chipEdge;
+    if (edge) {
+      flow.selectEdge(edge);
+      openMenu({ kind: 'edge', id: edge, screen });
+      return;
+    }
+    openAdd({ scope: 'all', canvas: true, place: { at: world(e) }, screen });
   }
 
-  function placeNew(p: Pick): Point {
-    if (p.link && p.at) return placeBySide(p.at, OPPOSITE[p.link.side]);
-    if (p.at) return { x: p.at.x - NODE_W / 2, y: p.at.y - DEFAULT_H / 2 };
-    const c = toWorld(view, { x: vw / 2, y: vh / 2 });
-    return freeSpot(g, { x: c.x - NODE_W / 2, y: c.y - DEFAULT_H / 2 - (p.kind === 'trigger' ? 80 : 0) });
+  /** Shift+F10 or the menu key: the menu of what's selected, else the canvas menu in the middle. */
+  function menuFromKeys() {
+    keyMenuAt = performance.now();
+    const id = single;
+    const box = id ? (rects.get(id) ?? (noteById(g, id) ? noteRect(noteById(g, id)!) : frameById(g, id) ? frameRect(frameById(g, id)!) : null)) : null;
+    if (id && box) {
+      const p = toScreen(view, { x: box.x + Math.min(box.w, 40), y: box.y + Math.min(box.h, 40) });
+      openMenu({ kind: 'item', id, screen: client(p) });
+      return;
+    }
+    const line = flow.edge ? lines.find((l) => l.e.id === flow.edge) : undefined;
+    if (line) {
+      openMenu({ kind: 'edge', id: line.e.id, screen: client(toScreen(view, line.mid)) });
+      return;
+    }
+    openSearch(false);
   }
 
-  function pickStep(type: StepType) {
-    const p = picker!;
-    addNode({ type: 'step', step: newStep(type) }, placeNew(p), p.link);
-  }
-
-  function pickTrigger(type: TriggerType) {
-    addNode({ type: 'trigger', trigger: newTrigger(type) }, placeNew(picker!));
+  /** A or /: the add search at the pointer, or in the middle. */
+  function openSearch(atPointer = true) {
+    keyMenuAt = performance.now();
+    const at = atPointer && pointer && contains(visibleRect(view, vw, vh), pointer) ? pointer : middle();
+    openAdd({ scope: 'all', canvas: true, place: { at }, screen: client(toScreen(view, at)) });
   }
 
   // Keyboard
@@ -750,7 +1029,7 @@
   }
 
   function inScope(e: KeyboardEvent): boolean {
-    if (e.defaultPrevented || isTypingTarget(e.target) || picker) return false;
+    if (e.defaultPrevented || isTypingTarget(e.target) || menu) return false;
     const t = e.target as Element | null;
     if (!t || t === document.body) return true;
     if (!root?.contains(t) || t.closest('.inspector')) return false;
@@ -764,7 +1043,7 @@
       return;
     }
     // Escape closes the inspector from anywhere on the page, except in fields and popups.
-    if (e.key === 'Escape' && flow.inspecting && !e.defaultPrevented && !isTypingTarget(e.target) && !picker) {
+    if (e.key === 'Escape' && flow.inspecting && !e.defaultPrevented && !isTypingTarget(e.target) && !menu) {
       const t = e.target as Element | null;
       if (!t?.closest?.('[role="menu"], [role="dialog"]')) {
         flow.inspecting = false;
@@ -789,6 +1068,11 @@
       return;
     }
     if (e.altKey) return;
+    if (key === 'ContextMenu' || (key === 'F10' && e.shiftKey)) {
+      menuFromKeys();
+      e.preventDefault();
+      return;
+    }
     const step = e.shiftKey ? GRID : 1;
     const arrows: Record<string, [number, number]> = { ArrowUp: [0, -step], ArrowDown: [0, step], ArrowLeft: [-step, 0], ArrowRight: [step, 0] };
     if (arrows[key] && flow.selected.length) nudge(...arrows[key]!);
@@ -798,6 +1082,7 @@
       else flow.clear();
     }
     else if (key === 'f') fit();
+    else if (key === 'a' || key === '/') openSearch();
     else if (key === ' ' && (!(e.target as Element)?.closest?.('button') || (e.target as Element).closest('[data-node]'))) space = true;
     else if (key === 'Enter' && single && !(e.target as Element)?.closest?.('button')) {
       if (nodeById(g, single)) flow.select(flow.selected, true);
@@ -837,11 +1122,13 @@
     }
   }
 
-  const outputs = (t: Trigger) =>
-    tokensForAction({ ...action, triggers: [t] })
-      .map((x) => x.token.split('|')[0]!.trim())
-      .filter((x) => !x.startsWith('stream.'))
-      .slice(0, 6);
+  const outputs = (t: Trigger) => [
+    ...new Set(
+      tokensForAction({ ...action, triggers: [t] })
+        .map((x) => x.token.split('|')[0]!.trim())
+        .filter((x) => !x.startsWith('stream.'))
+    )
+  ].slice(0, 6);
 
   function nodeProps(n: GraphNode) {
     if (n.kind.type === 'trigger') {
@@ -906,6 +1193,7 @@
       onpointerup={up}
       onpointercancel={up}
       ondblclick={dblclick}
+      oncontextmenu={contextmenu}
       onpointerleave={() => {
         if (!gesture) pointer = null;
       }}
@@ -945,6 +1233,7 @@
               class="bchip b-{l.e.branch}"
               class:selected={flow.edge === l.e.id}
               data-chip
+              data-chip-edge={l.e.id}
               style="left:{l.mid.x}px;top:{l.mid.y}px"
               title="Click to switch between Then, Otherwise and Always"
               onclick={() => setBranch(l.e.id)}>{BRANCH_TEXT[l.e.branch]}</button
@@ -1084,7 +1373,7 @@
     </div>
 
     <div class="hint faint" aria-hidden="true">
-      <span>Drag to pan</span><span><kbd>Shift</kbd> + drag to select</span><span><kbd>Ctrl</kbd> + scroll to zoom</span><span>Double-click to add a step</span><span><kbd>Shift</kbd> + double-click for a note</span>
+      <span>Drag to pan</span><span><kbd>Shift</kbd> + drag to select</span><span><kbd>Ctrl</kbd> + scroll to zoom</span><span>Right-click or <kbd>A</kbd> to add</span><span><kbd>Shift</kbd> + double-click for a note</span>
     </div>
 
     {#if g.nodes.length || notes.length || frames.length}
@@ -1113,29 +1402,45 @@
   {/if}
 </div>
 
-{#if picker?.kind === 'step'}
-  <StepPicker
-    groups={stepGroups as MenuGroup<StepType>[]}
-    label="Add a step"
-    anchor={picker.anchor}
-    icons={STEP_ICONS}
-    onselect={pickStep}
-    onclose={() => (picker = null)}
-  />
-{:else if picker?.kind === 'trigger'}
-  <StepPicker groups={TRIGGER_MENU} label="Add a trigger" anchor={picker.anchor} icons={TRIGGER_ICONS} onselect={pickTrigger} onclose={() => (picker = null)} />
-{/if}
-
-{#if picker?.at && picker.link}
-  {@const r = rects.get(picker.link.from)}
-  {#if r}
-    {@const a = toScreenPt(anchor(r, picker.link.side))}
-    {@const b = toScreenPt(picker.at)}
-    <svg class="pending" aria-hidden="true" style="left:{viewport?.getBoundingClientRect().left ?? 0}px;top:{viewport?.getBoundingClientRect().top ?? 0}px">
-      <path d={pathOf(curve(a, picker.link.side, b, OPPOSITE[picker.link.side]))} />
-      <circle cx={b.x} cy={b.y} r="4" />
-    </svg>
+{#key menuSeq}
+  {#if menu?.kind === 'add'}
+    {@const m = menu}
+    <ContextMenu
+      at={m.screen}
+      anchor={m.anchor}
+      label={m.canvas ? 'Canvas' : m.scope === 'trigger' ? 'Add a trigger' : 'Add a step'}
+      search={{
+        title: m.title,
+        placeholder: m.scope === 'trigger' ? 'Search triggers' : m.scope === 'step' ? 'Search steps' : 'Search steps and triggers',
+        results: (q) => addGroups(m, q)
+      }}
+      onclose={closeMenu}
+      restore={viewport}
+    />
+  {:else if menu}
+    {@const m = menu}
+    <ContextMenu
+      at={m.screen}
+      label={m.kind === 'edge' ? 'Line' : nodeById(g, m.id) ? 'Node' : 'Item'}
+      items={m.kind === 'edge' ? edgeMenu(m.id, m.screen) : itemMenu(m.id, m.screen)}
+      onclose={closeMenu}
+      restore={viewport}
+    />
   {/if}
+{/key}
+
+{#if menu?.kind === 'add' && menu.place.at && menu.place.links?.length}
+  {@const b = toScreenPt(menu.place.at)}
+  {@const box = viewport?.getBoundingClientRect()}
+  <svg class="pending" aria-hidden="true" style="left:{box?.left ?? 0}px;top:{box?.top ?? 0}px">
+    {#each menu.place.links as l (l.from)}
+      {@const r = rects.get(l.from)}
+      {#if r}
+        <path d={pathOf(curve(toScreenPt(anchor(r, l.side)), l.side, b, OPPOSITE[l.side]))} />
+      {/if}
+    {/each}
+    <circle cx={b.x} cy={b.y} r="4" />
+  </svg>
 {/if}
 
 <style>
@@ -1531,15 +1836,21 @@
   .pct:hover {
     background: var(--bg-3);
   }
+  .canvas-wrap:has(> .map) {
+    --map-room: 214px;
+  }
   .palette {
+    /* Centred in the space left of the overview map, so the two never overlap. */
     position: absolute;
-    left: 50%;
+    left: 14px;
+    right: var(--map-room, 14px);
     bottom: 14px;
-    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100% - 14px - var(--map-room, 14px));
+    margin-inline: auto;
     display: flex;
     align-items: center;
     gap: 2px;
-    max-width: calc(100% - 28px);
     overflow-x: auto;
     padding: 5px;
     border: 1px solid var(--border);

@@ -392,6 +392,33 @@ export function addEdge(g: Graph, e: NewEdge): { graph: Graph; edge: GraphEdge }
   return { graph: { ...g, edges: [...g.edges, edge] }, edge };
 }
 
+/**
+ * Put `node` on a line: the line now ends at the new node, and a new line runs
+ * from it to where the old one went. The first part keeps the branch (Then,
+ * Otherwise or Always); the second is Then when the new node is an If.
+ */
+export function insertOnEdge(g: Graph, edgeId: string, node: GraphNode): { graph: Graph; edges: [GraphEdge, GraphEdge] } | null {
+  const e = g.edges.find((x) => x.id === edgeId);
+  if (!e || nodeById(g, node.id)) return null;
+  const into: GraphEdge = { ...e, id: newId(), to: node.id };
+  const out: GraphEdge = {
+    id: newId(),
+    from: node.id,
+    from_side: OPPOSITE[e.to_side],
+    to: e.to,
+    to_side: e.to_side,
+    branch: isIf(node) ? 'then' : 'next'
+  };
+  const edges = g.edges.flatMap((x) => (x.id === edgeId ? [into, out] : [x]));
+  return { graph: { ...g, nodes: [...g.nodes, node], edges }, edges: [into, out] };
+}
+
+/** Remove every line to or from these nodes. */
+export function disconnect(g: Graph, ids: Iterable<string>): Graph {
+  const set = new Set(ids);
+  return { ...g, edges: g.edges.filter((e) => !set.has(e.from) && !set.has(e.to)) };
+}
+
 /** Remove nodes, notes and frames, and the lines to removed nodes. Frames lose removed members. */
 export function removeNodes(g: Graph, ids: Iterable<string>): Graph {
   const gone = new Set(ids);

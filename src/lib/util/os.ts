@@ -1,15 +1,42 @@
 import { isTauri } from '$lib/api/backend';
 import { toasts } from '$lib/state/toast.svelte';
 
-/** Open a web page in the default browser. */
+const WEB = /^https?:\/\//i;
+
+/**
+ * Open a web page in the default browser. The desktop app needs the opener plugin:
+ * plain links and `window.open` do nothing in its window.
+ */
 export async function openExternal(url: string): Promise<void> {
-  if (!/^https?:\/\//i.test(url)) return;
-  if (isTauri()) {
-    const { openUrl } = await import('@tauri-apps/plugin-opener');
-    await openUrl(url);
-  } else {
-    window.open(url, '_blank', 'noopener');
+  if (!WEB.test(url)) return;
+  try {
+    if (isTauri()) {
+      const { openUrl } = await import('@tauri-apps/plugin-opener');
+      await openUrl(url);
+    } else {
+      window.open(url, '_blank', 'noopener');
+    }
+  } catch (e) {
+    console.warn('[app] could not open link', url, e);
+    toasts.show(`Couldn't open ${url}`, 'error');
   }
+}
+
+/** Send clicks on web links (`<a href="https://…">`) to `openExternal`. Returns a cleanup function. */
+export function handleExternalLinks(root: Document | HTMLElement = document): () => void {
+  const onClick = (e: Event) => {
+    if (e.defaultPrevented || (e instanceof MouseEvent && e.button > 1)) return;
+    const a = e.target instanceof Element ? e.target.closest<HTMLAnchorElement>('a[href]') : null;
+    if (!a || !WEB.test(a.getAttribute('href') ?? '')) return;
+    e.preventDefault();
+    void openExternal(a.href);
+  };
+  root.addEventListener('click', onClick);
+  root.addEventListener('auxclick', onClick);
+  return () => {
+    root.removeEventListener('click', onClick);
+    root.removeEventListener('auxclick', onClick);
+  };
 }
 
 /** Show a file or folder in the system file manager. */
