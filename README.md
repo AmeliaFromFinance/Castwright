@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/icon.svg" width="88" alt="" />
+  <img src="assets/logo.svg" width="88" alt="" />
 </p>
 
 <h1 align="center">Castwright</h1>

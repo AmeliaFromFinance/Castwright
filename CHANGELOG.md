@@ -2,6 +2,12 @@
 
 What changed in each version of Castwright. The newest version is at the top.
 
+## 1.0.1 (2026-11-03)
+
+### Changed
+
+- New logo and app icon.
+
 ## 1.0.0 (2026-11-03)
 
 The first release.
