@@ -72,7 +72,7 @@ jobs:
       - name: Linux packages
         if: runner.os == 'Linux'
         working-directory: .
-        timeout-minutes: 5
+        timeout-minutes: 15
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 -o Acquire::http::Timeout=30 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev libdbus-1-dev patchelf
