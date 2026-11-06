@@ -2,6 +2,16 @@
 
 What changed in each version of Castwright. The newest version is at the top.
 
+## 1.0.3 (2026-11-06)
+
+### Fixed
+
+- On Linux, the AppImage no longer closes when an alert video loads.
+
+### Changed
+
+- macOS now has separate downloads for Apple Silicon and Intel.
+
 ## 1.0.2 (2026-11-06)
 
 ### New
