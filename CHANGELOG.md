@@ -2,6 +2,17 @@
 
 What changed in each version of Castwright. The newest version is at the top.
 
+## 1.0.5 (2026-11-06)
+
+### New
+
+- **Delete files.** Hover a file in the picker window and click the bin.
+
+### Fixed
+
+- On Linux, the AppImage can open links again, including Twitch sign-in.
+- Text only alerts no longer show their image or video.
+
 ## 1.0.4 (2026-11-06)
 
 ### New
