@@ -2,6 +2,12 @@
 
 What changed in each version of Castwright. The newest version is at the top.
 
+## 1.0.4 (2026-11-06)
+
+### New
+
+- **File picker.** Image, video and sound settings open a window with previews instead of a drop-down. Play sounds before picking, search, and add several files at once.
+
 ## 1.0.3 (2026-11-06)
 
 ### Fixed
