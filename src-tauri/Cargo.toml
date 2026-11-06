@@ -1,6 +1,6 @@
 [package]
 name = "castwright"
-version = "1.0.1"
+version = "1.0.2"
 description = "Local-first Twitch broadcaster suite and overlay creator"
 authors = ["karasu"]
 license = "MIT"

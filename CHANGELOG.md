@@ -2,6 +2,12 @@
 
 What changed in each version of Castwright. The newest version is at the top.
 
+## 1.0.2 (2026-11-06)
+
+### New
+
+- **Long text.** Text that doesn't fit its layer, like a long song name, can now wrap, cut off with "…", or scroll sideways. Find it under Text style.
+
 ## 1.0.1 (2026-11-03)
 
 ### Changed

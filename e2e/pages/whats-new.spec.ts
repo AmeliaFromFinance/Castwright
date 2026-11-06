@@ -22,18 +22,18 @@ async function open(page: Page): Promise<string[]> {
 
 test("what's new shows once after an update", async ({ page }) => {
   mkdirSync(screens, { recursive: true });
-  // Last opened with an older build; the demo is 1.0.1. Only on the first load.
+  // Last opened with an older build; the demo is 1.0.2. Only on the first load.
   await page.addInitScript(() => {
     if (sessionStorage.getItem('seeded')) return;
     sessionStorage.setItem('seeded', '1');
-    localStorage.setItem('cw.whatsnew-seen', JSON.stringify('1.0.0'));
+    localStorage.setItem('cw.whatsnew-seen', JSON.stringify('1.0.1'));
   });
   const errors = await open(page);
-  const dialog = page.getByRole('dialog', { name: "What's new in v1.0.1" });
+  const dialog = page.getByRole('dialog', { name: "What's new in v1.0.2" });
   await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText('Released 2026-11-03');
-  await expect(dialog.getByRole('heading', { name: 'Changed', exact: true })).toBeVisible();
-  await expect(dialog).toContainText('New logo and app icon.');
+  await expect(dialog).toContainText('Released 2026-11-06');
+  await expect(dialog.getByRole('heading', { name: 'New', exact: true })).toBeVisible();
+  await expect(dialog.locator('b', { hasText: 'Long text.' })).toBeVisible();
   await page.screenshot({ path: join(screens, 'whats-new.png') });
   await dialog.getByRole('button', { name: 'Got it' }).click();
   await expect(dialog).toHaveCount(0);
@@ -53,7 +53,7 @@ test("a fresh install doesn't show what's new; palette and About do", async ({ p
   await page.keyboard.press('Control+k');
   await page.getByRole('combobox', { name: 'Search commands' }).fill("what's new");
   await page.keyboard.press('Enter');
-  const dialog = page.getByRole('dialog', { name: "What's new in v1.0.1" });
+  const dialog = page.getByRole('dialog', { name: "What's new in v1.0.2" });
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Close' }).click();
 
