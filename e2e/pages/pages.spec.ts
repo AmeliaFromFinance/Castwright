@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stubProviders } from '../providers';
+import { chooseAsset } from '../app/helpers';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const screens = join(here, '__screens__');
@@ -38,11 +39,14 @@ test('alerts: a video on the follow alert', async ({ page }) => {
   const shown = preview.locator('[data-alert-id]');
   await expect(shown).toBeVisible();
 
-  await card.getByRole('combobox', { name: 'Image' }).selectOption('assets/logo.png');
-  const video = card.getByRole('combobox', { name: 'Video' });
-  await video.selectOption('assets/stinger.webm');
-  await expect(video).toHaveValue('assets/stinger.webm');
-  await expect(card.getByRole('combobox', { name: 'Image' })).toHaveValue('');
+  const image = card.getByRole('button', { name: 'Image', exact: true });
+  await chooseAsset(page, image, 'logo.png');
+  await expect(image).toHaveAttribute('data-value', 'assets/logo.png');
+  const video = card.getByRole('button', { name: 'Video', exact: true });
+  await chooseAsset(page, video, 'stinger.webm');
+  await expect(video).toHaveAttribute('data-value', 'assets/stinger.webm');
+  await expect(video).toContainText('stinger.webm');
+  await expect(image).toHaveAttribute('data-value', '');
 
   // Edits update the card in place instead of restarting it (and its video).
   const id = await shown.getAttribute('data-alert-id');
@@ -60,7 +64,7 @@ test('alerts: a video on the follow alert', async ({ page }) => {
   await page.getByRole('navigation', { name: 'Main sections' }).getByRole('button', { name: 'Activity' }).click();
   await page.getByRole('navigation', { name: 'Main sections' }).getByRole('button', { name: 'Alerts' }).click();
   await page.getByRole('button', { name: /^Follow/ }).click();
-  await expect(page.locator('[data-variation]').first().getByRole('combobox', { name: 'Video' })).toHaveValue('assets/stinger.webm');
+  await expect(page.locator('[data-variation]').first().getByRole('button', { name: 'Video', exact: true })).toHaveAttribute('data-value', 'assets/stinger.webm');
   expect(errors).toEqual([]);
 });
 
@@ -231,5 +235,45 @@ test('automation: chat command built in the flow, run and log', async ({ page })
   await page.mouse.move(0, 0);
   await page.waitForTimeout(400);
   await page.screenshot({ path: join(screens, 'automation.png') });
+  expect(errors).toEqual([]);
+});
+
+test('assets: the picker window shows, filters and picks files', async ({ page }) => {
+  const errors = await open(page, 'Alerts');
+  await page.getByRole('button', { name: /^Follow/ }).click();
+  const card = page.locator('[data-variation]').first();
+  const expand = card.getByRole('button', { expanded: false }).and(card.locator('.expand'));
+  if (await expand.count()) await expand.click();
+
+  const sound = card.getByRole('button', { name: 'Sound', exact: true });
+  await sound.click();
+  const dlg = page.getByRole('dialog', { name: 'Choose sound' });
+  await expect(dlg).toBeVisible();
+  // Only sounds, each with a play button.
+  await expect(dlg.getByRole('button', { name: /^fanfare\.ogg/ })).toBeVisible();
+  await expect(dlg.getByRole('button', { name: /^logo\.png/ })).toHaveCount(0);
+  await expect(dlg.getByRole('button', { name: 'Play fanfare.ogg' })).toBeVisible();
+
+  await dlg.getByRole('searchbox', { name: 'Search sounds' }).fill('zzz');
+  await expect(dlg.getByText('No sounds match “zzz”.')).toBeVisible();
+  await dlg.getByRole('searchbox', { name: 'Search sounds' }).fill('fan');
+  await dlg.getByRole('button', { name: /^fanfare\.ogg/ }).click();
+  await expect(dlg).toBeHidden();
+  await expect(sound).toHaveAttribute('data-value', 'assets/fanfare.ogg');
+
+  // The picked file is marked when it opens again; None clears it.
+  await sound.click();
+  await expect(dlg.getByRole('button', { name: /^fanfare\.ogg/ })).toHaveAttribute('aria-pressed', 'true');
+  await dlg.getByRole('button', { name: 'None' }).click();
+  await expect(sound).toHaveAttribute('data-value', '');
+  await expect(sound).toContainText('None');
+
+  // Escape closes without changing anything.
+  await card.getByRole('button', { name: 'Image', exact: true }).click();
+  const images = page.getByRole('dialog', { name: 'Choose image' });
+  await expect(images.getByRole('button', { name: /^logo\.png/ })).toBeVisible();
+  await expect(images.getByRole('button', { name: /^stinger\.webm/ })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(images).toBeHidden();
   expect(errors).toEqual([]);
 });

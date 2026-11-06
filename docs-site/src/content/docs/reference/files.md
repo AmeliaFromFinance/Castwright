@@ -56,6 +56,7 @@ In [portable mode](#portable-mode) everything is in one `data` folder next to th
 
 ### Assets
 
+- Any image, video or sound setting opens a window with your files: pictures and videos show a preview, sounds have a play button. Search by name, or use **Add files** to bring in several at once.
 - Up to 512 MB per file.
 - Odd characters in names become `-`, and extensions become lowercase. Long names are shortened. If the name is taken, `-2`, `-3` and so on is added.
 - Layers and alerts refer to files as `assets/<name>`.

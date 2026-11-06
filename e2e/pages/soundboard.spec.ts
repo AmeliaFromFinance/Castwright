@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { goTo, openApp } from '../app/helpers';
+import { chooseAsset, goTo, openApp } from '../app/helpers';
 
 async function openBoard(page: Page) {
   await goTo(page, 'Interact');
@@ -19,7 +19,9 @@ test('add a sound, play it, stop it and wait out its cooldown', async ({ page })
   const dialog = page.getByRole('dialog', { name: 'Add sound' });
   await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill('Rimshot');
   await dialog.getByLabel('Emoji').fill('🥁');
-  await dialog.getByRole('combobox', { name: 'Sound file' }).selectOption({ label: 'ding.wav' });
+  const file = dialog.getByRole('button', { name: 'Sound file', exact: true });
+  await chooseAsset(page, file, 'ding.wav');
+  await expect(file).toContainText('ding.wav');
   await dialog.getByLabel('Cooldown (s)').fill('3');
   await dialog.getByRole('radio', { name: 'Only me' }).click();
   await expect(dialog.getByText('Only you hear it')).toBeVisible();

@@ -15,6 +15,7 @@
   let { open = $bindable(), title, description, width = 480, onclose, children, footer }: Props = $props();
 
   let dialog: HTMLDialogElement | undefined = $state();
+  const uid = $props.id();
 
   $effect(() => {
     if (!dialog) return;
@@ -31,7 +32,7 @@
 <dialog
   bind:this={dialog}
   style="width: min({width}px, calc(100vw - 48px))"
-  aria-labelledby="dlg-title"
+  aria-labelledby="{uid}-title"
   onclose={() => {
     if (open) close();
   }}
@@ -43,7 +44,7 @@
     <div class="body">
       <header>
         <div class="grow">
-          <h2 id="dlg-title">{title}</h2>
+          <h2 id="{uid}-title">{title}</h2>
           {#if description}<p class="muted">{description}</p>{/if}
         </div>
         <button type="button" class="x" aria-label="Close" onclick={close}><X size={16} /></button>

@@ -1,6 +1,14 @@
 import { api } from '$lib/api';
 import type { AssetInfo } from '$lib/bindings/AssetInfo';
 
+export type AssetKind = 'image' | 'video' | 'audio';
+
+export const ASSET_EXT: Record<AssetKind, string[]> = {
+  image: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg', 'apng'],
+  video: ['webm', 'mp4', 'mov', 'm4v'],
+  audio: ['mp3', 'ogg', 'wav', 'm4a', 'aac', 'flac', 'opus']
+};
+
 class AssetStore {
   items = $state<AssetInfo[]>([]);
   private loaded = false;
@@ -33,4 +41,10 @@ export function appAssetUrl(path: string, baseUrl: string | undefined, assetKey:
   const name = path.startsWith('assets/') ? path.slice(7) : path;
   if (!baseUrl) return '';
   return `${baseUrl}/assets/${encodeURIComponent(name)}?key=${encodeURIComponent(assetKey ?? '')}`;
+}
+
+/** Preview URL for the app window. The demo has no file server, so only inline files show there. */
+export function previewUrl(path: string, demo: boolean, baseUrl: string | undefined, assetKey: string | undefined): string {
+  if (/^(https?:|data:|blob:)/.test(path)) return path;
+  return demo ? '' : appAssetUrl(path, baseUrl, assetKey);
 }

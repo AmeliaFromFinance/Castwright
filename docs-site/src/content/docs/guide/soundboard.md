@@ -11,7 +11,7 @@ The soundboard is a grid of sound buttons. Open **Interact → Soundboard**. It 
 
 1. Click **Add sound**.
 2. Give it a name, and an emoji and colour if you like.
-3. Pick a **Sound file**. The folder button adds a new file to the project.
+3. Click **Sound file** and pick a sound. Use the play button to hear it first, or **Add files** to bring in new ones.
 4. Set the **Volume**, a **Cooldown** and where it **Plays**.
 5. Click **Add sound**.
 

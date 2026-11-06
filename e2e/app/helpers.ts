@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { stubProviders, type ProviderData } from '../providers';
 
 /** Open the app on the demo backend and fail the test on any page error. */
@@ -17,4 +17,12 @@ export async function openApp(page: Page, query = 'demo=static', providers: Prov
 
 export async function goTo(page: Page, name: string) {
   await page.getByRole('navigation', { name: 'Main sections' }).getByRole('button', { name }).click();
+}
+
+/** Pick a file with an asset picker: open its window, then click the file. */
+export async function chooseAsset(page: Page, picker: Locator, name: string) {
+  await picker.click();
+  const dlg = page.getByRole('dialog', { name: /^Choose / });
+  await dlg.getByRole('button', { name: name === 'None' ? 'None' : new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) }).first().click();
+  await expect(dlg).toBeHidden();
 }
