@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const desktop = vi.hoisted(() => ({ on: false, openUrl: vi.fn(async (_url: string) => {}) }));
 vi.mock('$lib/api/backend', () => ({ isTauri: () => desktop.on }));
-vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: desktop.openUrl }));
+vi.mock('$lib/api', () => ({ api: { openLink: desktop.openUrl } }));
 
 import { handleExternalLinks, openExternal } from './os';
 
@@ -17,7 +17,7 @@ describe('openExternal', () => {
     desktop.on = false;
   });
 
-  it('uses the opener plugin in the desktop app', async () => {
+  it('asks the app to open it in the desktop app', async () => {
     desktop.on = true;
     await openExternal('https://castwright.sinist3r.lol/changelog/');
     expect(desktop.openUrl).toHaveBeenCalledWith('https://castwright.sinist3r.lol/changelog/');
@@ -37,7 +37,7 @@ describe('openExternal', () => {
     expect(desktop.openUrl).not.toHaveBeenCalled();
   });
 
-  it("doesn't throw when the plugin refuses", async () => {
+  it("doesn't throw when it can't be opened", async () => {
     desktop.on = true;
     desktop.openUrl.mockRejectedValueOnce(new Error('not allowed'));
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});

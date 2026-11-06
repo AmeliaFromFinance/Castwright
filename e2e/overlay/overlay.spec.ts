@@ -209,6 +209,8 @@ test('renders every layer type and follows live updates', async ({ page }) => {
   sock.send({ type: 'alert_play', play: c });
   await expect(page.locator(`[data-alert-id="${b.id}"]`)).toHaveCount(0);
   await expect(page.locator(`[data-alert-id="${c.id}"]`)).toContainText('Replaced');
+  // Text only leaves out the image the alert has.
+  await expect(page.locator(`[data-alert-id="${c.id}"] .cw-alert-media`)).toHaveCount(0);
   sock.send({ type: 'alert_stop', id: c.id });
   await expect(page.locator(`[data-alert-id="${c.id}"]`)).toHaveCount(0, { timeout: 1500 });
 

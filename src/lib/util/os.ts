@@ -4,21 +4,25 @@ import { toasts } from '$lib/state/toast.svelte';
 const WEB = /^https?:\/\//i;
 
 /**
- * Open a web page in the default browser. The desktop app needs the opener plugin:
- * plain links and `window.open` do nothing in its window.
+ * Open a web page in the default browser. In the desktop app plain links and
+ * `window.open` do nothing, so the app opens it.
  */
 export async function openExternal(url: string): Promise<void> {
   if (!WEB.test(url)) return;
   try {
     if (isTauri()) {
-      const { openUrl } = await import('@tauri-apps/plugin-opener');
-      await openUrl(url);
+      const { api } = await import('$lib/api');
+      await api.openLink(url);
     } else {
       window.open(url, '_blank', 'noopener');
     }
   } catch (e) {
     console.warn('[app] could not open link', url, e);
-    toasts.show(`Couldn't open ${url}`, 'error');
+    const copied = await navigator.clipboard?.writeText(url).then(
+      () => true,
+      () => false
+    );
+    toasts.show(copied ? "Couldn't open your browser. The link is copied, paste it into your browser." : `Couldn't open ${url}`, 'error');
   }
 }
 

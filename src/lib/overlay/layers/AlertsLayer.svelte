@@ -30,8 +30,10 @@
   let speaking = false;
 
   const isAudio = $derived(ctx.audioLayerId === layerId && !ctx.muted);
-  const imageUrl = $derived(current ? ctx.assetUrl(current.image) : '');
-  const videoUrl = $derived(current ? ctx.assetUrl(current.video) : '');
+  // Text only hides the image or video even when one is set.
+  const textOnly = $derived(current?.layout === 'text_only');
+  const imageUrl = $derived(current && !textOnly ? ctx.assetUrl(current.image) : '');
+  const videoUrl = $derived(current && !textOnly ? ctx.assetUrl(current.video) : '');
   const hasMedia = $derived(!!(imageUrl || videoUrl));
   const layout = $derived(current ? (hasMedia ? current.layout : 'text_only') : 'text_only');
   const accent = $derived(current ? cssValue(current.accent) : '');

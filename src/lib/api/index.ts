@@ -241,6 +241,7 @@ export const api = {
   clearHistory: () => call<void>('clear_history'),
   exportHistoryCsv: (path: string) => call<number>('export_history_csv', { path }),
   getLogs: () => call<LogEntry[]>('get_logs'),
+  openLink: (url: string) => call<void>('open_link', { url }),
 
   // stream sessions
   listSessions: (limit = 200) => call<SessionListItem[]>('list_sessions', { limit }),

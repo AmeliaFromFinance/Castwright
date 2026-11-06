@@ -277,3 +277,30 @@ test('assets: the picker window shows, filters and picks files', async ({ page }
   await expect(images).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+test('assets: delete a file from the picker window', async ({ page }) => {
+  const errors = await open(page, 'Alerts');
+  await page.getByRole('button', { name: /^Follow/ }).click();
+  const card = page.locator('[data-variation]').first();
+  const expand = card.getByRole('button', { expanded: false }).and(card.locator('.expand'));
+  if (await expand.count()) await expand.click();
+
+  const video = card.getByRole('button', { name: 'Video', exact: true });
+  await chooseAsset(page, video, 'stinger.webm');
+  await video.click();
+  const dlg = page.getByRole('dialog', { name: 'Choose video' });
+  await dlg.getByRole('button', { name: 'Delete stinger.webm' }).click();
+  const ask = dlg.getByRole('group', { name: 'Delete stinger.webm?' });
+  await expect(ask).toContainText("It's in use.");
+  await ask.getByRole('button', { name: 'Keep' }).click();
+  await expect(dlg.getByRole('button', { name: /^stinger\.webm/ })).toBeVisible();
+
+  await dlg.getByRole('button', { name: 'Delete stinger.webm' }).click();
+  await ask.getByRole('button', { name: 'Delete' }).click();
+  await expect(dlg.getByRole('button', { name: /^stinger\.webm/ })).toHaveCount(0);
+  await expect(dlg.getByRole('button', { name: /^gold-confetti\.webm/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+  // The field that used it is cleared.
+  await expect(video).toHaveAttribute('data-value', '');
+  expect(errors).toEqual([]);
+});

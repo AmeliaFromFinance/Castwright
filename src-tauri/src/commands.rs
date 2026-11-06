@@ -604,6 +604,13 @@ pub fn format_rfc3339(ms: i64) -> String {
 }
 
 #[tauri::command]
+pub async fn open_link(url: String) -> AppResult<()> {
+    tokio::task::spawn_blocking(move || crate::launch::open_url(&url))
+        .await
+        .map_err(|e| AppError::User(e.to_string()))?
+}
+
+#[tauri::command]
 pub fn get_logs(core: Ctx) -> Vec<LogEntry> {
     core.hub.logs()
 }

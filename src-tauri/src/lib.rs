@@ -9,6 +9,7 @@ pub mod golive;
 pub mod hotkeys;
 pub mod hub;
 pub mod hype;
+pub mod launch;
 pub mod model;
 pub mod moments;
 pub mod music;
@@ -170,6 +171,7 @@ pub fn run() {
             commands::clear_history,
             commands::export_history_csv,
             commands::get_logs,
+            commands::open_link,
             commands::server_info,
             commands::overlay_url,
             commands::regenerate_token,

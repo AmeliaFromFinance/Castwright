@@ -3,11 +3,11 @@
   import type { AssetInfo } from '$lib/bindings/AssetInfo';
   import { bytes } from '$lib/format';
   import { app } from '$lib/state/app.svelte';
-  import { attempt, toasts } from '$lib/state/toast.svelte';
+  import { attempt, attemptOk, toasts } from '$lib/state/toast.svelte';
   import Button from '$lib/ui/Button.svelte';
   import Dialog from '$lib/ui/Dialog.svelte';
   import Segmented from '$lib/ui/Segmented.svelte';
-  import { Ban, Check, FileQuestion, Image, Music, Pause, Play, Plus, Search, Video } from '@lucide/svelte';
+  import { Ban, Check, FileQuestion, Image, Music, Pause, Play, Plus, Search, Trash2, Video } from '@lucide/svelte';
   import { assetStore, ASSET_EXT, previewUrl, type AssetKind } from './assets.svelte';
 
   interface Props {
@@ -26,6 +26,7 @@
   let busy = $state(false);
   let broken = $state<Record<string, true>>({});
   let playing = $state('');
+  let confirming = $state('');
   let audio: HTMLAudioElement | null = null;
 
   const KINDS: AssetKind[] = ['image', 'video', 'audio'];
@@ -43,8 +44,26 @@
     if (open) {
       assetStore.load(true);
       query = '';
-    } else stopSound();
+    } else {
+      stopSound();
+      confirming = '';
+    }
   });
+
+  /** Whether the project mentions the file anywhere (layers, alerts, actions, sounds). */
+  function inUse(a: AssetInfo): boolean {
+    return !!app.project && JSON.stringify(app.project).includes(JSON.stringify(a.path).slice(1, -1));
+  }
+
+  async function remove(a: AssetInfo) {
+    if (playing === a.path) stopSound();
+    const ok = await attemptOk(() => api.deleteAsset(a.name));
+    confirming = '';
+    if (!ok) return;
+    await assetStore.load(true);
+    if (a.path === value) onpick('');
+    toasts.show(`Deleted ${a.name}`);
+  }
 
   const url = (a: AssetInfo) => previewUrl(a.path, app.demo, app.server?.base_url, app.server?.asset_key);
 
@@ -171,7 +190,19 @@
           <span class="file">{a.name}</span>
           <span class="size muted">{bytes(Number(a.bytes))}</span>
         </button>
-        {#if a.kind === 'audio'}
+        {#if confirming === a.path}
+          <div class="confirm" role="group" aria-label="Delete {a.name}?">
+            <p>Delete <b>{a.name}</b>?</p>
+            <p class="muted">{inUse(a) ? "It's in use. Those places will show it as missing." : "This can't be undone."}</p>
+            <div class="row">
+              <Button size="sm" variant="danger" onclick={() => remove(a)}>Delete</Button>
+              <Button size="sm" variant="ghost" onclick={() => (confirming = '')}>Keep</Button>
+            </div>
+          </div>
+        {:else}
+          <button type="button" class="del" aria-label="Delete {a.name}" title="Delete" onclick={() => (confirming = a.path)}><Trash2 size={13} /></button>
+        {/if}
+        {#if a.kind === 'audio' && confirming !== a.path}
           <span class="over">
           <button type="button" class="play" aria-label="{playing === a.path ? 'Stop' : 'Play'} {a.name}" onclick={() => toggleSound(a)}>
             {#if playing === a.path}<Pause size={14} />{:else}<Play size={14} />{/if}
@@ -327,6 +358,51 @@
     background: var(--accent);
     color: var(--accent-fg, #fff);
     cursor: pointer;
+  }
+  .del {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 6px;
+    background: rgb(0 0 0 / 0.6);
+    color: #fff;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+  .cell:hover .del,
+  .del:focus-visible {
+    opacity: 1;
+  }
+  .del:hover {
+    background: var(--danger, #d33);
+  }
+  .confirm {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    border: 1px solid var(--danger, #d33);
+    border-radius: var(--radius);
+    background: var(--bg-1);
+    font-size: 12px;
+  }
+  .confirm p {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .confirm .row {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
   }
   .empty {
     margin: 16px 0 4px;
