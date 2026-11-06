@@ -2,6 +2,16 @@
 
 What changed in each version of Castwright. The newest version is at the top.
 
+## 1.0.6 (2026-11-06)
+
+### New
+
+- **Test a variation.** The flask on each alert variation plays it with a test event that fits its conditions.
+
+### Changed
+
+- Scrolling text loops without pausing.
+
 ## 1.0.5 (2026-11-06)
 
 ### New
