@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { TextStyle } from '$lib/bindings/TextStyle';
   import type { TextAlign } from '$lib/bindings/TextAlign';
+  import type { TextOverflow } from '$lib/bindings/TextOverflow';
   import ColorInput from '$lib/ui/ColorInput.svelte';
   import IconButton from '$lib/ui/IconButton.svelte';
   import { CaseUpper, Italic, TextAlignCenter, TextAlignEnd, TextAlignStart } from '@lucide/svelte';
@@ -79,6 +80,27 @@
   <div class="pair">
     <NumberInput label="Line height" prefix="↕" min={0.5} max={4} step={0.05} value={num('line_height')} placeholder={m('line_height') ? MIXED : undefined} oninput={(v) => set((s) => (s.line_height = v), 'lh')} />
     <NumberInput label="Letter spacing" prefix="↔" unit="px" min={-20} max={100} step={0.5} value={num('letter_spacing')} placeholder={m('letter_spacing') ? MIXED : undefined} oninput={(v) => set((s) => (s.letter_spacing = v), 'ls')} />
+  </div>
+</Prop>
+<Prop label="Long text" hint="What happens when text doesn't fit, like a long song name.">
+  <div class="pair">
+    <select
+      class="input"
+      aria-label="Long text"
+      value={m('overflow') ? '' : (style.overflow ?? 'wrap')}
+      onchange={(e) => {
+        const v = e.currentTarget.value as TextOverflow;
+        set((s) => (s.overflow = v), 'overflow');
+      }}
+    >
+      {#if m('overflow')}<option value="" disabled>{MIXED}</option>{/if}
+      <option value="wrap">Wrap</option>
+      <option value="cut">Cut off</option>
+      <option value="scroll">Scroll</option>
+    </select>
+    {#if style.overflow === 'scroll' || m('overflow')}
+      <NumberInput label="Scroll speed" unit="px/s" min={10} max={400} step={5} value={m('scroll_speed') ? NaN : (style.scroll_speed ?? 60)} placeholder={m('scroll_speed') ? MIXED : undefined} oninput={(v) => set((s) => (s.scroll_speed = v), 'speed')} />
+    {/if}
   </div>
 </Prop>
 <Prop label="Outline">

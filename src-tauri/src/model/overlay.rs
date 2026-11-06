@@ -69,6 +69,19 @@ pub enum TextAlign {
     Right,
 }
 
+/// What happens when text is wider than its box.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS, Default)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum TextOverflow {
+    #[default]
+    Wrap,
+    /// One line, cut off with "…".
+    Cut,
+    /// One line that scrolls sideways when it doesn't fit.
+    Scroll,
+}
+
 /// `font_family` value that means "the project's default font". Empty means the same.
 pub const DEFAULT_FONT: &str = "Default";
 
@@ -91,6 +104,9 @@ pub struct TextStyle {
     /// Outline width in px (0 = none).
     pub stroke_width: f64,
     pub stroke_color: String,
+    pub overflow: TextOverflow,
+    /// Scroll speed in px per second.
+    pub scroll_speed: f64,
 }
 
 impl Default for TextStyle {
@@ -108,6 +124,8 @@ impl Default for TextStyle {
             shadow: "0 2px 6px rgba(0,0,0,0.45)".into(),
             stroke_width: 0.0,
             stroke_color: "#000000".into(),
+            overflow: TextOverflow::Wrap,
+            scroll_speed: 60.0,
         }
     }
 }

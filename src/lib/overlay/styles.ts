@@ -18,7 +18,9 @@ export const DEFAULT_TEXT: TextStyle = {
   italic: false,
   shadow: '0 2px 6px rgba(0,0,0,0.45)',
   stroke_width: 0,
-  stroke_color: '#000000'
+  stroke_color: '#000000',
+  overflow: 'wrap',
+  scroll_speed: 60
 };
 
 const FALLBACK_STACK = '"Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif';
@@ -834,4 +836,11 @@ export function scopeCss(css: string, scopeClassName: string): string {
     return `${scope}{${clean.replace(/[{}]/g, '').replace(/<\/style/gi, '')}}`;
   }
   return scopeBlocks(clean, scope);
+}
+
+/** Scrolling text: one loop moves `distance` px, after a short pause at the start. */
+export function marqueeTiming(distance: number, speed: number): { duration: number; hold: number } {
+  const pause = 1500;
+  const move = (Math.max(1, distance) / Math.min(400, Math.max(10, num(speed, 60)))) * 1000;
+  return { duration: Math.round(move + pause), hold: pause / (move + pause) };
 }

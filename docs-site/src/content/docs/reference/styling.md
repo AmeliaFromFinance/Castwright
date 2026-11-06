@@ -30,6 +30,11 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `:scope` | This layer’s box |
 | `.cw-text` | A piece of styled text |
 | `.cw-stroked` | Text with an outline |
+| `.cw-cut` | Text set to cut off when too long |
+| `.cw-marquee` | Text set to scroll when too long |
+| `.cw-marquee-moving` | Scrolling text that is too long, so it moves |
+| `.cw-marquee-track` | The moving strip inside scrolling text |
+| `.cw-marquee-item` | One copy of the text in the strip |
 | `.cw-text-layer` | The text block |
 
 | Variable | What it is |
@@ -67,6 +72,11 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `:scope` | This layer’s box |
 | `.cw-text` | A piece of styled text |
 | `.cw-stroked` | Text with an outline |
+| `.cw-cut` | Text set to cut off when too long |
+| `.cw-marquee` | Text set to scroll when too long |
+| `.cw-marquee-moving` | Scrolling text that is too long, so it moves |
+| `.cw-marquee-track` | The moving strip inside scrolling text |
+| `.cw-marquee-item` | One copy of the text in the strip |
 | `.cw-alert-wrap` | Fills the layer and centres the card |
 | `.cw-alert` | The alert card |
 | `.cw-carded` | The card when it has a fill |
@@ -137,6 +147,11 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `:scope` | This layer’s box |
 | `.cw-text` | A piece of styled text |
 | `.cw-stroked` | Text with an outline |
+| `.cw-cut` | Text set to cut off when too long |
+| `.cw-marquee` | Text set to scroll when too long |
+| `.cw-marquee-moving` | Scrolling text that is too long, so it moves |
+| `.cw-marquee-track` | The moving strip inside scrolling text |
+| `.cw-marquee-item` | One copy of the text in the strip |
 | `.cw-goal` | The whole goal |
 | `.cw-goal-head` | Title and numbers row |
 | `.cw-goal-title` | The title |
@@ -159,6 +174,11 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `:scope` | This layer’s box |
 | `.cw-text` | A piece of styled text |
 | `.cw-stroked` | Text with an outline |
+| `.cw-cut` | Text set to cut off when too long |
+| `.cw-marquee` | Text set to scroll when too long |
+| `.cw-marquee-moving` | Scrolling text that is too long, so it moves |
+| `.cw-marquee-track` | The moving strip inside scrolling text |
+| `.cw-marquee-item` | One copy of the text in the strip |
 | `.cw-counter` | The counter row |
 
 | Variable | What it is |
@@ -173,6 +193,11 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `:scope` | This layer’s box |
 | `.cw-text` | A piece of styled text |
 | `.cw-stroked` | Text with an outline |
+| `.cw-cut` | Text set to cut off when too long |
+| `.cw-marquee` | Text set to scroll when too long |
+| `.cw-marquee-moving` | Scrolling text that is too long, so it moves |
+| `.cw-marquee-track` | The moving strip inside scrolling text |
+| `.cw-marquee-item` | One copy of the text in the strip |
 | `.cw-timer` | The timer row |
 | `.cw-timer[data-state="paused"]` | Countdowns and stopwatches: idle, running, paused or done |
 
@@ -188,6 +213,11 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `:scope` | This layer’s box |
 | `.cw-text` | A piece of styled text |
 | `.cw-stroked` | Text with an outline |
+| `.cw-cut` | Text set to cut off when too long |
+| `.cw-marquee` | Text set to scroll when too long |
+| `.cw-marquee-moving` | Scrolling text that is too long, so it moves |
+| `.cw-marquee-track` | The moving strip inside scrolling text |
+| `.cw-marquee-item` | One copy of the text in the strip |
 | `.cw-event-row` | Each event card, in list and ticker |
 | `.cw-list` | The list |
 | `.cw-list[data-order="bottom"]` | Where new events appear: top or bottom |
@@ -212,6 +242,11 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `:scope` | This layer’s box |
 | `.cw-text` | A piece of styled text |
 | `.cw-stroked` | Text with an outline |
+| `.cw-cut` | Text set to cut off when too long |
+| `.cw-marquee` | Text set to scroll when too long |
+| `.cw-marquee-moving` | Scrolling text that is too long, so it moves |
+| `.cw-marquee-track` | The moving strip inside scrolling text |
+| `.cw-marquee-item` | One copy of the text in the strip |
 | `.cw-poll` | The whole poll or prediction |
 | `.cw-poll[data-type="prediction"]` | Only while it shows a prediction (poll for polls) |
 | `.cw-open` | Added to .cw-poll while viewers can vote |
@@ -249,6 +284,11 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `:scope` | This layer’s box |
 | `.cw-text` | A piece of styled text |
 | `.cw-stroked` | Text with an outline |
+| `.cw-cut` | Text set to cut off when too long |
+| `.cw-marquee` | Text set to scroll when too long |
+| `.cw-marquee-moving` | Scrolling text that is too long, so it moves |
+| `.cw-marquee-track` | The moving strip inside scrolling text |
+| `.cw-marquee-item` | One copy of the text in the strip |
 | `.cw-chat-badge` | Any badge |
 | `.cw-badge-twitch` | A Twitch badge (moderator, subscriber…) |
 | `.cw-badge-7tv` | A 7TV badge |
@@ -285,6 +325,11 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `:scope` | This layer’s box |
 | `.cw-text` | A piece of styled text |
 | `.cw-stroked` | Text with an outline |
+| `.cw-cut` | Text set to cut off when too long |
+| `.cw-marquee` | Text set to scroll when too long |
+| `.cw-marquee-moving` | Scrolling text that is too long, so it moves |
+| `.cw-marquee-track` | The moving strip inside scrolling text |
+| `.cw-marquee-item` | One copy of the text in the strip |
 | `.cw-ad` | The whole heads-up |
 | `.cw-ad-soon` | Added to .cw-ad before the ad |
 | `.cw-ad-running` | Added to .cw-ad while the ad runs |
@@ -304,6 +349,11 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `:scope` | This layer’s box |
 | `.cw-text` | A piece of styled text |
 | `.cw-stroked` | Text with an outline |
+| `.cw-cut` | Text set to cut off when too long |
+| `.cw-marquee` | Text set to scroll when too long |
+| `.cw-marquee-moving` | Scrolling text that is too long, so it moves |
+| `.cw-marquee-track` | The moving strip inside scrolling text |
+| `.cw-marquee-item` | One copy of the text in the strip |
 | `.cw-np` | The whole layer |
 | `.cw-np-compact` | Layout class on .cw-np (also .cw-np-card, .cw-np-vinyl) |
 | `.cw-np-card` | Added to .cw-np in the card layout |
@@ -340,6 +390,11 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `:scope` | This layer’s box |
 | `.cw-text` | A piece of styled text |
 | `.cw-stroked` | Text with an outline |
+| `.cw-cut` | Text set to cut off when too long |
+| `.cw-marquee` | Text set to scroll when too long |
+| `.cw-marquee-moving` | Scrolling text that is too long, so it moves |
+| `.cw-marquee-track` | The moving strip inside scrolling text |
+| `.cw-marquee-item` | One copy of the text in the strip |
 | `.cw-hype` | The whole layer |
 | `.cw-hype-bar` | Added to .cw-hype in the bar layout |
 | `.cw-hype-card` | Added to .cw-hype in the card layout |
@@ -386,6 +441,11 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `:scope` | This layer’s box |
 | `.cw-text` | A piece of styled text |
 | `.cw-stroked` | Text with an outline |
+| `.cw-cut` | Text set to cut off when too long |
+| `.cw-marquee` | Text set to scroll when too long |
+| `.cw-marquee-moving` | Scrolling text that is too long, so it moves |
+| `.cw-marquee-track` | The moving strip inside scrolling text |
+| `.cw-marquee-item` | One copy of the text in the strip |
 | `.cw-chat-badge` | Any badge |
 | `.cw-badge-twitch` | A Twitch badge (moderator, subscriber…) |
 | `.cw-badge-7tv` | A 7TV badge |
@@ -425,6 +485,11 @@ The editor lists these selectors for the selected layer. Click one to insert a r
 | `:scope` | This layer’s box |
 | `.cw-text` | A piece of styled text |
 | `.cw-stroked` | Text with an outline |
+| `.cw-cut` | Text set to cut off when too long |
+| `.cw-marquee` | Text set to scroll when too long |
+| `.cw-marquee-moving` | Scrolling text that is too long, so it moves |
+| `.cw-marquee-track` | The moving strip inside scrolling text |
+| `.cw-marquee-item` | One copy of the text in the strip |
 | `.cw-q` | The whole layer |
 | `.cw-q[data-open="true"]` | While the queue takes people |
 | `.cw-q[data-order="bottom"]` | Where the first in line is: top or bottom |

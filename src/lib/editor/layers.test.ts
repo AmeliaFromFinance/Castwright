@@ -18,7 +18,7 @@ import { newOverlay, starterLayers } from './starter';
 const ANIM_PRESETS = ['none', 'fade', 'slide_up', 'slide_down', 'slide_left', 'slide_right', 'zoom', 'pop', 'bounce', 'flip', 'pulse', 'float', 'shake', 'spin'];
 const EASINGS = ['linear', 'ease_in', 'ease_out', 'ease_in_out', 'spring', 'back'];
 const LAYER_KEYS = ['id', 'name', 'kind', 'x', 'y', 'w', 'h', 'rotation', 'opacity', 'visible', 'locked', 'visible_when', 'scenes', 'box_style', 'enter', 'exit', 'idle', 'css'].sort();
-const TEXT_KEYS = ['font_family', 'font_size', 'font_weight', 'color', 'align', 'line_height', 'letter_spacing', 'uppercase', 'italic', 'shadow', 'stroke_width', 'stroke_color'].sort();
+const TEXT_KEYS = ['font_family', 'font_size', 'font_weight', 'color', 'align', 'line_height', 'letter_spacing', 'uppercase', 'italic', 'shadow', 'stroke_width', 'stroke_color', 'overflow', 'scroll_speed'].sort();
 // As in BoxStyle::default() in src-tauri/src/model/overlay.rs.
 const RUST_DEFAULT_BOX = {
   background: 'transparent',
@@ -190,7 +190,9 @@ describe('defaults match the backend', () => {
           italic: false,
           shadow: '0 2px 6px rgba(0,0,0,0.45)',
           stroke_width: 0,
-          stroke_color: '#000000'
+          stroke_color: '#000000',
+          overflow: 'wrap',
+          scroll_speed: 60
         }
       },
       x: 0,

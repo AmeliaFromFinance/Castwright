@@ -48,6 +48,16 @@ After picking one, change any part of it:
 
 **Cards** also has: lean in turn (every other message tilts the other way, like stickers), a wash of each chatter's name colour, card around the whole message or just the words, and the gap between cards.
 
+## Long text
+
+Under **Text style**, **Long text** sets what happens when text doesn't fit its layer, like a long song name:
+
+- **Wrap**: moves onto the next line.
+- **Cut off**: stays on one line and ends with "…".
+- **Scroll**: slides sideways in a loop, pausing at the start each time. Set the speed next to it. Text that fits stays still.
+
+Scrolling turns into **Cut off** when the computer has reduced motion turned on.
+
 ## Moving and sizing
 
 - Drag a layer to move it, and the handles to resize. Hold **Shift** to keep its shape.

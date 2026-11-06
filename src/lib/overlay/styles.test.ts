@@ -11,6 +11,7 @@ import {
   itemCardCss,
   itemVars,
   layerFrameCss,
+  marqueeTiming,
   parseShadow,
   resolveBox,
   scopeClass,
@@ -86,6 +87,16 @@ describe('text and box styles', () => {
     for (const f of ['Default', 'default', '', '  ']) expect(fontStack(f)).toMatch(/^var\(--cw-default-font, "Inter", /);
     expect(textStyleCss({ ...DEFAULT_TEXT, font_family: 'Default' })).toContain('font-family:var(--cw-default-font');
     expect(DEFAULT_TEXT.font_family).toBe('Default');
+  });
+});
+
+describe('scrolling text', () => {
+  it('moves at the set speed after a pause', () => {
+    expect(marqueeTiming(300, 60)).toEqual({ duration: 6500, hold: 1500 / 6500 });
+  });
+  it('keeps the speed in a sane range', () => {
+    expect(marqueeTiming(400, 0).duration).toBe(41500);
+    expect(marqueeTiming(400, 10000).duration).toBe(2500);
   });
 });
 

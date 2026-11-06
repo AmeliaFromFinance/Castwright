@@ -68,7 +68,9 @@ export function defaultTextStyle(): TextStyle {
     italic: false,
     shadow: '0 2px 6px rgba(0,0,0,0.45)',
     stroke_width: 0,
-    stroke_color: '#000000'
+    stroke_color: '#000000',
+    overflow: 'wrap',
+    scroll_speed: 60
   };
 }
 

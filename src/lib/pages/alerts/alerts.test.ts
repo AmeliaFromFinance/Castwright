@@ -31,8 +31,8 @@ describe('defaults', () => {
     const starterDefault = project.alerts.types.find((t) => t.kind === 'follow')!.variations[0]!;
     const { id: _a, title: _b, message: _c, ...rest } = v;
     const { id: _d, title: _e, message: _f, ...expected } = starterDefault;
-    // The fixture was written before alert cards and Default fonts; a missing card loads as none.
-    const font = { font_family: 'Default' };
+    // The fixture was written before alert cards, Default fonts and long text; missing fields load as defaults.
+    const font = { font_family: 'Default', overflow: 'wrap', scroll_speed: 60 };
     expect(rest).toEqual({
       ...expected,
       card: null,

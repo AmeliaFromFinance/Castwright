@@ -22,6 +22,11 @@ export const SELECTORS: readonly SelectorInfo[] = [
   { selector: ':scope', kinds: [], description: 'This layer’s box' },
   { selector: '.cw-text', kinds: TEXT_KINDS, description: 'A piece of styled text' },
   { selector: '.cw-stroked', kinds: TEXT_KINDS, description: 'Text with an outline' },
+  { selector: '.cw-cut', kinds: TEXT_KINDS, description: 'Text set to cut off when too long' },
+  { selector: '.cw-marquee', kinds: TEXT_KINDS, description: 'Text set to scroll when too long' },
+  { selector: '.cw-marquee-moving', kinds: TEXT_KINDS, description: 'Scrolling text that is too long, so it moves' },
+  { selector: '.cw-marquee-track', kinds: TEXT_KINDS, description: 'The moving strip inside scrolling text' },
+  { selector: '.cw-marquee-item', kinds: TEXT_KINDS, description: 'One copy of the text in the strip' },
 
   { selector: '.cw-text-layer', kinds: ['text'], description: 'The text block' },
   { selector: '.cw-shape', kinds: ['shape'], description: 'The drawn shape (SVG)' },

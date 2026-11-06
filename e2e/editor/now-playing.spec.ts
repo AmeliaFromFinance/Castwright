@@ -65,3 +65,29 @@ test('Music settings walk through each source', async ({ page }) => {
   await expect(music.getByText('Midnight Drive')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test('long song names can scroll', async ({ page }) => {
+  const errors = await openApp(page);
+  await page.getByRole('button', { name: 'Overlays', exact: true }).click();
+  await page.locator('[data-overlay-card]').first().getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.getByRole('button', { name: 'Add now playing layer' }).click();
+  await page.getByRole('combobox', { name: 'Long text' }).selectOption('scroll');
+  await expect(page.getByRole('spinbutton', { name: 'Scroll speed' })).toHaveValue('60');
+
+  const title = page.locator('.cw-stage [data-layer-type="now_playing"] .cw-np-title');
+  await expect(title).toHaveClass(/cw-marquee/);
+  await expect(title).not.toHaveClass(/cw-marquee-moving/);
+  await expect(title.locator('.cw-marquee-item')).toHaveCount(1);
+
+  await page.getByRole('spinbutton', { name: 'Width', exact: true }).fill('240');
+  await expect(title).toHaveClass(/cw-marquee-moving/);
+  await expect(title.locator('.cw-marquee-item')).toHaveCount(2);
+  await expect(title.locator('.cw-marquee-item').nth(1)).toHaveAttribute('aria-hidden', 'true');
+  const x = () => title.locator('.cw-marquee-track').evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m41);
+  await expect.poll(x, { timeout: 6000 }).toBeLessThan(-5);
+
+  await page.getByRole('combobox', { name: 'Long text' }).selectOption('cut');
+  await expect(title).toHaveClass(/cw-cut/);
+  expect(await title.evaluate((el) => getComputedStyle(el).textOverflow)).toBe('ellipsis');
+  expect(errors).toEqual([]);
+});
