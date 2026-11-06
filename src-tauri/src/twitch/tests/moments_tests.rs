@@ -114,7 +114,8 @@ async fn gives_up_on_a_slow_clip() {
     let clip = s.svc.start_clip().await.unwrap();
     assert!(s.svc.wait_for_clip(&clip.id).await.is_none());
     let polls = mock.requests("GET", "/helix/clips").len();
-    assert!((5..=20).contains(&polls), "{polls} polls");
+    // Real time: a slow machine fits fewer polls in the wait.
+    assert!((2..=20).contains(&polls), "{polls} polls");
     assert_eq!(
         summary(&s).clips[0].url,
         "https://clips.twitch.tv/clip1",
