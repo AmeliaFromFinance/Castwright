@@ -2,6 +2,12 @@
 
 What changed in each version of Castwright. The newest version is at the top.
 
+## 1.0.7 (2026-11-06)
+
+### Fixed
+
+- Scrolling song names no longer jump back to the start when the song position updates.
+
 ## 1.0.6 (2026-11-06)
 
 ### New

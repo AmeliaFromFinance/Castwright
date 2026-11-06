@@ -91,3 +91,25 @@ test('long song names can scroll', async ({ page }) => {
   expect(await title.evaluate((el) => getComputedStyle(el).textOverflow)).toBe('ellipsis');
   expect(errors).toEqual([]);
 });
+
+test("song updates don't restart scrolling text", async ({ page }) => {
+  // The live demo sends a song update every 4 seconds.
+  const errors = await openApp(page, 'demo');
+  await page.getByRole('button', { name: 'Overlays', exact: true }).click();
+  await page.locator('[data-overlay-card]').first().getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.getByRole('button', { name: 'Add now playing layer' }).click();
+  await page.getByRole('combobox', { name: 'Long text' }).selectOption('scroll');
+  await page.getByRole('spinbutton', { name: 'Scroll speed' }).fill('20');
+  await page.getByRole('spinbutton', { name: 'Width', exact: true }).fill('240');
+  const track = page.locator('.cw-stage [data-layer-type="now_playing"] .cw-np-title .cw-marquee-track');
+  await expect(track).toBeVisible();
+  // At 20 px/s one loop takes over 10 seconds, so 6 seconds only ever moves left.
+  const xs: number[] = [];
+  for (let i = 0; i < 30; i++) {
+    xs.push(await track.evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m41));
+    await page.waitForTimeout(200);
+  }
+  for (let i = 1; i < xs.length; i++) expect(xs[i]!, `step ${i}: ${xs.join(' ')}`).toBeLessThanOrEqual(xs[i - 1]! + 0.5);
+  expect(xs[xs.length - 1]!).toBeLessThan(-80);
+  expect(errors).toEqual([]);
+});

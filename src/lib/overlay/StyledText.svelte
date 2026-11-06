@@ -18,6 +18,9 @@
   const overflow = $derived(style?.overflow === 'scroll' && reduced ? 'cut' : (style?.overflow ?? 'wrap'));
   const speed = $derived(style?.scroll_speed ?? 60);
 
+  // Restart only when the words change, not whenever the parent's data does.
+  const words = $derived(text);
+
   let box = $state<HTMLElement>();
   let item = $state<HTMLElement>();
   let track = $state<HTMLElement>();
@@ -38,7 +41,7 @@
 
   $effect(() => {
     if (!moving || !track || !item) return;
-    void text;
+    void words;
     const gap = parseFloat(getComputedStyle(track).columnGap) || 0;
     // The second copy lines up with the first, so the loop has no visible jump.
     const distance = item.offsetWidth + gap;
