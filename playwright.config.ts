@@ -17,8 +17,9 @@ export default defineConfig({
     baseURL: `http://localhost:${port}`
   },
   // App pages run against the in-browser demo backend, from a production build.
+  // CI builds in an earlier step.
   webServer: {
-    command: `npm run build && npx vite preview --port ${port} --strictPort`,
+    command: `${process.env.CI ? '' : 'npm run build && '}npx vite preview --port ${port} --strictPort`,
     url: `http://localhost:${port}`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000

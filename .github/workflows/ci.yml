@@ -3,7 +3,9 @@ name: CI
 on:
   push:
     branches: [main]
+    paths: ['**', '!docs-site/**', 'docs-site/src/content/docs/reference/styling.md', '!README.md']
   pull_request:
+    paths: ['**', '!docs-site/**', 'docs-site/src/content/docs/reference/styling.md', '!README.md']
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -16,6 +18,7 @@ jobs:
   frontend:
     name: Frontend
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -27,8 +30,6 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium
-      - name: ffmpeg for the video test clip
-        run: sudo apt-get install -y ffmpeg
       - run: npm run e2e
       - uses: actions/upload-artifact@v7
         if: failure()
@@ -45,6 +46,7 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -61,6 +63,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: src-tauri
@@ -69,6 +72,7 @@ jobs:
       - name: Linux packages
         if: runner.os == 'Linux'
         working-directory: .
+        timeout-minutes: 5
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev libdbus-1-dev patchelf

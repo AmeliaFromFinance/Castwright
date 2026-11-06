@@ -1,5 +1,4 @@
 import { expect, test, type Page } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,16 +36,6 @@ function silentWav(ms = 100, rate = 8000): Buffer {
   return b;
 }
 
-function makeClip(): Buffer | null {
-  const file = join(root, 'e2e/.output/clip.webm');
-  try {
-    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc=size=192x168:rate=15', '-t', '2', '-c:v', 'libvpx', '-b:v', '300k', file]);
-    return readFileSync(file);
-  } catch {
-    return null;
-  }
-}
-
 let server: TestServer;
 let errors: string[] = [];
 
@@ -75,8 +64,7 @@ test.beforeAll(async () => {
     ]
   });
   const assets: Record<string, Buffer | string> = { 'logo.svg': LOGO_SVG, 'ding.wav': silentWav() };
-  const clip = makeClip();
-  if (clip) assets['clip.webm'] = clip;
+  assets['clip.webm'] = readFileSync(join(root, 'e2e/overlay/clip.webm'));
   server = await startServer({ distDir: outDir, token: TOKEN, assets });
 });
 

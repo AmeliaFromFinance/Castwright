@@ -14,7 +14,7 @@ Get the latest version from the [releases page](https://github.com/AmeliaFromFin
 | System | File to download |
 | --- | --- |
 | Windows | `Castwright_x.y.z_x64-setup.exe` (or the `.msi` for managed PCs) |
-| macOS | `Castwright_x.y.z_universal.dmg` (Intel and Apple Silicon) |
+| macOS | `Castwright_x.y.z_aarch64.dmg` (Apple Silicon: M1 and newer) or `Castwright_x.y.z_x64.dmg` (Intel) |
 | Linux | `.AppImage` (any distro), `.deb` (Ubuntu, Debian, Mint) or `.rpm` (Fedora, openSUSE) |
 
 ## Windows

@@ -46,20 +46,28 @@ jobs:
           - name: Windows
             os: windows-latest
             args: ''
-          - name: macOS
+          - name: macOS (Apple Silicon)
             os: macos-latest
-            args: --target universal-apple-darwin
+            args: --target aarch64-apple-darwin
+          - name: macOS (Intel)
+            os: macos-latest
+            args: --target x86_64-apple-darwin
           - name: Linux
             os: ubuntu-24.04
             args: ''
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
+      # The GStreamer plugins go into the AppImage, so videos don't load
+      # mismatched plugins from the user's system.
       - name: Linux packages
         if: runner.os == 'Linux'
+        timeout-minutes: 8
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev libdbus-1-dev patchelf libfuse2t64
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev libdbus-1-dev patchelf libfuse2t64 \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -70,6 +78,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          key: ${{ matrix.args }}
       - run: npm ci
       # Signed update files need the private key. Without it the release still
       # builds, just without auto-update (no latest.json).

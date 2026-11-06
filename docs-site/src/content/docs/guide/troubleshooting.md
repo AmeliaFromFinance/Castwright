@@ -39,7 +39,8 @@ Overlay sound goes through OBS, not your speakers.
 ## An alert video doesn't play
 
 - Files can be up to 512 MB. A bigger file is refused with a message. Shorten or compress it first.
-- Use `webm` or `mp4` (H.264). On Linux, `mp4` needs the GStreamer `libav` plugins (often `gstreamer1.0-libav`).
+- Use `webm`, `mp4` or `mov` (H.264). The AppImage brings its own video support. With the `.deb` or `.rpm`, `mp4` and `mov` need the GStreamer `libav` plugins (often `gstreamer1.0-libav`).
+- On Linux, if Castwright closes when a video loads, update to 1.0.3 or newer.
 - Check that the file is still in the asset list. A missing file shows **(missing)** in the picker.
 
 ## A chat command doesn't answer
