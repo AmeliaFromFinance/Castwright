@@ -304,3 +304,19 @@ test('assets: delete a file from the picker window', async ({ page }) => {
   await expect(video).toHaveAttribute('data-value', '');
   expect(errors).toEqual([]);
 });
+
+test('alerts: test one variation with an event that fits it', async ({ page }) => {
+  const errors = await open(page, 'Alerts');
+  await page.getByRole('button', { name: /^Subscription/ }).click();
+  const queue = page.getByRole('region', { name: 'Alert queue' });
+
+  // "Tier 3" needs a tier 3 sub; its test makes one.
+  const tier3 = page.locator('[data-variation]').filter({ hasText: 'Tier 3' });
+  await tier3.getByRole('button', { name: 'Test this variation' }).click();
+  await expect(queue).toContainText('is a legend!');
+
+  const def = page.locator('[data-variation]').filter({ hasText: 'Default' });
+  await def.getByRole('button', { name: 'Test this variation' }).click();
+  await expect(queue).toContainText('subscribed!');
+  expect(errors).toEqual([]);
+});

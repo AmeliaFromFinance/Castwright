@@ -54,7 +54,7 @@ Under **Text style**, **Long text** sets what happens when text doesn't fit its 
 
 - **Wrap**: moves onto the next line.
 - **Cut off**: stays on one line and ends with "…".
-- **Scroll**: slides sideways in a loop, pausing at the start each time. Set the speed next to it. Text that fits stays still.
+- **Scroll**: slides sideways in a continuous loop, like a news ticker. Set the speed next to it. Text that fits stays still.
 
 Scrolling turns into **Cut off** when the computer has reduced motion turned on.
 

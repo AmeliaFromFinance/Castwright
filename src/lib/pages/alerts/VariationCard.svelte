@@ -20,9 +20,12 @@
   import AssetPicker from '$lib/widgets/AssetPicker.svelte';
   import ConditionEditor from '$lib/widgets/ConditionEditor.svelte';
   import FontInput from '$lib/editors/FontInput.svelte';
-  import { ArrowDown, ArrowUp, ChevronRight, Copy, Trash2 } from '@lucide/svelte';
-  import { ANIM_PRESETS, EASINGS, FONTS, LAYOUTS, fieldsFor, tokensFor } from './alerts';
+  import { ArrowDown, ArrowUp, ChevronRight, Copy, FlaskConical, Trash2 } from '@lucide/svelte';
+  import { api } from '$lib/api';
+  import { attemptOk, toasts } from '$lib/state/toast.svelte';
+  import { ANIM_PRESETS, EASINGS, FONTS, LAYOUTS, fieldsFor, sampleEvent, tokensFor } from './alerts';
   import { alertsEditor as ed } from './store.svelte';
+  import { eventForVariation } from './variation-test';
 
   interface Props {
     v: Variation;
@@ -50,6 +53,18 @@
 
   // Without its own card style a variation shows the classic card in its background colour.
   const cardBox = $derived<BoxStyle>(v.card ?? classicAlertCard(v.background) ?? { ...DEFAULT_BOX, fill: 'none' });
+
+  /** Play this variation with a test event that meets its conditions. */
+  async function test() {
+    await ed.saver.flush();
+    const list = ed.config?.types.find((t) => t.kind === kind)?.variations ?? [];
+    const snap = $state.snapshot(v) as Variation;
+    const r = eventForVariation(sampleEvent(kind), $state.snapshot(list) as Variation[], snap, $state.snapshot(app.vars) as Record<string, unknown>);
+    if (!(await attemptOk(() => api.testVariation(v.id, r.event)))) return;
+    if (!r.fits) toasts.show("Couldn't make a test event that meets every condition, so it plays with sample details.");
+    else if (r.caughtBy)
+      toasts.show(`A real event like this would play “${r.caughtBy.name || 'Untitled'}” instead, because it's higher in the list.`);
+  }
 
   function setCard(fn: (b: BoxStyle) => void) {
     const next = structuredClone($state.snapshot(cardBox)) as BoxStyle;
@@ -202,6 +217,7 @@
     </button>
     {#if v.priority !== 0}<span class="prio mono" title="Priority in the queue">P{v.priority}</span>{/if}
     <div class="tools">
+      <IconButton size="sm" label="Test this variation" onclick={test}><FlaskConical /></IconButton>
       <IconButton size="sm" label="Move up" disabled={index === 0} onclick={() => onmove(-1)}><ArrowUp /></IconButton>
       <IconButton size="sm" label="Move down" disabled={index === count - 1} onclick={() => onmove(1)}><ArrowDown /></IconButton>
       <IconButton size="sm" label="Duplicate" onclick={onduplicate}><Copy /></IconButton>

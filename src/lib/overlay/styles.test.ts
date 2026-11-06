@@ -11,7 +11,7 @@ import {
   itemCardCss,
   itemVars,
   layerFrameCss,
-  marqueeTiming,
+  marqueeDuration,
   parseShadow,
   resolveBox,
   scopeClass,
@@ -91,12 +91,12 @@ describe('text and box styles', () => {
 });
 
 describe('scrolling text', () => {
-  it('moves at the set speed after a pause', () => {
-    expect(marqueeTiming(300, 60)).toEqual({ duration: 6500, hold: 1500 / 6500 });
+  it('moves at the set speed', () => {
+    expect(marqueeDuration(300, 60)).toBe(5000);
   });
   it('keeps the speed in a sane range', () => {
-    expect(marqueeTiming(400, 0).duration).toBe(41500);
-    expect(marqueeTiming(400, 10000).duration).toBe(2500);
+    expect(marqueeDuration(400, 0)).toBe(40000);
+    expect(marqueeDuration(400, 10000)).toBe(1000);
   });
 });
 

@@ -153,6 +153,7 @@ pub fn run() {
             commands::alert_replay_last,
             commands::alert_mute,
             commands::test_event,
+            commands::test_variation,
             commands::run_action,
             commands::get_vars,
             commands::set_var,

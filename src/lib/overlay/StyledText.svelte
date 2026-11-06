@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { TextStyle } from '$lib/bindings/TextStyle';
   import { prefersReducedMotion } from './scenes';
-  import { hasStroke, marqueeTiming, textStyleCss } from './styles';
+  import { hasStroke, marqueeDuration, textStyleCss } from './styles';
 
   interface Props {
     text: string;
@@ -40,15 +40,12 @@
     if (!moving || !track || !item) return;
     void text;
     const gap = parseFloat(getComputedStyle(track).columnGap) || 0;
-    const { duration, hold } = marqueeTiming(item.offsetWidth + gap, speed);
-    const anim = track.animate(
-      [
-        { transform: 'translateX(0)', offset: 0 },
-        { transform: 'translateX(0)', offset: hold },
-        { transform: `translateX(${-(item.offsetWidth + gap)}px)`, offset: 1 }
-      ],
-      { duration, iterations: Infinity }
-    );
+    // The second copy lines up with the first, so the loop has no visible jump.
+    const distance = item.offsetWidth + gap;
+    const anim = track.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${-distance}px)` }], {
+      duration: marqueeDuration(distance, speed),
+      iterations: Infinity
+    });
     return () => anim.cancel();
   });
 </script>

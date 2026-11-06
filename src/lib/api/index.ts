@@ -216,6 +216,7 @@ export const api = {
   alertReplayLast: () => call<void>('alert_replay_last'),
   alertMute: (muted: boolean) => call<void>('alert_mute', { muted }),
   testEvent: (kind: EventKind) => call<void>('test_event', { kind }),
+  testVariation: (variationId: string, event: Event) => call<void>('test_variation', { variationId, event }),
 
   // automation
   runAction: (id: string) => call<void>('run_action', { id }),

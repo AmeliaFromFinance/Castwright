@@ -17,6 +17,8 @@ Each type has one or more **variations**: different looks for different situatio
 
 Castwright checks variations **from the top down** and plays the **first one that matches**. Put the most specific ones at the top with the arrows.
 
+To try one variation, click the flask on it. The test event is made to fit its conditions, so a tier 3 variation gets a tier 3 sub. If a variation higher up would catch that event first, Castwright tells you.
+
 | Setting | What it does |
 | --- | --- |
 | **Plays when** | Conditions, for example `tier is 3` or `amount is at least 1000`. No conditions means it always matches. See [conditions](/reference/conditions/). |

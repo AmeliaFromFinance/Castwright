@@ -193,6 +193,33 @@ impl AlertEngine {
     }
 
     /// Queue the last played alert again. Its action doesn't run a second time.
+    /// Play one variation with `event`, even if another variation would win.
+    pub fn test_variation(
+        &self,
+        variation_id: &str,
+        mut event: Event,
+    ) -> crate::error::AppResult<()> {
+        let config = self.project.read(|p| p.alerts.clone());
+        let Some(v) = config
+            .types
+            .iter()
+            .filter(|t| t.kind == event.kind)
+            .flat_map(|t| &t.variations)
+            .find(|v| v.id == variation_id)
+        else {
+            return Err(crate::error::AppError::NotFound(
+                "That variation no longer exists.".into(),
+            ));
+        };
+        event.id = crate::util::new_id();
+        event.ts = crate::util::now_ms();
+        event.test = true;
+        let vars = self.hub.vars.snapshot();
+        let play = render_play(v, &event, &config.settings, &vars);
+        self.enqueue(play, v.run_action.clone(), config.settings.max_queue);
+        Ok(())
+    }
+
     pub fn replay_last(&self) -> crate::error::AppResult<()> {
         let Some(mut play) = self.state.lock().unwrap().last.clone() else {
             return crate::error::user_err("No alert has played yet.");
@@ -564,6 +591,33 @@ mod tests {
             assert!(!looks_like_link(no), "{no}");
         }
         assert_eq!(hide_links("a  b"), "a  b");
+    }
+
+    #[test]
+    fn test_variation_plays_that_variation() {
+        let dir = tempfile::tempdir().unwrap();
+        let (store, _) = ProjectStore::open(dir.path()).unwrap();
+        let store = Arc::new(store);
+        let ids: Vec<String> = store.read(|p| {
+            p.alerts
+                .type_for(EventKind::Sub)
+                .unwrap()
+                .variations
+                .iter()
+                .map(|v| v.id.clone())
+                .collect()
+        });
+        assert!(ids.len() >= 2, "the starter sub alert has variations");
+        let engine = AlertEngine::new(Hub::test(), store);
+        engine.set_paused(true);
+        // A tier 1 sub would normally play the first variation; the test picks the last.
+        let last = ids.last().unwrap();
+        engine.test_variation(last, sub(1)).unwrap();
+        let q = engine.queue_state();
+        assert_eq!(q.waiting.len(), 1);
+        assert_eq!(&q.waiting[0].variation_id, last);
+        assert!(q.waiting[0].event.test);
+        assert!(engine.test_variation("nope", sub(1)).is_err());
     }
 
     #[tokio::test(start_paused = true)]

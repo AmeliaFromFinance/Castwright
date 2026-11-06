@@ -838,9 +838,7 @@ export function scopeCss(css: string, scopeClassName: string): string {
   return scopeBlocks(clean, scope);
 }
 
-/** Scrolling text: one loop moves `distance` px, after a short pause at the start. */
-export function marqueeTiming(distance: number, speed: number): { duration: number; hold: number } {
-  const pause = 1500;
-  const move = (Math.max(1, distance) / Math.min(400, Math.max(10, num(speed, 60)))) * 1000;
-  return { duration: Math.round(move + pause), hold: pause / (move + pause) };
+/** Scrolling text: how long one loop takes to move `distance` px. */
+export function marqueeDuration(distance: number, speed: number): number {
+  return Math.round((Math.max(1, distance) / Math.min(400, Math.max(10, num(speed, 60)))) * 1000);
 }

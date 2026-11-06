@@ -384,6 +384,12 @@ pub fn alert_mute(core: Ctx, muted: bool) -> AppResult<()> {
     core.alerts.set_muted(muted)
 }
 
+/// Play one alert variation with a test event built for it.
+#[tauri::command]
+pub fn test_variation(core: Ctx, variation_id: String, event: Event) -> AppResult<()> {
+    core.alerts.test_variation(&variation_id, event)
+}
+
 /// Send a sample event through the whole app (alerts, automation, overlays).
 #[tauri::command]
 pub fn test_event(core: Ctx, kind: EventKind) {

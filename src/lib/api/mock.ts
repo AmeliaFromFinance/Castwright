@@ -630,10 +630,12 @@ export function createDemoBackend(): Backend {
     done();
   };
 
-  const alertFor = (e: Event): AlertPlay | null => {
-    const type = project.alerts.types.find((t) => t.kind === e.kind && t.enabled);
+  const alertFor = (e: Event, variationId?: string): AlertPlay | null => {
+    const type = project.alerts.types.find((t) => t.kind === e.kind && (t.enabled || variationId));
     const ctx = { ...vars, ...e, name: e.user?.display_name ?? (e.is_anonymous ? 'Anonymous' : ''), recipient_name: e.recipient?.display_name ?? '' };
-    const v = type?.variations.find((x) => x.enabled && evaluateGroup(x.conditions, ctx));
+    const v = variationId
+      ? type?.variations.find((x) => x.id === variationId)
+      : type?.variations.find((x) => x.enabled && evaluateGroup(x.conditions, ctx));
     if (!v) return null;
     return {
       id: uid(),
@@ -660,6 +662,13 @@ export function createDemoBackend(): Backend {
     };
   };
 
+  const enqueue = (play: AlertPlay) => {
+    queue.waiting.push(play);
+    queue.waiting.sort((a, b) => b.priority - a.priority);
+    emitQueue();
+    pump();
+  };
+
   const publish = (e: Event) => {
     if (e.kind === 'chat') {
       chat.push(e);
@@ -667,12 +676,7 @@ export function createDemoBackend(): Backend {
     } else {
       history.unshift(e);
       const play = alertFor(e);
-      if (play) {
-        queue.waiting.push(play);
-        queue.waiting.sort((a, b) => b.priority - a.priority);
-        emitQueue();
-        pump();
-      }
+      if (play) enqueue(play);
     }
     emit('cw://event', e);
     interact.onRedemption(e);
@@ -1060,6 +1064,11 @@ export function createDemoBackend(): Backend {
     alert_replay: ({ eventId }) => {
       const e = history.find((h) => h.id === eventId);
       if (e) publish({ ...clone(e), id: uid() });
+    },
+    test_variation: ({ variationId, event }) => {
+      const play = alertFor({ ...clone(event as Event), id: uid(), ts: now(), test: true }, variationId as string);
+      if (!play) throw { code: 'not_found', message: 'That variation no longer exists.' };
+      enqueue(play);
     },
     test_event: ({ kind }) => {
       const e = demoEvent(kind as EventKind, Math.floor(Math.random() * 8), 0);
